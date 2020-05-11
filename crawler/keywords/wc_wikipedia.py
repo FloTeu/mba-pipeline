@@ -5,7 +5,6 @@ import argparse
 import sys
 
 # This script is currently only implemented for Hobbies list of wikipedia 
-
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     # Decide wheter to choose englisch or german wikipedia page of hobbies

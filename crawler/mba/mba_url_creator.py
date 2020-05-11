@@ -4,7 +4,9 @@ import pandas as pd
 import argparse
 import sys
 import urllib
-
+from selenium import webdriver
+from selenium.webdriver.common.by import By
+from selenium.webdriver.common.keys import Keys
 
 
 def main(argv):
@@ -20,9 +22,16 @@ def main(argv):
     sort = args.sort
 
     url = 'https://merchresearch.de/'
-    response = requests.get(url)
-    soup = BeautifulSoup(response.content, 'html.parser')
+    #response = requests.get(url)
+    #soup = BeautifulSoup(response.content, 'html.parser')
+    #test = 0
 
+    browser = webdriver.Chrome("/usr/bin/chromedriver") #download chromebrowser
+    browser.get(url) #open page in browser
+    outDF = pd.DataFrame(columns=['prodname', 'imageurl', 'minprice', 'maxprice', 'actualprice']) #template of data
+    browser.find_element(By.XPATH, "//input[contains(@name, 'site_house_number_low')]").send_keys('3419')
+    browser.find_element(By.XPATH, "//input[contains(@name, 'site_street_name')]").send_keys('Wabash')
+    x = browser.find_elements(By.XPATH, "//button[contains(@type, 'submit')]/span")[1].click()
 
 
 if __name__ == '__main__':
