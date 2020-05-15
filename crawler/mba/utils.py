@@ -9,6 +9,7 @@ def get_df_hobbies(language):
         df = pandas_gbq.read_gbq("SELECT * FROM keywords.de_hobbies", project_id="mba-pipeline")
     else:
         df = pandas_gbq.read_gbq("SELECT * FROM keywords.en_hobbies", project_id="mba-pipeline")
+    return df
 
 
         

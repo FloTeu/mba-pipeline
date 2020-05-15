@@ -91,8 +91,11 @@ def main(argv):
     parser.add_argument('pod_product', help='Name of Print on Demand product. I.e "shirt", "premium", "longsleeve", "sweatshirt", "hoodie", "popsocket", "kdp"', type=str)
     parser.add_argument('sort', help='What kind of sorting do you want?. I.e "best_seller", "price_up", "price_down", "cust_rating", "oldest", "newest"', type=str)
 
+    if len(argv) == 5:
+        argv = argv[1:5]
+
     # get all arguments
-    args = parser.parse_args()
+    args = parser.parse_args(argv)
     keyword = args.keyword
     marketplace = args.marketplace
     pod_product = args.pod_product
@@ -113,7 +116,7 @@ def main(argv):
 
     url_parts[4] = urlencode(query)
 
-    print(urlparse.urlunparse(url_parts))
+    return urlparse.urlunparse(url_parts)
   
 if __name__ == '__main__':
     main(sys.argv)
