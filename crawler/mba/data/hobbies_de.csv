@@ -1,0 +1,416 @@
+ID,category_main,category_specification,hobby
+1,Allgemeine Hobbys,Innen,3d Drucken
+2,Allgemeine Hobbys,Innen,Akrobatik
+3,Allgemeine Hobbys,Innen,Schauspielkunst
+4,Allgemeine Hobbys,Innen,Amateur Radio
+5,Allgemeine Hobbys,Innen,Animation
+6,Allgemeine Hobbys,Innen,Aquascaping
+7,Allgemeine Hobbys,Innen,Astronomie
+8,Allgemeine Hobbys,Innen,Backen
+9,Allgemeine Hobbys,Innen,Tambourstab wirbeln
+10,Allgemeine Hobbys,Innen,Bloggen
+11,Allgemeine Hobbys,Innen,Gebäude
+12,Allgemeine Hobbys,Innen,Board / Tabletop-Spiele
+13,Allgemeine Hobbys,Innen,Buch Diskussion Clubs
+14,Allgemeine Hobbys,Innen,Buchrestaurierung
+15,Allgemeine Hobbys,Innen,Bowling
+16,Allgemeine Hobbys,Innen,Brazilian Jiu-Jitsu
+17,Allgemeine Hobbys,Innen,Brot machen
+18,Allgemeine Hobbys,Innen,Kabarett
+19,Allgemeine Hobbys,Innen,Kalligraphie
+20,Allgemeine Hobbys,Innen,Kerzenherstellung
+21,Allgemeine Hobbys,Innen,Autobefestigungs & Gebäude
+22,Allgemeine Hobbys,Innen,Kartenspiele
+23,Allgemeine Hobbys,Innen,Käse machen
+24,Allgemeine Hobbys,Innen,Clothesmaking
+25,Allgemeine Hobbys,Innen,Kaffeerösterei
+26,Allgemeine Hobbys,Innen,Sammel-
+27,Allgemeine Hobbys,Innen,Färbung
+28,Allgemeine Hobbys,Innen,Computerprogrammierung
+29,Allgemeine Hobbys,Innen,Süßwaren
+30,Allgemeine Hobbys,Innen,Kochen
+31,Allgemeine Hobbys,Innen,cosplaying
+32,Allgemeine Hobbys,Innen,Couponing
+33,Allgemeine Hobbys,Innen,Kunst
+34,Allgemeine Hobbys,Innen,Kreatives Schreiben
+35,Allgemeine Hobbys,Innen,häkeln
+36,Allgemeine Hobbys,Innen,Kreuzstich
+37,Allgemeine Hobbys,Innen,Kreuzworträtsel
+38,Allgemeine Hobbys,Innen,Geheimschrift
+39,Allgemeine Hobbys,Innen,Cue Sport
+40,Allgemeine Hobbys,Innen,Tanzen
+41,Allgemeine Hobbys,Innen,digitale Kunst
+42,Allgemeine Hobbys,Innen,Distro Hopping
+43,Allgemeine Hobbys,Innen,Djing
+44,Allgemeine Hobbys,Innen,Mach es selbst
+45,Allgemeine Hobbys,Innen,Theater
+46,Allgemeine Hobbys,Innen,Zeichnung
+47,Allgemeine Hobbys,Innen,Trinken Misch
+48,Allgemeine Hobbys,Innen,Elektronik
+49,Allgemeine Hobbys,Innen,Stickerei
+50,Allgemeine Hobbys,Innen,Experimenting
+51,Allgemeine Hobbys,Innen,Fantasy-Sport
+52,Allgemeine Hobbys,Innen,Mode
+53,Allgemeine Hobbys,Innen,Mode-Design
+54,Allgemeine Hobbys,Innen,Fishkeeping
+55,Allgemeine Hobbys,Innen,Blumen arrangement
+56,Allgemeine Hobbys,Innen,Fremdsprachenlernen
+57,Allgemeine Hobbys,Innen,Möbelbau
+58,Allgemeine Hobbys,Innen,Gaming ( Tischspiele und Rollenspiele )
+59,Allgemeine Hobbys,Innen,Genealogie
+60,Allgemeine Hobbys,Innen,Lebkuchenhaus machen
+61,Allgemeine Hobbys,Innen,Glasbläserei
+62,Allgemeine Hobbys,Innen,Grafikdesign
+63,Allgemeine Hobbys,Innen,Gunsmithing
+64,Allgemeine Hobbys,Innen,Hacking
+65,Allgemeine Hobbys,Innen,Terraristik
+66,Allgemeine Hobbys,Innen,Home improvement
+67,Allgemeine Hobbys,Innen,Zuhause gebraut
+68,Allgemeine Hobbys,Innen,Hula Hoop Ring benutzen
+69,Allgemeine Hobbys,Innen,Hydroponics
+70,Allgemeine Hobbys,Innen,Schlittschuhlaufen
+71,Allgemeine Hobbys,Innen,Schmuckherstellung
+72,Allgemeine Hobbys,Innen,Puzzles
+73,Allgemeine Hobbys,Innen,Tagebuch schreiben
+74,Allgemeine Hobbys,Innen,Jonglieren
+75,Allgemeine Hobbys,Innen,Karaoke
+76,Allgemeine Hobbys,Innen,Karate
+77,Allgemeine Hobbys,Innen,Kendama
+78,Allgemeine Hobbys,Innen,Messerherstellung
+79,Allgemeine Hobbys,Innen,Stricken
+80,Allgemeine Hobbys,Innen,verknoten
+81,Allgemeine Hobbys,Innen,Kombucha Brau
+82,Allgemeine Hobbys,Innen,Klöppeln
+83,Allgemeine Hobbys,Innen,Steinschneider
+84,Allgemeine Hobbys,Innen,Leder Crafting
+85,Allgemeine Hobbys,Innen,Lego Gebäude
+86,Allgemeine Hobbys,Innen,Schlösserknacken
+87,Allgemeine Hobbys,Innen,Musik hören
+88,Allgemeine Hobbys,Innen,Hören von Podcasts
+89,Allgemeine Hobbys,Innen,Machining
+90,Allgemeine Hobbys,Innen,Makramee
+91,Allgemeine Hobbys,Innen,Magie
+92,Allgemeine Hobbys,Innen,Bilden
+93,Allgemeine Hobbys,Innen,Metallbearbeitung
+94,Allgemeine Hobbys,Innen,Modellbau
+95,Allgemeine Hobbys,Innen,Modelltechnik
+96,Allgemeine Hobbys,Innen,Nagel Kunst
+97,Allgemeine Hobbys,Innen,Needlepoint
+98,Allgemeine Hobbys,Innen,Origami
+99,Allgemeine Hobbys,Innen,Gemälde
+100,Allgemeine Hobbys,Innen,Pet Adoption & Förderung
+101,Allgemeine Hobbys,Innen,Philatelie
+102,Allgemeine Hobbys,Innen,Fotografie
+103,Allgemeine Hobbys,Innen,Streiche
+104,Allgemeine Hobbys,Innen,Gepresste Blume Handwerk
+105,Allgemeine Hobbys,Innen,Musikinstrumente spielen
+106,Allgemeine Hobbys,Innen,Poi
+107,Allgemeine Hobbys,Innen,Keramik
+108,Allgemeine Hobbys,Innen,Puzzles
+109,Allgemeine Hobbys,Innen,Quilling
+110,Allgemeine Hobbys,Innen,Steppen
+111,Allgemeine Hobbys,Innen,Quizzes
+112,Allgemeine Hobbys,Innen,Der Schienenverkehr Modellierung
+113,Allgemeine Hobbys,Innen,rapping
+114,Allgemeine Hobbys,Innen,lesen
+115,Allgemeine Hobbys,Innen,Nachbearbeiten
+116,Allgemeine Hobbys,Innen,Roboter-Kampf
+117,Allgemeine Hobbys,Innen,Zauberwürfel
+118,Allgemeine Hobbys,Innen,Scrapbooking
+119,Allgemeine Hobbys,Innen,sculpting
+120,Allgemeine Hobbys,Innen,Nähen
+121,Allgemeine Hobbys,Innen,Schuhmacherei
+122,Allgemeine Hobbys,Innen,Singen
+123,Allgemeine Hobbys,Innen,Skizzierung
+124,Allgemeine Hobbys,Innen,Seifenherstellung
+125,Allgemeine Hobbys,Innen,Sozialen Medien
+126,Allgemeine Hobbys,Innen,Standup-Comedy
+127,Allgemeine Hobbys,Innen,Briefmarkensammlung
+128,Allgemeine Hobbys,Innen,Tischtennis
+129,Allgemeine Hobbys,Innen,Präparatoren
+130,Allgemeine Hobbys,Innen,Thrifting
+131,Allgemeine Hobbys,Innen,Videobearbeitung
+132,Allgemeine Hobbys,Innen,Videospiel-Entwicklung
+133,Allgemeine Hobbys,Innen,Video spielen
+134,Allgemeine Hobbys,Innen,Filme anschauen
+135,Allgemeine Hobbys,Innen,Fernsehen
+136,Allgemeine Hobbys,Innen,Weberei
+137,Allgemeine Hobbys,Innen,Krafttraining
+138,Allgemeine Hobbys,Innen,Schweißen
+139,Allgemeine Hobbys,Innen,Whittling
+140,Allgemeine Hobbys,Innen,Wikipedia Bearbeitung
+141,Allgemeine Hobbys,Innen,Wein machen
+142,Allgemeine Hobbys,Innen,Holzschnitzen
+143,Allgemeine Hobbys,Innen,Holzverarbeitung
+144,Allgemeine Hobbys,Innen,Worldbuilding
+145,Allgemeine Hobbys,Innen,Schreiben
+146,Allgemeine Hobbys,Innen,Wortsuchen
+147,Allgemeine Hobbys,Innen,Yo-yoing
+148,Allgemeine Hobbys,Innen,Yoga
+255,Kollektion Hobby,Drinnen,Action Figur
+256,Kollektion Hobby,Drinnen,antiquing
+257,Kollektion Hobby,Drinnen,Kunstsammelns
+258,Kollektion Hobby,Drinnen,buchen Sammel
+259,Kollektion Hobby,Drinnen,Cartophily (Sammelkarten)
+260,Kollektion Hobby,Drinnen,Münzen sammeln
+261,Kollektion Hobby,Drinnen,Comic-Sammel
+262,Kollektion Hobby,Drinnen,Philokartie (Postkarte Sammeln)
+263,Kollektion Hobby,Drinnen,Druckguss Spielzeug
+264,Kollektion Hobby,Drinnen,Puppen
+265,Kollektion Hobby,Drinnen,Element Sammel
+266,Kollektion Hobby,Drinnen,Ephemera Sammel
+267,Kollektion Hobby,Drinnen,Fusilately (Taxkarte Sammel)
+268,Kollektion Hobby,Drinnen,Messer Sammel
+269,Kollektion Hobby,Drinnen,Lotology (Lotterielos Sammel)
+270,Kollektion Hobby,Drinnen,Film und Filmandenken Sammel
+271,Kollektion Hobby,Drinnen,Parfüm
+272,Kollektion Hobby,Drinnen,phillumeny
+273,Kollektion Hobby,Drinnen,Der Schienenverkehr Modellierung
+274,Kollektion Hobby,Drinnen,Nehmen Sammel
+275,Kollektion Hobby,Drinnen,Rock Taumeln
+276,Kollektion Hobby,Drinnen,Scutelliphily
+277,Kollektion Hobby,Drinnen,Schuhe
+278,Kollektion Hobby,Drinnen,Sport-Erinnerungsstücke
+279,Kollektion Hobby,Drinnen,Briefmarkensammlung
+280,Kollektion Hobby,Drinnen,Gefüllte Spielzeug Sammel
+281,Kollektion Hobby,Drinnen,Teebeutel Sammel
+282,Kollektion Hobby,Drinnen,Ticketsammel
+283,Kollektion Hobby,Drinnen,Spielzeuge
+284,Kollektion Hobby,Drinnen,Videospiel-Sammel
+285,Kollektion Hobby,Drinnen,Oldtimer
+286,Kollektion Hobby,Drinnen,Vintage-Kleidung
+287,Kollektion Hobby,Drinnen,Schallplatten
+300,Competitive Hobbys,Drinnen,Tier Phantasie
+301,Competitive Hobbys,Drinnen,Axtwerfen
+302,Competitive Hobbys,Drinnen,Badminton
+303,Competitive Hobbys,Drinnen,Tambourstab wirbeln
+304,Competitive Hobbys,Drinnen,Schönheitswettbewerbe
+305,Competitive Hobbys,Drinnen,Billard
+306,Competitive Hobbys,Drinnen,Bowling
+307,Competitive Hobbys,Drinnen,Boxen
+308,Competitive Hobbys,Drinnen,Brücke
+309,Competitive Hobbys,Drinnen,Cheerleading
+310,Competitive Hobbys,Drinnen,Schach
+311,Competitive Hobbys,Drinnen,Farbschutz
+312,Competitive Hobbys,Drinnen,Eisschießen
+313,Competitive Hobbys,Drinnen,Tanzen
+314,Competitive Hobbys,Drinnen,Darts
+315,Competitive Hobbys,Drinnen,Debatte
+316,Competitive Hobbys,Drinnen,Essen
+317,Competitive Hobbys,Drinnen,esports
+318,Competitive Hobbys,Drinnen,Fechten
+319,Competitive Hobbys,Drinnen,Gehen
+320,Competitive Hobbys,Drinnen,Gymnastik
+321,Competitive Hobbys,Drinnen,Eishockey
+322,Competitive Hobbys,Drinnen,Schlittschuhlaufen
+323,Competitive Hobbys,Drinnen,Judo
+324,Competitive Hobbys,Drinnen,Jiu-Jitsu
+325,Competitive Hobbys,Drinnen,Kabaddi
+326,Competitive Hobbys,Drinnen,Laser-Tag
+327,Competitive Hobbys,Drinnen,Longboardens
+328,Competitive Hobbys,Drinnen,Mahjong
+329,Competitive Hobbys,Drinnen,Marbles
+330,Competitive Hobbys,Drinnen,Kampfkunst
+331,Competitive Hobbys,Drinnen,Model United Nations
+332,Competitive Hobbys,Drinnen,Poker
+333,Competitive Hobbys,Drinnen,Shogi
+334,Competitive Hobbys,Drinnen,Autorennbahn
+335,Competitive Hobbys,Drinnen,Speedcubing
+336,Competitive Hobbys,Drinnen,Sport Stacking
+337,Competitive Hobbys,Drinnen,Tischfussball
+338,Competitive Hobbys,Drinnen,Tischtennis
+339,Competitive Hobbys,Drinnen,Volleyball
+340,Competitive Hobbys,Drinnen,Gewichtheben
+341,Competitive Hobbys,Drinnen,Ringen
+394,Beobachtung Hobbys,Drinnen,Fishkeeping
+395,Beobachtung Hobbys,Drinnen,Lernen
+396,Beobachtung Hobbys,Drinnen,Meditation
+397,Beobachtung Hobbys,Drinnen,Mikroskopie
+398,Beobachtung Hobbys,Drinnen,lesen
+399,Beobachtung Hobbys,Drinnen,Kurzwelle Hören
+400,Beobachtung Hobbys,Drinnen,Audiophile
+401,Beobachtung Hobbys,Drinnen,Videophilia
+149,Allgemeine Hobbys,Draußen,Luftsport
+150,Allgemeine Hobbys,Draußen,Bogenschießen
+151,Allgemeine Hobbys,Draußen,Astronomie
+152,Allgemeine Hobbys,Draußen,Backpacking
+153,Allgemeine Hobbys,Draußen,Base-Jumping
+154,Allgemeine Hobbys,Draußen,Baseball
+155,Allgemeine Hobbys,Draußen,Basketball
+156,Allgemeine Hobbys,Draußen,Bienenzucht
+157,Allgemeine Hobbys,Draußen,Vögel beobachten
+158,Allgemeine Hobbys,Draußen,Schmiedekunst
+159,Allgemeine Hobbys,Draußen,BMX
+160,Allgemeine Hobbys,Draußen,Boardsport
+161,Allgemeine Hobbys,Draußen,Bodybuilding
+162,Allgemeine Hobbys,Draußen,Bonsai
+163,Allgemeine Hobbys,Draußen,Schmetterling Beobachtung
+164,Allgemeine Hobbys,Draußen,Camping
+165,Allgemeine Hobbys,Draußen,Kanusport
+166,Allgemeine Hobbys,Draußen,Canyoning
+167,Allgemeine Hobbys,Draußen,Caving
+168,Allgemeine Hobbys,Draußen,Kompostieren
+169,Allgemeine Hobbys,Draußen,Radfahren
+170,Allgemeine Hobbys,Draußen,Dowsing
+171,Allgemeine Hobbys,Draußen,Fahren
+172,Allgemeine Hobbys,Draußen,Angeln
+173,Allgemeine Hobbys,Draußen,Flag Football
+174,Allgemeine Hobbys,Draußen,Blumenzucht
+175,Allgemeine Hobbys,Draußen,Fliegend
+176,Allgemeine Hobbys,Draußen,Fliegende Scheibe
+177,Allgemeine Hobbys,Draußen,Futter suchen
+178,Allgemeine Hobbys,Draußen,Fossicking
+179,Allgemeine Hobbys,Draußen,Freestyle Fußball
+180,Allgemeine Hobbys,Draußen,Gartenarbeit
+181,Allgemeine Hobbys,Draußen,Geocaching
+182,Allgemeine Hobbys,Draußen,Geisterjagd
+183,Allgemeine Hobbys,Draußen,Gold Prospektion
+184,Allgemeine Hobbys,Draußen,Graffiti
+185,Allgemeine Hobbys,Draußen,Handball
+186,Allgemeine Hobbys,Draußen,herbalism
+187,Allgemeine Hobbys,Draußen,Herping
+188,Allgemeine Hobbys,Draußen,High-Power-Rakete
+189,Allgemeine Hobbys,Draußen,Wandern
+190,Allgemeine Hobbys,Draußen,Hobby horsing
+191,Allgemeine Hobbys,Draußen,Hooping
+192,Allgemeine Hobbys,Draußen,Reiten
+193,Allgemeine Hobbys,Draußen,Jagd
+194,Allgemeine Hobbys,Draußen,Inlineskating
+195,Allgemeine Hobbys,Draußen,Joggen
+196,Allgemeine Hobbys,Draußen,Kayaking
+197,Allgemeine Hobbys,Draußen,Drachenfliegen
+198,Allgemeine Hobbys,Draußen,Kitesurfen
+199,Allgemeine Hobbys,Draußen,Lacrosse
+200,Allgemeine Hobbys,Draußen,LARPing
+201,Allgemeine Hobbys,Draußen,Letterbox
+202,Allgemeine Hobbys,Draußen,Longboardens
+203,Allgemeine Hobbys,Draußen,Kampfkunst
+204,Allgemeine Hobbys,Draußen,Metalldetektoren
+205,Allgemeine Hobbys,Draußen,Meteorologie
+206,Allgemeine Hobbys,Draußen,Motorsport
+207,Allgemeine Hobbys,Draußen,Mountainbiking
+208,Allgemeine Hobbys,Draußen,Bergsteigen
+209,Allgemeine Hobbys,Draußen,Pilz - Jagd / Mykologie
+210,Allgemeine Hobbys,Draußen,Netzball
+211,Allgemeine Hobbys,Draußen,Nordic-Skating
+212,Allgemeine Hobbys,Draußen,Orientierungslauf
+213,Allgemeine Hobbys,Draußen,Paintball
+214,Allgemeine Hobbys,Draußen,Parkour
+215,Allgemeine Hobbys,Draußen,Fotografie
+216,Allgemeine Hobbys,Draußen,Podcast-Hosting
+217,Allgemeine Hobbys,Draußen,Polo
+218,Allgemeine Hobbys,Draußen,KDK
+219,Allgemeine Hobbys,Draußen,Flößerei
+220,Allgemeine Hobbys,Draußen,Abseilen
+221,Allgemeine Hobbys,Draußen,Rennrad
+222,Allgemeine Hobbys,Draußen,Felsklettern
+223,Allgemeine Hobbys,Draußen,Rollschuhlaufen
+224,Allgemeine Hobbys,Draußen,Rugby
+225,Allgemeine Hobbys,Draußen,Laufen
+226,Allgemeine Hobbys,Draußen,Segeln
+227,Allgemeine Hobbys,Draußen,Sandkunst
+228,Allgemeine Hobbys,Draußen,Pfadfindertum
+229,Allgemeine Hobbys,Draußen,Gerätetauchen
+230,Allgemeine Hobbys,Draußen,Ruder oder Ruder
+231,Allgemeine Hobbys,Draußen,Schießen
+232,Allgemeine Hobbys,Draußen,Einkaufen
+233,Allgemeine Hobbys,Draußen,Skateboardfahren
+234,Allgemeine Hobbys,Draußen,Skifahren
+235,Allgemeine Hobbys,Draußen,Skimboarding
+236,Allgemeine Hobbys,Draußen,Fallschirmspringen
+237,Allgemeine Hobbys,Draußen,Slacklining
+238,Allgemeine Hobbys,Draußen,Snowboarding
+239,Allgemeine Hobbys,Draußen,Fußball
+240,Allgemeine Hobbys,Draußen,Steinehüpfen
+241,Allgemeine Hobbys,Draußen,Sonnenbaden
+242,Allgemeine Hobbys,Draußen,Surfen
+243,Allgemeine Hobbys,Draußen,Survivalism
+244,Allgemeine Hobbys,Draußen,Schwimmen
+245,Allgemeine Hobbys,Draußen,Taekwondo
+246,Allgemeine Hobbys,Draußen,Tai chi
+247,Allgemeine Hobbys,Draußen,Topiary
+248,Allgemeine Hobbys,Draußen,Reise
+249,Allgemeine Hobbys,Draußen,Stadterkundung
+250,Allgemeine Hobbys,Draußen,Ferien
+251,Allgemeine Hobbys,Draußen,Gemüseanbau
+252,Allgemeine Hobbys,Draußen,Fahrzeug Restaurierung
+253,Allgemeine Hobbys,Draußen,Gehen
+254,Allgemeine Hobbys,Draußen,Wassersport
+288,Kollektion Hobby,Draußen,Altertümer
+289,Kollektion Hobby,Draußen,Auto audiophile
+290,Kollektion Hobby,Draußen,Blumen-Sammeln und Pressen
+291,Kollektion Hobby,Draußen,Fossil Jagd
+292,Kollektion Hobby,Draußen,Insektensammel
+293,Kollektion Hobby,Draußen,Magnet Angeln
+294,Kollektion Hobby,Draußen,Metalldetektoren
+295,Kollektion Hobby,Draußen,Mineralsammel
+296,Kollektion Hobby,Draußen,Rock Balancing
+297,Kollektion Hobby,Draußen,Seeglas Sammel
+298,Kollektion Hobby,Draußen,Seashell Sammel
+299,Kollektion Hobby,Draußen,Steinsammel
+342,Competitive Hobbys,Draußen,Airsoft
+343,Competitive Hobbys,Draußen,American Football
+344,Competitive Hobbys,Draußen,Bogenschießen
+345,Competitive Hobbys,Draußen,Fußballverband
+346,Competitive Hobbys,Draußen,Australian Rules Football
+347,Competitive Hobbys,Draußen,Autorennen
+348,Competitive Hobbys,Draußen,Baseball
+349,Competitive Hobbys,Draußen,Beach-Volleyball
+350,Competitive Hobbys,Draußen,Breakdance
+351,Competitive Hobbys,Draußen,Kletterei
+352,Competitive Hobbys,Draußen,Kricket
+353,Competitive Hobbys,Draußen,Radfahren
+354,Competitive Hobbys,Draußen,Disc-Golf
+355,Competitive Hobbys,Draußen,Hundesport
+356,Competitive Hobbys,Draußen,Equestrianism
+357,Competitive Hobbys,Draußen,Ausstellung Bohrer
+358,Competitive Hobbys,Draußen,Feldhockey
+359,Competitive Hobbys,Draußen,Eiskunstlauf
+360,Competitive Hobbys,Draußen,Angeln
+361,Competitive Hobbys,Draußen,Footbag
+362,Competitive Hobbys,Draußen,Golfen
+363,Competitive Hobbys,Draußen,Handball
+364,Competitive Hobbys,Draußen,Reiten
+365,Competitive Hobbys,Draußen,Jukskei
+366,Competitive Hobbys,Draußen,Kart-Rennen
+367,Competitive Hobbys,Draußen,Messerwerfen
+368,Competitive Hobbys,Draußen,Lacrosse
+369,Competitive Hobbys,Draußen,Longboardens
+370,Competitive Hobbys,Draußen,Spielmannszug
+371,Competitive Hobbys,Draußen,Modellflugzeuge
+372,Competitive Hobbys,Draußen,Racquetball
+373,Competitive Hobbys,Draußen,Funkgesteuerte Autorennen
+374,Competitive Hobbys,Draußen,Roller Derby
+375,Competitive Hobbys,Draußen,Rugby-Liga-Fußball
+376,Competitive Hobbys,Draußen,Ruder oder Ruder
+377,Competitive Hobbys,Draußen,Schießsport
+378,Competitive Hobbys,Draußen,Skateboardfahren
+379,Competitive Hobbys,Draußen,Weicher Ball
+380,Competitive Hobbys,Draußen,Eisschnelllauf
+381,Competitive Hobbys,Draußen,Quetschen
+382,Competitive Hobbys,Draußen,Surfen
+383,Competitive Hobbys,Draußen,Schwimmen
+384,Competitive Hobbys,Draußen,Tischtennis
+385,Competitive Hobbys,Draußen,Tennis
+386,Competitive Hobbys,Draußen,Tennis Polo
+387,Competitive Hobbys,Draußen,Tether Auto
+388,Competitive Hobbys,Draußen,Tour-Skating
+389,Competitive Hobbys,Draußen,trapshooting
+390,Competitive Hobbys,Draußen,Triathlon
+391,Competitive Hobbys,Draußen,Ultimate Frisbee
+392,Competitive Hobbys,Draußen,Volleyball
+393,Competitive Hobbys,Draußen,Wasser Polo
+402,Beobachtung Hobbys,Draußen,Flugzeugspek
+403,Beobachtung Hobbys,Draußen,Amateurastronomie
+404,Beobachtung Hobbys,Draußen,Vögel beobachten
+405,Beobachtung Hobbys,Draußen,Bus Spek
+406,Beobachtung Hobbys,Draußen,Geocaching
+407,Beobachtung Hobbys,Draußen,Gongoozling
+408,Beobachtung Hobbys,Draußen,Herping
+409,Beobachtung Hobbys,Draußen,Wandern / Backpacking
+410,Beobachtung Hobbys,Draußen,Meteorologie
+411,Beobachtung Hobbys,Draußen,Fotografie
+412,Beobachtung Hobbys,Draußen,Satellitenbeobachtung
+413,Beobachtung Hobbys,Draußen,Trainspotting
+414,Beobachtung Hobbys,Draußen,Reise
+415,Beobachtung Hobbys,Draußen,Walbeobachtung
