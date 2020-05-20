@@ -5,6 +5,7 @@ import pandas as pd
 import argparse
 import sys
 import urllib.parse as urlparse
+from urllib.parse import quote_plus
 from urllib.parse import urlencode
 from urllib.parse import urljoin
 from utils import get_df_hobbies
@@ -70,8 +71,30 @@ def get_random_user_agent():
     #user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
     return random.choice(user_agent_list)
 
+def make_url_to_proxy_crawl_url(url_mba):
+    url = quote_plus(url_mba)
+    url_proxycrawl = 'https://api.proxycrawl.com/?token=PlhAyiU_2cQukrs_BZTuiQ&url=' + url
+    return url_proxycrawl
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
+    parser.add_argument('keyword', help='Keyword that you like to query in mba', type=str)
+    parser.add_argument('api_key', help='API key of proxycrawl', type=str)
+    parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
+    parser.add_argument('pod_product', help='Name of Print on Demand product. I.e "shirt", "premium", "longsleeve", "sweatshirt", "hoodie", "popsocket", "kdp"', type=str)
+    parser.add_argument('sort', help='What kind of sorting do you want?. I.e "best_seller", "price_up", "price_down", "cust_rating", "oldest", "newest"', type=str)
+
+    if len(argv) == 6:
+        argv = argv[1:6]
+
+    # get all arguments
+    args = parser.parse_args(argv)
+    keyword = args.keyword
+    api_key = args.api_key
+    marketplace = args.marketplace
+    pod_product = args.pod_product
+    sort = args.sort
+
     language = "de"
     
     # get all arguments
@@ -82,16 +105,23 @@ def main(argv):
     hobbies_list = df["hobby"].tolist()
     test_hobby = hobbies_list[4]
 
-    url_mba = url_creator.main(["Fischen", "de", "shirt", "newest"])
+    url_mba = url_creator.main([keyword, marketplace, pod_product, sort])
 
-    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+    #headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+    #proxy_list = get_proxies("de", True)
+    #proxy = next(iter(proxy_list))
+    #proxies={"http": proxy, "https": proxy}
 
-    proxy_list = get_proxies("de", True)
-    proxy = next(iter(proxy_list))
-    proxies={"http": proxy, "https": proxy}
-
-    response = requests.get(url_mba, headers=headers, proxies=proxies)
+    response = requests.get(make_url_to_proxy_crawl_url(url_mba))
     soup = BeautifulSoup(response.content, 'html.parser')
+
+    with open("mba-pipeline/crawler/mba/data/newest.html", "w") as f:
+        f.write(response.text)
+
+    with open("mba-pipeline/crawler/mba/data/newest.html") as f:
+        soup = BeautifulSoup(f, 'html.parser')
+
+    shirts = soup.find_all("div", class_="sg-col-inner")
 
     test = 0
 

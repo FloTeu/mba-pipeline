@@ -51,7 +51,7 @@ def main(argv):
                         hobby_name = hobby.getText().replace("\n", "")
                     except:
                         # if no hobby name can be extracted, the loop should continue
-                        conitnue
+                        continue
                 df_keyword_hobbies.loc[count_inserts] = [count_inserts + 1, category_main, category_specification, hobby_name]
                 count_inserts += 1
 
