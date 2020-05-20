@@ -76,6 +76,28 @@ def make_url_to_proxy_crawl_url(url_mba):
     url_proxycrawl = 'https://api.proxycrawl.com/?token=PlhAyiU_2cQukrs_BZTuiQ&url=' + url
     return url_proxycrawl
 
+def get_shirt_div(html_str, div_class):
+    html_for_bs = ""
+    count_div = 0
+    start_saving = False
+    for line in html_str.split("\n"):
+        if div_class in line:
+            count_div += 1
+            start_saving = True
+        # if div is opening div count is increasing by one
+        if "<div" in line:
+            count_div += 1
+        # if div is opening div count is decreasing by one
+        if "</div" in line:
+            count_div -= 1
+        # as long as initial parent div is not closed we fill out html str  
+        if start_saving:
+            html_for_bs += line
+        # Breaking condition if closing div is reached
+        if start_saving and count_div == 0:
+            break
+    return html_for_bs
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('keyword', help='Keyword that you like to query in mba', type=str)
@@ -112,16 +134,53 @@ def main(argv):
     #proxy = next(iter(proxy_list))
     #proxies={"http": proxy, "https": proxy}
 
-    response = requests.get(make_url_to_proxy_crawl_url(url_mba))
-    soup = BeautifulSoup(response.content, 'html.parser')
+    #response = requests.get(make_url_to_proxy_crawl_url(url_mba))
+    #soup = BeautifulSoup(response.content, 'html.parser')
 
-    with open("mba-pipeline/crawler/mba/data/newest.html", "w") as f:
-        f.write(response.text)
+    #with open("mba-pipeline/crawler/mba/data/newest.html", "w") as f:
+    #    f.write(response.text)
 
     with open("mba-pipeline/crawler/mba/data/newest.html") as f:
-        soup = BeautifulSoup(f, 'html.parser')
+        html_str = f.read()
+        soup = BeautifulSoup(get_shirt_div(html_str, "s-main-slot s-result-list s-search-results sg-row"), 'html.parser')
 
     shirts = soup.find_all("div", class_="sg-col-inner")
+
+    list_url_products = []
+    list_url_images_lowq = []
+    list_url_images_hq = []
+    list_titles = []
+    list_brands = []
+    list_prices = []
+    list_asin = []
+    list_uuid = []
+    for i, shirt in enumerate(shirts):
+        try:
+            # get asin
+            list_asin.append(shirt.parent["data-asin"])
+            # get uuid
+            list_uuid.append(shirt.parent["data-uuid"])
+            # get urls
+            image_div = shirt.find("div", class_="a-section a-spacing-none s-image-overlay-black")
+            link = image_div.find("a")
+            # product url
+            url_product = "/".join(url_mba.split("/")[0:3]) + link['href']
+            list_url_products.append(url_product)
+            # images url
+            url_image_lowq = link.find_all("img")[0]["src"]
+            url_image_hq = link.find_all("img")[0]["srcset"].split(" ")[-2:len(link.find_all("img")[0]["srcset"].split(" "))-1][0]
+            list_url_images_lowq.append(url_image_lowq)
+            list_url_images_hq.append(url_image_hq)
+            # price
+            list_prices.append(shirt.find_all("span", class_="a-price-whole")[0].get_text())
+            # brand name
+            list_brands.append(shirt.find_all("h5", class_="s-line-clamp-1")[0].get_text())
+            # bramd name
+            list_titles.append(shirt.find_all("a", class_="a-link-normal a-text-normal")[0].find("span").get_text())
+        except:
+            # exception is thrown if no tshirts are available
+            break
+    df_products = pd.DataFrame(data={"title":list_titles,"brand":list_brands,"url_product":list_url_products,"url_image_lowq":list_url_images_lowq,"url_image_hq":list_url_images_hq,"price":list_prices,"asin":list_asin,"uuid":list_uuid})
 
     test = 0
 
