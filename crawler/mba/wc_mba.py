@@ -181,7 +181,8 @@ def main(argv):
             # exception is thrown if no tshirts are available
             break
     df_products = pd.DataFrame(data={"title":list_titles,"brand":list_brands,"url_product":list_url_products,"url_image_lowq":list_url_images_lowq,"url_image_hq":list_url_images_hq,"price":list_prices,"asin":list_asin,"uuid":list_uuid})
-
+    # save data in big query
+    df_products.to_gbq("mba.product_newest",project_id="mba-pipeline", if_exists="append")
     test = 0
 
 if __name__ == '__main__':
