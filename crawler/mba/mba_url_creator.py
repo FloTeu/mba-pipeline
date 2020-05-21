@@ -61,11 +61,11 @@ def get_main_url(marketplace):
 
 def get_hidden_keywordys(marketplace):
     if marketplace == "com":
-        return "Solid%3A+colors%3A+100%3A+Cotton%3A+Heather%3A+Grey%3A+90%3A+Cotton%3A+10%3A+Polyester%3A+All+Other+Heathers%3A+Classic%3A+Fit%3A+-Sweatshirt"
+        return "Solid colors: 100% Cotton; Heather Grey: 90% Cotton, 10% Polyester; All Other Heathers: Classic Fit -Sweatshirt"
     if marketplace == "uk":
-        return "Solid+colors+100+Cotton+Heather+Grey+90+Cotton+10+Polyester+All+Other+Heathers+Classic+Fit+-Sweatshirt"
+        return "Solid colors: 100% Cotton; Heather Grey: 90% Cotton, 10% Polyester; All Other Heathers: Classic Fit -Sweatshirt"
     else:
-        return 'Unifarben 100 Baumwolle Grau meliert Baumwolle -Langarmshirt'
+        return 'Unifarben: 100% Baumwolle; Grau meliert: 90% Baumwolle -Langarmshirt'
 
 def get_sort_statement(sort):
     "best_seller", "price_up", "price_down", "cust_rating", "oldest", "newest"
@@ -84,6 +84,15 @@ def get_sort_statement(sort):
     else:
         raise("sort statement is not known!")
 
+def get_bbn(marketplace):
+    if marketplace == "com":
+        return "12035955011"
+    if marketplace == "uk":
+        return "83450031"
+    else:
+        return "77028031"
+
+    
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('keyword', help='Keyword that you like to query in mba', type=str)
@@ -108,7 +117,7 @@ def main(argv):
     #hidden = hidden.replace("+", "%2B")
 
     # rh set articles to prime
-    params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76%3A419122031%2Cp_6%3AA3JWKAKR8XB7XF', 'bbn':'77028031','hidden-keywords':get_hidden_keywordys(marketplace)}
+    params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
 
     url_parts = list(urlparse.urlparse(url))
     query = dict(urlparse.parse_qsl(url_parts[4]))

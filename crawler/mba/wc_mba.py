@@ -4,8 +4,11 @@ from requests_html import HTMLSession
 import pandas as pd
 import argparse
 import sys
+import urllib.request
+from urllib.request import Request, urlopen
 import urllib.parse as urlparse
 from urllib.parse import quote_plus
+from urllib.parse import unquote_plus
 from urllib.parse import urlencode
 from urllib.parse import urljoin
 from utils import get_df_hobbies
@@ -13,6 +16,9 @@ import mba_url_creator as url_creator
 import random 
 from lxml.html import fromstring
 from itertools import cycle
+import datetime 
+import shutil 
+from google.cloud import storage
 
 def get_proxies(country="de", https_only=True):
     url = 'https://free-proxy-list.net/'
@@ -98,6 +104,29 @@ def get_shirt_div(html_str, div_class):
             break
     return html_for_bs
 
+def save_img(response, file_name):
+    with open("mba-pipeline/crawler/mba/data/"+ file_name +".jpg", 'wb') as f:
+        response.raw.decode_content = True
+        shutil.copyfileobj(response.raw, f) 
+
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    # bucket_name = "your-bucket-name"
+    # source_file_name = "local/path/to/file"
+    # destination_blob_name = "storage-object-name"
+
+    storage_client = storage.Client(project='mba-pipeline')
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+
+    blob.upload_from_filename(source_file_name)
+
+    print(
+        "File {} uploaded to {}.".format(
+            source_file_name, destination_blob_name
+        )
+    )
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('keyword', help='Keyword that you like to query in mba', type=str)
@@ -134,13 +163,13 @@ def main(argv):
     #proxy = next(iter(proxy_list))
     #proxies={"http": proxy, "https": proxy}
 
-    #response = requests.get(make_url_to_proxy_crawl_url(url_mba))
+    #response = requests.get(make_url_to_proxy_crawl_url(url_mba), stream=True)
     #soup = BeautifulSoup(response.content, 'html.parser')
 
-    #with open("mba-pipeline/crawler/mba/data/newest.html", "w") as f:
+    #with open("mba-pipeline/crawler/mba/data/newest_2.html", "w") as f:
     #    f.write(response.text)
 
-    with open("mba-pipeline/crawler/mba/data/newest.html") as f:
+    with open("mba-pipeline/crawler/mba/data/newest_2.html") as f:
         html_str = f.read()
         soup = BeautifulSoup(get_shirt_div(html_str, "s-main-slot s-result-list s-search-results sg-row"), 'html.parser')
 
@@ -154,6 +183,7 @@ def main(argv):
     list_prices = []
     list_asin = []
     list_uuid = []
+    list_crawlingdate = []
     for i, shirt in enumerate(shirts):
         try:
             # get asin
@@ -177,12 +207,21 @@ def main(argv):
             list_brands.append(shirt.find_all("h5", class_="s-line-clamp-1")[0].get_text())
             # bramd name
             list_titles.append(shirt.find_all("a", class_="a-link-normal a-text-normal")[0].find("span").get_text())
+            # timestamp
+            list_crawlingdate.append(datetime.datetime.now())
         except:
             # exception is thrown if no tshirts are available
             break
-    df_products = pd.DataFrame(data={"title":list_titles,"brand":list_brands,"url_product":list_url_products,"url_image_lowq":list_url_images_lowq,"url_image_hq":list_url_images_hq,"price":list_prices,"asin":list_asin,"uuid":list_uuid})
+    df_products = pd.DataFrame(data={"title":list_titles,"brand":list_brands,"url_product":list_url_products,"url_image_lowq":list_url_images_lowq,"url_image_hq":list_url_images_hq,"price":list_prices,"asin":list_asin,"uuid":list_uuid, "timestamp":list_crawlingdate})
     # save data in big query
     df_products.to_gbq("mba.product_newest",project_id="mba-pipeline", if_exists="append")
+    
+    bucket_name = "5c0ae2727a254b608a4ee55a15a05fb7"
+    folder_name = "mba-shirts"
+    file_path = "mba-pipeline/crawler/mba/data/test.jpg"
+    #upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", file_path , "mba-shirts/test.jpg")
+
+    
     test = 0
 
 if __name__ == '__main__':
