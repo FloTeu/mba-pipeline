@@ -223,12 +223,12 @@ def main(argv):
     args = parser.parse_args()
 
     #df = get_df_hobbies("de")
-    df = pd.read_csv("~/mba-pipeline/crawler/mba/data/hobbies_de.csv")
+    df = pd.read_csv("data/hobbies_de.csv")
     hobbies_list = df["hobby"].tolist()
     test_hobby = hobbies_list[4]
 
     # get already crawled asin list
-    asin_crawled_list = get_asin_crawled("mba.product_newest")
+    asin_crawled_list = get_asin_crawled("mba_de.products")
 
     url_mba = url_creator.main([keyword, marketplace, pod_product, sort])
 
