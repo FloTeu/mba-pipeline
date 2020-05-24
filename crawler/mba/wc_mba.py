@@ -179,9 +179,9 @@ def main(argv):
         #print(current_page)
         #'''
         timeout = time.time() + 60
-        response = requests.get(make_url_to_proxy_crawl_url(api_key,url_mba), stream=True)
+        response = requests.get(utils.make_url_to_proxy_crawl_url(api_key,url_mba), stream=True)
         while response.status_code != 200:
-            response = requests.get(make_url_to_proxy_crawl_url(url_mba), stream=True)
+            response = requests.get(utils.make_url_to_proxy_crawl_url(url_mba), stream=True)
             if time.time() > timeout:
                 no_response = True
                 break
