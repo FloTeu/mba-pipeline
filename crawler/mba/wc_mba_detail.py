@@ -12,9 +12,9 @@ from urllib.parse import quote_plus
 from urllib.parse import unquote_plus
 from urllib.parse import urlencode
 from urllib.parse import urljoin
-import mba_url_creator as url_creator
+from utils import get_df_hobbies
 import utils
-import random 
+import mba_url_creator as url_creator
 from lxml.html import fromstring
 from itertools import cycle
 import datetime 
@@ -23,31 +23,81 @@ from google.cloud import storage
 from google.cloud import bigquery
 import os
 import time 
-from proxy_requests import ProxyRequests
 
+def make_url_to_proxy_crawl_url(api_key, url_mba):
+    url = quote_plus(url_mba)
+    url_proxycrawl = 'https://api.proxycrawl.com/?token='+api_key+'&url=' + url
+    return url_proxycrawl
 
-def get_images_urls_not_crawled(marketplace):
-    bq_client = bigquery.Client(project='mba-pipeline')
-    df_images = bq_client.query("SELECT t0.asin, t0.url_image_hq, t0.url_image_lowq FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_images t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
-    return df_images
+def get_shirt_div(html_str, div_class):
+    html_for_bs = ""
+    count_div = 0
+    start_saving = False
+    for line in html_str.split("\n"):
+        if div_class in line:
+            count_div += 1
+            start_saving = True
+        # if div is opening div count is increasing by one
+        if "<div" in line:
+            count_div += 1
+        # if div is opening div count is decreasing by one
+        if "</div" in line:
+            count_div -= 1
+        # as long as initial parent div is not closed we fill out html str  
+        if start_saving:
+            html_for_bs += line
+        # Breaking condition if closing div is reached
+        if start_saving and count_div == 0:
+            break
+    return html_for_bs
 
 def save_img(response, file_name):
-    with open("mba-pipeline/crawler/mba/data/shirts/"+ file_name +".jpg", 'wb') as f:
-        f.write(response.get_raw())
+    with open("mba-pipeline/crawler/mba/data/"+ file_name +".jpg", 'wb') as f:
+        response.raw.decode_content = True
+        shutil.copyfileobj(response.raw, f) 
 
-def get_asin_images_crawled(table_id):
-    '''
-        Returns a unique list of asins that are already crawled
-    '''
+def upload_blob(bucket_name, source_file_name, destination_blob_name):
+    """Uploads a file to the bucket."""
+    # bucket_name = "your-bucket-name"
+    # source_file_name = "local/path/to/file"
+    # destination_blob_name = "storage-object-name"
+
+    storage_client = storage.Client(project='mba-pipeline')
+    bucket = storage_client.bucket(bucket_name)
+    blob = bucket.blob(destination_blob_name)
+
+    blob.upload_from_filename(source_file_name)
+
+    print(
+        "File {} uploaded to {}.".format(
+            source_file_name, destination_blob_name
+        )
+    )
+
+def get_asin_product_detail_crawled(marketplace):
     bq_client = bigquery.Client(project='mba-pipeline')
-    # todo: change table name in future | 
-    list_asin = bq_client.query("SELECT asin FROM " + table_id + " group by asin").to_dataframe()["asin"].tolist()
-    return list_asin
+    df_prduct_details = bq_client.query("SELECT t0.asin, t0.url_image_hq, t0.url_image_lowq FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    return df_prduct_details
+
+
+
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
+    parser.add_argument('api_key', help='API key of proxycrawl', type=str)
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('--number_images', default=10, type=int, help='Number of images that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+
+    print(os.getcwd())
+    print(argv)
+    # if python file path is in argv remove it 
+    if ".py" in argv[0]:
+        argv = argv[1:len(argv)]
+
+    # get all arguments
+    args = parser.parse_args(argv)
+    api_key = args.api_key
+    marketplace = args.marketplace
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -64,7 +114,7 @@ def main(argv):
     # get already crawled asin list
     #asin_crawled_list = get_asin_images_crawled("mba_de.products_images")
 
-    df_images = get_images_urls_not_crawled(marketplace)
+    df_images = get_asin_product_detail_crawled(marketplace)
 
     # if number_images is equal to 0, evry image should be crawled
     if number_images == 0:
