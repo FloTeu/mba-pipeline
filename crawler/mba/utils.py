@@ -3,9 +3,10 @@ from google.cloud import bigquery
 from google.cloud import storage
 import pandas_gbq
 import requests 
-from requests_html import HTMLSession
 from lxml.html import fromstring
 import random 
+from re import findall
+from bs4 import BeautifulSoup
 
 client = bigquery.Client()
 
@@ -35,7 +36,61 @@ def upload_blob(bucket_name, source_file_name, destination_blob_name):
         )
     )
 
-def get_proxies(country="de", https_only=True):
+def make_df_of_table(soup_table_rows, columns):
+    l = []
+    for tr in soup_table_rows:
+        td = tr.find_all('td')
+        row = [tr.text for tr in td]
+        l.append(row)
+    return pd.DataFrame(l, columns=columns)
+
+def is_valid_proxy(df_row, countries,https_only):
+    if https_only:   
+        if df_row["anonymity"] in ["anonymous", "elite proxy"] and df_row["code"] in [country.upper() for country in countries] and df_row["https"] == "yes":
+            return True
+        else:
+            return False
+    else:
+        if df_row["anonymity"] in ["anonymous", "elite proxy"] and df_row["code"] in [country.upper() for country in countries]:
+            return True
+        else:
+            return False
+    
+
+def get_proxies_sslproxies(countries,https_only):
+    print("Start crawling free proxies of https://www.sslproxies.org/")
+    r = requests.get('https://www.sslproxies.org/')
+    '''
+    matches = findall(r"<td>\d+\.\d+\.\d+\.\d+</td><td>\d+</td><td>[A-Z]{2}</td>", r.text)
+    matches = [match for match in matches if match.split("<td>")[-1].split("</td>")[0] in [country.upper() for country in countries] ]
+    revised = [m.replace('<td>', '') for m in matches]
+    # remove country column
+    sockets = [s.split('</td>')[0] + ":" + s.split('</td>')[1] for s in revised]
+    return sockets
+    '''
+    soup = BeautifulSoup(r.text, 'html.parser')
+    table_rows = soup.find("table").find_all('tr')
+    df_proxies = make_df_of_table(table_rows,["IP", "port", "code", "country","anonymity", "google", "https", "last_checked"])
+    df_proxies_filter = df_proxies[df_proxies.apply(lambda x: is_valid_proxy(x, countries,https_only), axis=1)]
+    df_proxies_filter["proxy"] = df_proxies_filter["IP"] + ":" + df_proxies_filter["port"]
+    print("Got %s available proxies" % len(df_proxies_filter))
+
+    return df_proxies_filter["proxy"].tolist()
+
+
+def get_proxies_freeproxies(countries, https_only):
+    print("Start crawling free proxies of https://free-proxy-list.net/")
+    r = requests.get('https://free-proxy-list.net/')
+    soup = BeautifulSoup(r.text, 'html.parser')
+    table_rows = soup.find("table").find_all('tr')
+    df_proxies = make_df_of_table(table_rows,["IP", "port", "code", "country","anonymity", "google", "https", "last_checked"])
+    df_proxies_filter = df_proxies[df_proxies.apply(lambda x: is_valid_proxy(x, countries,https_only), axis=1)]
+    df_proxies_filter["proxy"] = df_proxies_filter["IP"] + ":" + df_proxies_filter["port"]
+    print("Got %s available proxies" % len(df_proxies_filter))
+    return df_proxies_filter["proxy"].tolist()
+
+def get_proxies(countries=["de"], https_only=True):
+    '''
     url = 'https://free-proxy-list.net/'
     response = requests.get(url)
     parser = fromstring(response.text)
@@ -58,6 +113,12 @@ def get_proxies(country="de", https_only=True):
                 #Grabbing IP and corresponding PORT
                 proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
                 proxies.add(proxy)
+    '''
+    proxies_ssl = get_proxies_sslproxies(countries,https_only)
+    proxies_free = get_proxies_freeproxies(countries,https_only)
+    proxies= proxies_ssl + proxies_free
+    proxies=list(set(proxies))
+    print("Got %s available unique proxies" % len(proxies))
     return proxies
 
 def get_random_user_agent():
@@ -91,3 +152,22 @@ def get_random_user_agent():
     ]
     #user_agent = 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_9_3) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/35.0.1916.47 Safari/537.36'
     return random.choice(user_agent_list)
+
+def get_random_headers(marketplace):
+    headers = {
+        'HOST': 'www.amazon.' + marketplace,
+        'authority': 'www.amazon.' + marketplace,
+        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
+        'accept-encoding': 'gzip, deflate, br',
+        'cookie': '__utma=12798129.504353392.1590337669.1590337669.1590337669.1; __utmc=12798129; __utmz=12798129.1590337669.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); __utmb=12798129.1.10.1590337669',
+        'pragma': 'no-cache',
+        'cache-control': 'no-cache',
+        'dnt': '1',
+        'upgrade-insecure-requests': '1',
+        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36',
+        'sec-fetch-site': 'cross-site',
+        'sec-fetch-mode': 'navigate',
+        'sec-fetch-dest': 'document',
+        'sec-fetch-user': '?1',
+        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',}
+    return headers

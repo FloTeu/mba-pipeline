@@ -1,6 +1,5 @@
 from bs4 import BeautifulSoup
 import requests 
-from requests_html import HTMLSession
 import pandas as pd
 import numpy as np
 import argparse
@@ -30,26 +29,47 @@ def make_url_to_proxy_crawl_url(api_key, url_mba):
     url_proxycrawl = 'https://api.proxycrawl.com/?token='+api_key+'&url=' + url
     return url_proxycrawl
 
-def get_shirt_div(html_str, div_class):
+def get_shirt_div(html_str, div_class_or_id):
     html_for_bs = ""
     count_div = 0
-    start_saving = False
-    for line in html_str.split("\n"):
-        if div_class in line:
-            count_div += 1
-            start_saving = True
+    start_saving_html = False
+    html_tag = ""
+    start_get_tag = False
+    html_tag_finished = ""
+
+    for char in html_str:
+        
+        if div_class_or_id in html_tag and char == ">":
+            print("Found key word in: " + html_tag)
+            start_saving_html = True
+
+        if char == "<":
+            start_get_tag = True
+        if char == ">":
+            html_tag_finished = html_tag
+            start_get_tag = False
+            html_tag = ""
+        if start_saving_html:
+            html_tag = html_tag + char
+        
         # if div is opening div count is increasing by one
-        if "<div" in line:
+        if "<div" in html_tag_finished and start_saving_html:
+            print("opened: " + html_tag_finished)
             count_div += 1
         # if div is opening div count is decreasing by one
-        if "</div" in line:
+        if "</div" in html_tag_finished and start_saving_html:
+            print("finished: " + html_tag_finished)
             count_div -= 1
         # as long as initial parent div is not closed we fill out html str  
-        if start_saving:
-            html_for_bs += line
+        if start_saving_html:
+            html_for_bs += char
         # Breaking condition if closing div is reached
-        if start_saving and count_div == 0:
+        if start_saving_html and count_div == 0:
+            html_for_bs = html_for_bs[1:len(html_for_bs)]
             break
+
+        html_tag_finished = ""
+
     return html_for_bs
 
 def save_img(response, file_name):
@@ -99,46 +119,37 @@ def main(argv):
         url_product = product_row["url_product"]
         url_product_asin = product_row["url_product_asin"]
 
-        headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
-        headers = {
-        'HOST': 'www.amazon.' + marketplace,
-        'authority': 'www.amazon.' + marketplace,
-        'accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,image/apng,*/*;q=0.8,application/signed-exchange;v=b3;q=0.9',
-        'accept-encoding': 'gzip, deflate, br',
-        'cookie': '__utma=12798129.504353392.1590337669.1590337669.1590337669.1; __utmc=12798129; __utmz=12798129.1590337669.1.1.utmcsr=google|utmccn=(organic)|utmcmd=organic|utmctr=(not%20provided); __utmb=12798129.1.10.1590337669',
-        'pragma': 'no-cache',
-        'cache-control': 'no-cache',
-        'dnt': '1',
-        'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36',
-        'sec-fetch-site': 'cross-site',
-        'sec-fetch-mode': 'navigate',
-        'sec-fetch-dest': 'document',
-        'sec-fetch-user': '?1',
-        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',}
+        if False:
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+            headers = utils.get_random_headers(marketplace)
 
-        proxy_list = utils.get_proxies("de", True)
-        proxy = next(iter(proxy_list))
-        proxies={"http": proxy, "https": proxy}
-
-        response = ProxyRequests(url_product_asin)
-        response.set_headers(headers)
-        response.get_with_headers()
-        print("Proxy used: " + str(response.get_proxy_used()))
-        print(response.get_status_code())
-        
-        '''
-        proxy_list = utils.get_proxies("de", True)
-        for proxy in proxy_list:
-            print(proxy)
-            proxies={"http": proxy, "https": proxy}
-            try:
-                response = requests.get(url_product_asin, proxies=proxies, headers=headers)
-                if response.status_code == 200:
-                    break
-            except:
-                continue
+            proxy_list = utils.get_proxies(["de"], True)
+            for proxy in proxy_list:
+                print(proxy)
+                proxies={"http": 'http://' + proxy, "https": 'https://' + proxy}
+                try:
+                    response = requests.get(url_product_asin, timeout=3.0, proxies=proxies, headers=headers)
+                    if response.status_code == 200:
+                        print("scrape successfull")
+                        break
+                except:
+                    print("scrape not successfull")
+                    continue
             
+            # transform html response to soup format
+            soup = BeautifulSoup(get_shirt_div(response.text, "dp"), 'html.parser')
+            
+            # save product detail page locally
+            with open("data/mba_detail_page.html", "w") as f:
+                f.write(response.text)
+
+            # save html in storage
+            utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/mba_detail_page.html", "logs/"+marketplace+"/product_detail/"+str(asin)+".html")
+        else:    
+            with open("data/mba_detail_page.html") as f:
+                html_str = f.read()
+                soup = BeautifulSoup(get_shirt_div(html_str, "s-main-slot s-result-list s-search-results sg-row"), 'html.parser') 
+
         print(response.status_code)
         '''
         print("Proxy used: " + str(response.get_proxy_used()))
@@ -155,7 +166,7 @@ def main(argv):
             print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_images))
         else:
             print("Could not crawl image: %s | %s of %s" (asin, j+1, number_images))
-        
+        '''
         #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
         test = 0
 

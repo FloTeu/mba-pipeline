@@ -1,22 +1,17 @@
 from bs4 import BeautifulSoup
 import requests 
-from requests_html import HTMLSession
 import pandas as pd
 import argparse
 import sys
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 from urllib.parse import urljoin
-from selenium import webdriver
-from selenium.webdriver.common.by import By
-from selenium.webdriver.common.keys import Keys
-from selenium.webdriver.chrome.options import Options
-import mechanize
 
-# initialize an HTTP session
-session = HTMLSession()
+
 
 def get_all_forms(url):
+    # initialize an HTTP session
+    session = HTMLSession()
     """Returns all form tags found on a web page's `url` """
     # GET request
     res = session.get(url)
