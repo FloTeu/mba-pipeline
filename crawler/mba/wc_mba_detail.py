@@ -23,13 +23,14 @@ from google.cloud import bigquery
 import os
 import time 
 from proxy_requests import ProxyRequests
+import dateparser
 
 def make_url_to_proxy_crawl_url(api_key, url_mba):
     url = quote_plus(url_mba)
     url_proxycrawl = 'https://api.proxycrawl.com/?token='+api_key+'&url=' + url
     return url_proxycrawl
 
-def get_shirt_div(html_str, div_class_or_id):
+def get_div_in_html(html_str, div_class_or_id):
     html_for_bs = ""
     count_div = 0
     start_saving_html = False
@@ -42,27 +43,27 @@ def get_shirt_div(html_str, div_class_or_id):
         if div_class_or_id in html_tag and char == ">":
             print("Found key word in: " + html_tag)
             start_saving_html = True
-
+        
+        html_tag = html_tag + char
         if char == "<":
             start_get_tag = True
         if char == ">":
             html_tag_finished = html_tag
             start_get_tag = False
             html_tag = ""
-        if start_saving_html:
-            html_tag = html_tag + char
         
         # if div is opening div count is increasing by one
         if "<div" in html_tag_finished and start_saving_html:
-            print("opened: " + html_tag_finished)
             count_div += 1
         # if div is opening div count is decreasing by one
         if "</div" in html_tag_finished and start_saving_html:
-            print("finished: " + html_tag_finished)
             count_div -= 1
         # as long as initial parent div is not closed we fill out html str  
-        if start_saving_html:
+        if start_saving_html and html_for_bs == "":
+            html_for_bs += html_tag_finished
+        elif start_saving_html:
             html_for_bs += char
+
         # Breaking condition if closing div is reached
         if start_saving_html and count_div == 0:
             html_for_bs = html_for_bs[1:len(html_for_bs)]
@@ -82,6 +83,87 @@ def get_asin_product_detail_crawled(marketplace):
     df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
     return df_product_details
 
+def get_product_information_de(list_product_information):
+    weight = [""]
+    upload_date = [""]
+    customer_recession_score = [""]
+    customer_recession_count = [""]
+    array_mba_bsr = [""]
+
+    for info in list_product_information:
+        info_text = info.get_text().lower()
+        if "gewicht" in info_text or "weight" in info_text:
+            weight = [info.get_text()]
+        if "seit" in info_text or "available" in info_text:
+            upload_date = [info.get_text()]
+        if "rezension" in info_text or "review" in info_text:
+            try:
+                customer_recession_score = [info.find("span", class_="a-declarative").find("a").find("i").get_text()]
+                customer_recession_count = [info.find("span", class_="a-size-small").find("a").get_text()]
+            except:
+                customer_recession_score = [""]
+                customer_recession_count = ["0"]
+        try:
+            if info.getattr("id") == "SalesRank":
+                array_mba_bsr = [info.get_text()]
+        except:
+            pass
+
+    return weight, upload_date, customer_recession_score, customer_recession_count, array_mba_bsr
+
+def get_product_information(marketplace, list_product_information):
+    if marketplace == "de":
+        return get_product_information_de(list_product_information)
+    else:
+        raise("Marketplace not known")
+
+
+def get_product_detail_df(soup, asin, url_mba, marketplace):
+    product_feature = soup.find("div", id="feature-bullets")
+    product_description = soup.find("div", id="productDescription_feature_div")
+    product_information = soup.find("div", id="detail-bullets_feature_div")
+    
+    # get all headline infos 
+    title = [soup.find("span", id="productTitle").get_text().replace("\n","").replace("                                                                                                                                                        ","").replace("                                                                                                                        ", "")]
+    brand = [soup.find("a", id="bylineInfo").get_text()]
+    url_brand = ["/".join(url_mba.split("/")[0:3]) + soup.find("a", id="bylineInfo")["href"]]
+    price = [soup.find("span", id="priceblock_ourprice").get_text()]
+
+    array_fit_types = []
+    for fit_type in soup.find("div", id="variation_fit_type").find_all("span", class_="a-size-base"):
+        array_fit_types.append(fit_type.get_text())
+
+    array_color_names = []
+    for color_name in soup.find("div", id="variation_color_name").find("ul").find_all("li"):
+        array_color_names.append(color_name.find("img")["alt"])
+    color_count = [len(array_color_names)]
+
+    array_product_features = []
+    for feature in product_feature.find("ul").find_all("li"):
+        array_product_features.append(feature.get_text().replace("\n","").replace("\t",""))
+
+    # get product description
+    try:
+        product_description = [product_description.get_text()]
+    except:
+        product_description = [""]
+
+    # get all product information
+    list_product_information = product_information.find("ul").find_all("li")
+    weight, upload_date_str, customer_recession_score, customer_recession_count, array_mba_bsr = get_product_information(marketplace, list_product_information)
+    
+    # try to get real upload date
+    upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]
+
+    crawlingdate = [datetime.datetime.now()]
+
+    df_products_details = pd.DataFrame(data={"asin":[asin],"title":title,"brand":brand,"url_brand":url_brand,"price":price,"fit_types":[array_fit_types],"color_names":[array_color_names],"color_count":color_count,"array_product_features":[array_product_features],"description":product_description,"weight": weight,"upload_date_str":upload_date_str,"upload_date": upload_date,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count, "mba_bsr": [array_mba_bsr], "timestamp":crawlingdate})
+    df_products_details['timestamp'] = df_products_details['timestamp'].astype('datetime64')
+    df_products_details['upload_date'] = df_products_details['upload_date'].astype('datetime64')
+
+    return df_products_details
+
+        
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -137,7 +219,7 @@ def main(argv):
                     continue
             
             # transform html response to soup format
-            soup = BeautifulSoup(get_shirt_div(response.text, "dp"), 'html.parser')
+            soup = BeautifulSoup(get_div_in_html(response.text, "dp"), 'html.parser')
             
             # save product detail page locally
             with open("data/mba_detail_page.html", "w") as f:
@@ -148,9 +230,11 @@ def main(argv):
         else:    
             with open("data/mba_detail_page.html") as f:
                 html_str = f.read()
-                soup = BeautifulSoup(get_shirt_div(html_str, "s-main-slot s-result-list s-search-results sg-row"), 'html.parser') 
+                soup = BeautifulSoup(get_div_in_html(html_str, 'id="dp-container"'), 'html.parser') 
 
-        print(response.status_code)
+        df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
+        df_product_details.to_gbq("mba_" + marketplace + ".products_details_test",project_id="mba-pipeline", if_exists="append")
+
         '''
         print("Proxy used: " + str(response.get_proxy_used()))
         if 200 == response.get_status_code():
