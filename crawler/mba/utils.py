@@ -8,6 +8,7 @@ import random
 from re import findall
 from bs4 import BeautifulSoup
 
+pd.options.mode.chained_assignment = None 
 client = bigquery.Client()
 
 def get_df_hobbies(language):
@@ -72,10 +73,10 @@ def get_proxies_sslproxies(countries,https_only):
     table_rows = soup.find("table").find_all('tr')
     df_proxies = make_df_of_table(table_rows,["IP", "port", "code", "country","anonymity", "google", "https", "last_checked"])
     df_proxies_filter = df_proxies[df_proxies.apply(lambda x: is_valid_proxy(x, countries,https_only), axis=1)]
-    df_proxies_filter["proxy"] = df_proxies_filter["IP"] + ":" + df_proxies_filter["port"]
+    df_proxies_filter["proxy"] = df_proxies_filter.apply(lambda x: x["IP"] + ":" + x["port"], axis=1)
     print("Got %s available proxies" % len(df_proxies_filter))
 
-    return df_proxies_filter["proxy"].tolist()
+    return df_proxies_filter["proxy"].tolist(), df_proxies_filter["code"].tolist()
 
 
 def get_proxies_freeproxies(countries, https_only):
@@ -85,11 +86,11 @@ def get_proxies_freeproxies(countries, https_only):
     table_rows = soup.find("table").find_all('tr')
     df_proxies = make_df_of_table(table_rows,["IP", "port", "code", "country","anonymity", "google", "https", "last_checked"])
     df_proxies_filter = df_proxies[df_proxies.apply(lambda x: is_valid_proxy(x, countries,https_only), axis=1)]
-    df_proxies_filter["proxy"] = df_proxies_filter["IP"] + ":" + df_proxies_filter["port"]
+    df_proxies_filter["proxy"] = df_proxies_filter.apply(lambda x: x["IP"] + ":" + x["port"], axis=1)
     print("Got %s available proxies" % len(df_proxies_filter))
-    return df_proxies_filter["proxy"].tolist()
+    return df_proxies_filter["proxy"].tolist(), df_proxies_filter["code"].tolist()
 
-def get_proxies(countries=["de"], https_only=True):
+def get_proxies_with_country(countries=["de"], https_only=True):
     '''
     url = 'https://free-proxy-list.net/'
     response = requests.get(url)
@@ -114,12 +115,14 @@ def get_proxies(countries=["de"], https_only=True):
                 proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
                 proxies.add(proxy)
     '''
-    proxies_ssl = get_proxies_sslproxies(countries,https_only)
-    proxies_free = get_proxies_freeproxies(countries,https_only)
-    proxies= proxies_ssl + proxies_free
-    proxies=list(set(proxies))
+    proxies_ssl, countries_ssl = get_proxies_sslproxies(countries,https_only)
+    proxies_free, countries_free = get_proxies_freeproxies(countries,https_only)
+    proxies_country = [proxie + "," + countries_ssl[i] for i, proxie in enumerate(proxies_ssl)] + [proxie + "," + countries_free[i] for i, proxie in enumerate(proxies_free)] 
+    proxies_country = list(set(proxies_country))
+    proxies = [item.split(",")[0] for item in proxies_country]
+    countries = [item.split(",")[1] for item in proxies_country]
     print("Got %s available unique proxies" % len(proxies))
-    return proxies
+    return proxies, countries
 
 def get_random_user_agent():
     user_agent_list = [
@@ -154,6 +157,7 @@ def get_random_user_agent():
     return random.choice(user_agent_list)
 
 def get_random_headers(marketplace):
+    # TODO make it realy random with trustful user agenta (should be up to date)
     headers = {
         'HOST': 'www.amazon.' + marketplace,
         'authority': 'www.amazon.' + marketplace,

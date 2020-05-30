@@ -37,11 +37,12 @@ def get_div_in_html(html_str, div_class_or_id):
     html_tag = ""
     start_get_tag = False
     html_tag_finished = ""
+    
+    assert not "captcha" in html_str.lower(), "Captcha is requested. Crawling will be stoped"
 
     for char in html_str:
         
         if div_class_or_id in html_tag and char == ">":
-            print("Found key word in: " + html_tag)
             start_saving_html = True
         
         html_tag = html_tag + char
@@ -70,6 +71,8 @@ def get_div_in_html(html_str, div_class_or_id):
             break
 
         html_tag_finished = ""
+    
+    assert html_for_bs != "", "HTML does not contains: " + div_class_or_id
 
     return html_for_bs
 
@@ -88,7 +91,9 @@ def get_product_information_de(list_product_information):
     upload_date = [""]
     customer_recession_score = [""]
     customer_recession_count = [""]
-    array_mba_bsr = [""]
+    mba_bsr_str = [""]
+    array_mba_bsr = []
+    array_mba_bsr_categorie = []
 
     for info in list_product_information:
         info_text = info.get_text().lower()
@@ -99,17 +104,25 @@ def get_product_information_de(list_product_information):
         if "rezension" in info_text or "review" in info_text:
             try:
                 customer_recession_score = [info.find("span", class_="a-declarative").find("a").find("i").get_text()]
-                customer_recession_count = [info.find("span", class_="a-size-small").find("a").get_text()]
+                customer_recession_count = [int(info.find("span", class_="a-size-small").find("a").get_text().split(" ")[0])]
             except:
                 customer_recession_score = [""]
-                customer_recession_count = ["0"]
+                customer_recession_count = [0]
         try:
-            if info.getattr("id") == "SalesRank":
-                array_mba_bsr = [info.get_text()]
+            if info["id"] == "SalesRank":
+                mba_bsr_str = [info.get_text().replace("\n", "")]
+                bsr_iterator = mba_bsr_str[0].split("Nr. ")
+                bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
+                for bsr_str in bsr_iterator:
+                    bsr = int(bsr_str.split("in")[0].replace(".", ""))
+                    array_mba_bsr.append(bsr)
+                    bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
+                    array_mba_bsr_categorie.append(bsr_categorie)
+
         except:
             pass
 
-    return weight, upload_date, customer_recession_score, customer_recession_count, array_mba_bsr
+    return weight, upload_date, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie
 
 def get_product_information(marketplace, list_product_information):
     if marketplace == "de":
@@ -130,12 +143,22 @@ def get_product_detail_df(soup, asin, url_mba, marketplace):
     price = [soup.find("span", id="priceblock_ourprice").get_text()]
 
     array_fit_types = []
-    for fit_type in soup.find("div", id="variation_fit_type").find_all("span", class_="a-size-base"):
-        array_fit_types.append(fit_type.get_text())
+    div_fit_types = soup.find("div", id="variation_fit_type").find_all("span", class_="a-size-base")
+    # found more than one fit type
+    if len(div_fit_types) > 0:
+        for fit_type in div_fit_types:
+            array_fit_types.append(fit_type.get_text())
+    else:
+        array_fit_types.append(soup.find("div", id="variation_fit_type").find("span").get_text())
+
 
     array_color_names = []
-    for color_name in soup.find("div", id="variation_color_name").find("ul").find_all("li"):
-        array_color_names.append(color_name.find("img")["alt"])
+    span_color_names = soup.find("div", id="variation_color_name").find_all("span", class_="a-declarative")
+    if len(span_color_names) > 0:
+        for color_name in span_color_names:
+            array_color_names.append(color_name.find("img")["alt"])
+    else:
+        array_color_names.append(soup.find("div", id="variation_color_name").find("span").get_text())
     color_count = [len(array_color_names)]
 
     array_product_features = []
@@ -144,26 +167,133 @@ def get_product_detail_df(soup, asin, url_mba, marketplace):
 
     # get product description
     try:
-        product_description = [product_description.get_text()]
+        product_description = [product_description.find("div", id="productDescription").get_text().replace("\n", "")]
     except:
         product_description = [""]
 
     # get all product information
     list_product_information = product_information.find("ul").find_all("li")
-    weight, upload_date_str, customer_recession_score, customer_recession_count, array_mba_bsr = get_product_information(marketplace, list_product_information)
+    weight, upload_date_str, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
     
     # try to get real upload date
     upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]
 
     crawlingdate = [datetime.datetime.now()]
 
-    df_products_details = pd.DataFrame(data={"asin":[asin],"title":title,"brand":brand,"url_brand":url_brand,"price":price,"fit_types":[array_fit_types],"color_names":[array_color_names],"color_count":color_count,"array_product_features":[array_product_features],"description":product_description,"weight": weight,"upload_date_str":upload_date_str,"upload_date": upload_date,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count, "mba_bsr": [array_mba_bsr], "timestamp":crawlingdate})
+    df_products_details = pd.DataFrame(data={"asin":[asin],"title":title,"brand":brand,"url_brand":url_brand,"price":price,"fit_types":[array_fit_types],"color_names":[array_color_names],"color_count":color_count,"product_features":[array_product_features],"description":product_description,"weight": weight,"upload_date_str":upload_date_str,"upload_date": upload_date,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count,"mba_bsr_str": mba_bsr_str, "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp":crawlingdate})
+    # transform date/timestamo columns to datetime objects
     df_products_details['timestamp'] = df_products_details['timestamp'].astype('datetime64')
     df_products_details['upload_date'] = df_products_details['upload_date'].astype('datetime64')
 
     return df_products_details
 
+# global variable with proxie list and time since crawling starts 
+list_country_proxies = ["de", "dk", "pl", "fr", "ua", "us", "cz"]
+list_country_proxies = ["de", "dk", "pl"]
+proxy_list, country_list = utils.get_proxies_with_country(list_country_proxies, True)
+last_successfull_crawler = proxy_list[0]
+time_since_last_crawl = None
+df_successfull_proxies = None
+#df_successfull_proxies = pd.DataFrame({"proxy": ["213.213"], "country": ["DE"], "successCount":[1], "errorCount": [0], "errors":[[]]})
+
+test = 0
+def get_response(marketplace, url_product_asin, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
+    time_start = time.time()
+    headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+    headers = utils.get_random_headers(marketplace)
+    
+    # set global variables
+    global proxy_list
+    global country_list
+    global last_successfull_crawler
+    global time_since_last_crawl
+    global df_successfull_proxies
+
+    def reset_proxies_and_country_list():
+        global proxy_list
+        global country_list    
+        global df_successfull_proxies
+
+        del proxy_list[0]
+        del country_list[0]
+        # if no proxie is left start to get new ones
+        if len(proxy_list) == 0:
+            if df_successfull_proxies != None:
+                suc_proxy_list, suc_country_list = df_successfull_proxies["proxy"].tolist(), df_successfull_proxies["country"].tolist()
+            else:
+                suc_proxy_list, suc_country_list = [],[]
+            new_proxy_list, new_country_list = utils.get_proxies_with_country(list_country_proxies, True)
+            proxy_list = suc_proxy_list + new_proxy_list
+            country_list = suc_country_list + new_country_list
+    
+    def set_error_data(proxy, message):
+        global df_successfull_proxies
+        # add error if preveasly successfull proxy was used
+        if df_successfull_proxies != None and proxy in df_successfull_proxies["proxy"].tolist():
+            index = df_successfull_proxies[df_successfull_proxies["proxy"] == proxy].index.values[0]
+            df_successfull_proxies.loc[index, "errorCount"]  = df_successfull_proxies.loc[index, "errorCount"] + 1
+            df_successfull_proxies.loc[index, "errors"]  = df_successfull_proxies.loc[index, "errors"].append(message)
+            
+    while len(proxy_list) > 0:
+        # if time break is reached the loop will be broken
+        elapsed_time = time.time() - time_start
+        if elapsed_time > time_break_sec:
+            print("Time break condition was reached. Response is empty")
+            break
+
+        proxy = proxy_list[0]
+        country = country_list[0]
+        print("Proxy: %s is used | %s left" % (proxy, len(proxy_list)))
+        proxies={"http": 'http://' + proxy, "https": 'https://' + proxy}
         
+        # wait seconds to make sure successfull proxie is not blacklisted
+        if last_successfull_crawler == proxy and time_since_last_crawl != None and seconds_between_crawl > (time.time()-time_since_last_crawl):
+            wait_seconds = seconds_between_crawl - (time.time()-time_since_last_crawl)
+            print("Same proxie used, wait for %.2f seconds" % wait_seconds)
+            time.sleep(wait_seconds)
+
+        try:
+            # try to get response
+            response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
+            if response.status_code == 200:
+                if "captcha" in response.text.lower():
+                    print("No Match: Got code 200, but captcha is requested. Try next proxy... (Country: %s)" % country)
+                    set_error_data(proxy, "captcha")
+                    reset_proxies_and_country_list()
+                    continue
+                # successfull crawl
+                else:
+                    # start global time variable to check duration between successfull crawling with same proxie
+                    time_since_last_crawl = time.time()
+                    last_successfull_crawler = proxy
+                    # save successfull proxy in dataframe
+                    if df_successfull_proxies == None:
+                        df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country_list], "successCount":[1],"errorCount": [0], "errors":[[]]})
+                    else:
+                        # if proxy already exists, success count should increase
+                        if len(df_successfull_proxies[df_successfull_proxies["proxy"] == proxy]) != 0:
+                            index = df_successfull_proxies[df_successfull_proxies["proxy"] == proxy].index.values[0]
+                            df_successfull_proxies.loc[index, "successCount"]  = df_successfull_proxies.loc[index, "successCount"] + 1
+                        # else new proxy is added to dataframe
+                        else:
+                            df_successfull_proxies.append({"proxy": [proxy], "country": [country_list], "successCount":[1], "errorCount": [0], "errors":[[]]}, ignore_index=None)
+                    
+                    print("Match: Scrape successfull in %.2f seconds (Country: %s)" % ((time.time() - time_start), country))
+                    return response
+            else:
+                print("No Match: Status code: " + str(response.status_code) + " (Country: %s)" % country)
+                set_error_data(proxy, "Status code: " + str(response.status_code))
+                reset_proxies_and_country_list()
+                continue
+        except Exception as e:
+            print("No Match: got exception: %s (Country: %s)" % (type(e).__name__, country))
+            #print(str(e))
+            set_error_data(proxy, "Exception: " + str((type(e).__name__)))
+            reset_proxies_and_country_list()
+            continue
+
+    # return None if no response could be crawled
+    return None
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -190,6 +320,7 @@ def main(argv):
     #asin_crawled_list = get_asin_images_crawled("mba_de.products_images")
 
     df_product_details = get_asin_product_detail_crawled(marketplace)
+    #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
     df_product_details["url_product_asin"] =  df_product_details.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
 
     # if number_images is equal to 0, evry image should be crawled
@@ -201,65 +332,32 @@ def main(argv):
         url_product = product_row["url_product"]
         url_product_asin = product_row["url_product_asin"]
 
-        if False:
-            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
-            headers = utils.get_random_headers(marketplace)
+        if True:
+            # try to get reponse with free proxies
+            response = get_response(marketplace, url_product_asin, connection_timeout=10.0, time_break_sec=240, seconds_between_crawl=20)
+            global df_successfull_proxies
+            df_successfull_proxies.to_csv("data/successfull_proxies.csv")
+            assert response != None, "Could not get response within time break condition"
 
-            proxy_list = utils.get_proxies(["de"], True)
-            for proxy in proxy_list:
-                print(proxy)
-                proxies={"http": 'http://' + proxy, "https": 'https://' + proxy}
-                try:
-                    response = requests.get(url_product_asin, timeout=3.0, proxies=proxies, headers=headers)
-                    if response.status_code == 200:
-                        print("scrape successfull")
-                        break
-                except:
-                    print("scrape not successfull")
-                    continue
-            
-            # transform html response to soup format
-            soup = BeautifulSoup(get_div_in_html(response.text, "dp"), 'html.parser')
-            
             # save product detail page locally
             with open("data/mba_detail_page.html", "w") as f:
                 f.write(response.text)
 
+            # transform html response to soup format
+            soup = BeautifulSoup(get_div_in_html(response.text, 'id="dp-container"'), 'html.parser')
+            
             # save html in storage
             utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/mba_detail_page.html", "logs/"+marketplace+"/product_detail/"+str(asin)+".html")
-        else:    
+        else:
             with open("data/mba_detail_page.html") as f:
                 html_str = f.read()
+                asin = "B086D9RL8Q"
                 soup = BeautifulSoup(get_div_in_html(html_str, 'id="dp-container"'), 'html.parser') 
 
         df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
-        df_product_details.to_gbq("mba_" + marketplace + ".products_details_test",project_id="mba-pipeline", if_exists="append")
+        df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+        print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
-        '''
-        print("Proxy used: " + str(response.get_proxy_used()))
-        if 200 == response.get_status_code():
-            print(response.get_status_code())
-            # save image locally
-            with open("data/mba_detail_page.html", "wb") as f:
-                f.write(response.get_raw())
-
-            utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
-            df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
-            df_img['timestamp'] = df_img['timestamp'].astype('datetime64')
-            df_img.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
-            print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_images))
-        else:
-            print("Could not crawl image: %s | %s of %s" (asin, j+1, number_images))
-        '''
-        #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
-        test = 0
-
-    bucket_name = "5c0ae2727a254b608a4ee55a15a05fb7"
-    folder_name = "mba-shirts"
-    file_path = "mba-pipeline/crawler/mba/data/test.jpg"
-    #upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", file_path , "mba-shirts/test.jpg")
-
-    
     test = 0
 
 if __name__ == '__main__':
