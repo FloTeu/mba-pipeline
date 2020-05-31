@@ -329,7 +329,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
 
 def update_reservation_logs(marketplace, asin, status, preemptible_code):
     reservationdate = datetime.datetime.now()
-    df_reservation = pd.DataFrame({"asin": [asin], "status": [status], "preemptible_code": [preemptible_code], "timestamp": [reservationdate]})
+    df_reservation = pd.DataFrame({"asin": [str(asin)], "timestamp": [reservationdate], "status": [str(status)], "pree_id": [str(preemptible_code)]})
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
     df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
