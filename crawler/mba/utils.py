@@ -139,7 +139,7 @@ def get_random_user_agent():
     'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
     'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/55.0.2883.87 Safari/537.36',
     #Firefox
-    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)',
+    'Mozilla/4.0 (compatible; MSIE 9.0; Windows NT 6.1)', # leaded 2. times to 503 (might remove)
     'Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; rv:11.0) like Gecko',
     'Mozilla/5.0 (compatible; MSIE 9.0; Windows NT 6.1; WOW64; Trident/5.0)',
     'Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) like Gecko',
@@ -168,10 +168,11 @@ def get_random_headers(marketplace):
         'cache-control': 'no-cache',
         'dnt': '1',
         'upgrade-insecure-requests': '1',
-        'user-agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36',
+        'user-agent': get_random_user_agent() #'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'
+        ,
         'sec-fetch-site': 'cross-site',
         'sec-fetch-mode': 'navigate',
         'sec-fetch-dest': 'document',
         'sec-fetch-user': '?1',
-        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7',}
+        'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'}
     return headers

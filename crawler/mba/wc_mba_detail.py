@@ -190,7 +190,7 @@ def get_product_detail_df(soup, asin, url_mba, marketplace):
 # global variable with proxie list and time since crawling starts 
 list_country_proxies = ["de", "dk", "pl", "fr", "ua", "us", "cz"]
 list_country_proxies = ["de", "dk", "pl"]
-proxy_list, country_list = utils.get_proxies_with_country(list_country_proxies, True)
+proxy_list, country_list = ["to_delete"], ["to_delete"]#utils.get_proxies_with_country(list_country_proxies, True)
 last_successfull_crawler = proxy_list[0]
 time_since_last_crawl = None
 df_successfull_proxies = None
@@ -200,7 +200,7 @@ test = 0
 def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
     time_start = time.time()
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
-    headers = utils.get_random_headers(marketplace)
+    
     
     # set global variables
     global proxy_list
@@ -218,7 +218,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
         del country_list[0]
         # if no proxie is left start to get new ones
         if len(proxy_list) == 0:
-            if df_successfull_proxies != None:
+            if type(df_successfull_proxies) != type(None):
                 suc_proxy_list, suc_country_list = df_successfull_proxies["proxy"].tolist(), df_successfull_proxies["country"].tolist()
             else:
                 suc_proxy_list, suc_country_list = [],[]
@@ -229,10 +229,10 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     def set_error_data(proxy, message):
         global df_successfull_proxies
         # add error if preveasly successfull proxy was used
-        if df_successfull_proxies != None and proxy in df_successfull_proxies["proxy"].tolist():
+        if type(df_successfull_proxies) != type(None) and proxy in df_successfull_proxies["proxy"].tolist():
             index = df_successfull_proxies[df_successfull_proxies["proxy"] == proxy].index.values[0]
             df_successfull_proxies.loc[index, "errorCount"]  = df_successfull_proxies.loc[index, "errorCount"] + 1
-            df_successfull_proxies.loc[index, "errors"]  = df_successfull_proxies.loc[index, "errors"].append(message)
+            df_successfull_proxies.loc[index, "errors"].append(message)
             
     while len(proxy_list) > 0:
         # if time break is reached the loop will be broken
@@ -242,6 +242,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             break
         
         if use_proxy:
+            reset_proxies_and_country_list()
             proxy = proxy_list[0]
             country = country_list[0]
         else:
@@ -257,6 +258,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             time.sleep(wait_seconds)
 
         try:
+            headers = utils.get_random_headers(marketplace)
             # try to get response
             if use_proxy:
                 response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
@@ -265,7 +267,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                 response = requests.get(url_product_asin, timeout=connection_timeout, headers=headers)
             if response.status_code == 200:
                 if "captcha" in response.text.lower():
-                    print("No Match: Got code 200, but captcha is requested. Try next proxy... (Country: %s)" % country)
+                    print("No Match: Got code 200, but captcha is requested. User agent: %s. Try next proxy... (Country: %s)" % (headers['user-agent'],country))
                     set_error_data(proxy, "captcha")
                     reset_proxies_and_country_list()
                     continue
@@ -275,8 +277,8 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                     time_since_last_crawl = time.time()
                     last_successfull_crawler = proxy
                     # save successfull proxy in dataframe
-                    if df_successfull_proxies == None:
-                        df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country_list], "successCount":[1],"errorCount": [0], "errors":[[]]})
+                    if type(df_successfull_proxies) == type(None):
+                        df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[1],"errorCount": [0], "errors":[[""]]})
                     else:
                         # if proxy already exists, success count should increase
                         if len(df_successfull_proxies[df_successfull_proxies["proxy"] == proxy]) != 0:
@@ -289,7 +291,12 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                     print("Match: Scrape successfull in %.2f seconds (Country: %s)" % ((time.time() - time_start), country))
                     return response
             else:
-                print("No Match: Status code: " + str(response.status_code) + " (Country: %s)" % country)
+                #TODO: If status code is 404, Product was probably removed because of violation of law
+                # Save that information
+                print("No Match: Status code: " + str(response.status_code) + ", user agent: %s (Country: %s)" % (headers['user-agent'], country))
+                if response.status_code == 404:
+                    print("Url not found. Product was probably removed")
+                    return 404
                 set_error_data(proxy, "Status code: " + str(response.status_code))
                 reset_proxies_and_country_list()
                 continue
@@ -343,9 +350,18 @@ def main(argv):
         if True:
             # try to get reponse with free proxies
             response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=10.0, time_break_sec=240, seconds_between_crawl=20)
-            global df_successfull_proxies
-            df_successfull_proxies.to_csv("data/successfull_proxies.csv")
+        
             assert response != None, "Could not get response within time break condition"
+
+            if response == 404:
+                crawlingdate = [datetime.datetime.now()]
+                df_product_details = pd.DataFrame(data={"asin":[asin],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":crawlingdate})
+                # transform date/timestamo columns to datetime objects
+                df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
+                df_product_details['upload_date'] = df_product_details['upload_date'].astype('datetime64')
+                df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+                print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
+                continue 
 
             # save product detail page locally
             with open("data/mba_detail_page.html", "w") as f:
@@ -365,6 +381,11 @@ def main(argv):
         df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
         df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
+
+    global df_successfull_proxies
+    if type(df_successfull_proxies) != type(None):
+        print(df_successfull_proxies.iloc[0])
+    #df_successfull_proxies.to_csv("data/successfull_proxies.csv")
 
     test = 0
 

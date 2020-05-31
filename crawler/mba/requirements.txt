@@ -1,0 +1,9 @@
+bs4 
+pandas
+numpy 
+pandas-gbq
+lxml
+google-cloud-storage
+google-cloud-bigquery
+proxy_requests
+dateparser
