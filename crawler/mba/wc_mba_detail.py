@@ -24,6 +24,7 @@ import os
 import time 
 from proxy_requests import ProxyRequests
 import dateparser
+import uuid
 
 def make_url_to_proxy_crawl_url(api_key, url_mba):
     url = quote_plus(url_mba)
@@ -82,8 +83,24 @@ def save_img(response, file_name):
         shutil.copyfileobj(response.raw, f) 
 
 def get_asin_product_detail_crawled(marketplace):
-    bq_client = bigquery.Client(project='mba-pipeline')
+    project_id = 'mba-pipeline'
+    reservationdate = datetime.datetime.now()
+    dataset_id = "preemptible_logs"
+    table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+    reservation_table_id = dataset_id + "." + table_id
+    bq_client = bigquery.Client(project=project_id)
     df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    if utils.does_table_exist(project_id, dataset_id, table_id):
+        # get reservation logs
+        df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
+        df_reservation_status = df_reservation.drop_duplicates("asin")
+        # get list of asins that are currently blocked by preemptible instances
+        asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
+        # filter asins for those which are not blocked
+        matching_asins = df_product_details["asin"].isin(asins_blocked)
+        print("%s asins are currently blocked and will not be crawled" % str(len([i for i in matching_asins if i == True])))
+        df_product_details = df_product_details[~matching_asins]
+    
     return df_product_details
 
 def get_product_information_de(list_product_information):
@@ -278,7 +295,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                     last_successfull_crawler = proxy
                     # save successfull proxy in dataframe
                     if type(df_successfull_proxies) == type(None):
-                        df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[1],"errorCount": [0], "errors":[[""]]})
+                        df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[1],"errorCount": [0], "errors":[[]]})
                     else:
                         # if proxy already exists, success count should increase
                         if len(df_successfull_proxies[df_successfull_proxies["proxy"] == proxy]) != 0:
@@ -310,11 +327,21 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     # return None if no response could be crawled
     return None
 
+def update_reservation_logs(marketplace, asin, status, preemptible_code):
+    reservationdate = datetime.datetime.now()
+    df_reservation = pd.DataFrame({"asin": [asin], "status": [status], "preemptible_code": [preemptible_code], "timestamp": [reservationdate]})
+    df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
+    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('api_key', help='API key of proxycrawl', type=str)
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+    parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
+    parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
+    parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
+    parser.add_argument('--preemptible_code', default="0", type=str, help='Identifier of instance. Default 0 which leads to GUID.')
 
     print(os.getcwd())
     print(argv)
@@ -327,20 +354,33 @@ def main(argv):
     args = parser.parse_args(argv)
     marketplace = args.marketplace
     number_products = args.number_products
+    connection_timeout = args.connection_timeout
+    time_break_sec = args.time_break_sec
+    seconds_between_crawl = args.seconds_between_crawl
+    preemptible_code = args.preemptible_code
     
+    if preemptible_code == "0":
+        preemptible_code = uuid.uuid4().hex
+
     # get all arguments
     args = parser.parse_args()
 
-    # get already crawled asin list
-    #asin_crawled_list = get_asin_images_crawled("mba_de.products_images")
-
+    # get asins which are not already crawled
     df_product_details = get_asin_product_detail_crawled(marketplace)
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
     df_product_details["url_product_asin"] =  df_product_details.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
-
+    
     # if number_images is equal to 0, evry image should be crawled
     if number_products == 0:
         number_products = len(df_product_details)
+
+    reservationdate = datetime.datetime.now()
+    df_reservation = df_product_details.iloc[0:number_products][["asin"]].copy()
+    df_reservation['timestamp'] = reservationdate
+    df_reservation['status'] = "blocked"
+    df_reservation['pree_id'] = preemptible_code
+    df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
+    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
     for j, product_row in df_product_details.iloc[0:number_products].iterrows():
         asin = product_row["asin"]
@@ -349,7 +389,7 @@ def main(argv):
     
         if True:
             # try to get reponse with free proxies
-            response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=10.0, time_break_sec=240, seconds_between_crawl=20)
+            response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=connection_timeout, time_break_sec=time_break_sec, seconds_between_crawl=seconds_between_crawl)
         
             assert response != None, "Could not get response within time break condition"
 
@@ -360,6 +400,7 @@ def main(argv):
                 df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
                 df_product_details['upload_date'] = df_product_details['upload_date'].astype('datetime64')
                 df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+                update_reservation_logs(marketplace, asin, "404", preemptible_code)
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
 
@@ -380,6 +421,7 @@ def main(argv):
 
         df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
         df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+        update_reservation_logs(marketplace, asin, "success", preemptible_code)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
     global df_successfull_proxies

@@ -18,6 +18,12 @@ def get_df_hobbies(language):
         df = pandas_gbq.read_gbq("SELECT * FROM keywords.en_hobbies", project_id="mba-pipeline")
     return df
 
+def does_table_exist(project_id, dataset_id, table_id):
+  try:
+    df = client.query("SELECT * FROM %s.%s.%s" %(project_id, dataset_id, table_id)).to_dataframe().drop_duplicates()
+    return True
+  except Exception as e:
+    return False
 
 def upload_blob(bucket_name, source_file_name, destination_blob_name):
     """Uploads a file to the bucket."""
