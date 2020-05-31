@@ -197,7 +197,7 @@ df_successfull_proxies = None
 #df_successfull_proxies = pd.DataFrame({"proxy": ["213.213"], "country": ["DE"], "successCount":[1], "errorCount": [0], "errors":[[]]})
 
 test = 0
-def get_response(marketplace, url_product_asin, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
+def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
     time_start = time.time()
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
     headers = utils.get_random_headers(marketplace)
@@ -240,9 +240,13 @@ def get_response(marketplace, url_product_asin, connection_timeout=5.0,time_brea
         if elapsed_time > time_break_sec:
             print("Time break condition was reached. Response is empty")
             break
-
-        proxy = proxy_list[0]
-        country = country_list[0]
+        
+        if use_proxy:
+            proxy = proxy_list[0]
+            country = country_list[0]
+        else:
+            proxy = "gcp_proxy"
+            country = "gcp_country"
         print("Proxy: %s is used | %s left" % (proxy, len(proxy_list)))
         proxies={"http": 'http://' + proxy, "https": 'https://' + proxy}
         
@@ -254,7 +258,11 @@ def get_response(marketplace, url_product_asin, connection_timeout=5.0,time_brea
 
         try:
             # try to get response
-            response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
+            if use_proxy:
+                response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
+            # use gcp ip instead of proxy
+            else:
+                response = requests.get(url_product_asin, timeout=connection_timeout, headers=headers)
             if response.status_code == 200:
                 if "captcha" in response.text.lower():
                     print("No Match: Got code 200, but captcha is requested. Try next proxy... (Country: %s)" % country)
@@ -331,10 +339,10 @@ def main(argv):
         asin = product_row["asin"]
         url_product = product_row["url_product"]
         url_product_asin = product_row["url_product_asin"]
-
+    
         if True:
             # try to get reponse with free proxies
-            response = get_response(marketplace, url_product_asin, connection_timeout=10.0, time_break_sec=240, seconds_between_crawl=20)
+            response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=10.0, time_break_sec=240, seconds_between_crawl=20)
             global df_successfull_proxies
             df_successfull_proxies.to_csv("data/successfull_proxies.csv")
             assert response != None, "Could not get response within time break condition"
