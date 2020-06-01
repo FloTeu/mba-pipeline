@@ -335,7 +335,6 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code):
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
-    parser.add_argument('api_key', help='API key of proxycrawl', type=str)
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
