@@ -7,6 +7,19 @@ import numpy as np
 import pandas as pd
 from google.cloud import bigquery
 import datetime
+import utils
+
+
+def get_asin_product_detail_crawled(marketplace):
+    project_id = 'mba-pipeline'
+    reservationdate = datetime.datetime.now()
+    dataset_id = "preemptible_logs"
+    table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+    reservation_table_id = dataset_id + "." + table_id
+    bq_client = bigquery.Client(project=project_id)
+    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    
+    return df_product_details
 
 def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name):
     startup_script = '''#!/bin/sh
@@ -85,7 +98,8 @@ def update_preemptible_logs(pree_id, marketplace, status):
     df_reservation_status_blocked['timestamp'] = timestamp
     df_reservation_status_blocked['timestamp'] = df_reservation_status_blocked['timestamp'].astype('datetime64')
     df_reservation_status_blocked['status'] = status
-    df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+    if len(df_reservation_status_blocked) > 0:
+        df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
 
 def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
@@ -100,6 +114,14 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         bashCommand = get_bash_create_pre_instance(pre_instance_name,zone)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
+
+def delete_all_instance(number_running_instances, marketplace, zone):
+    print("Start to delete all preemptible instances")
+    for i in range(number_running_instances):
+        pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
+        bashCommand = get_bash_delete_pre_instance(pre_instance_name, zone)
+        stream = os.popen(bashCommand)
+        output = stream.read()
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -137,6 +159,15 @@ def main(argv):
             time.sleep(60 * 5)
         # else preemptible logs need to be updated in case of failure and new instance need to be started
         else:
+            # check there is still data to crawl
+            df_product_details = get_asin_product_detail_crawled(marketplace)
+            print("There are %s asins to crawl" % len(df_product_details))
+            if len(df_product_details) == 0:
+                delete_all_instance(number_running_instances, marketplace, zone)
+                print("Crawling is finished")
+
+            # if no data exists delete all preemptible instances
+
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
             for id in not_running_threat_ids:
                 pree_id = "thread-" + str(id)

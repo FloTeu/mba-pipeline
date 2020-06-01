@@ -333,8 +333,8 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code):
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
     df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
-def stop_instance(pre_instance_name):
-    bashCommand = "gcloud compute instances stop " + pre_instance_name
+def stop_instance(pre_instance_name, zone):
+    bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
     stream = os.popen(bashCommand)
     output = stream.read()
 
@@ -364,7 +364,8 @@ def main(argv):
     seconds_between_crawl = args.seconds_between_crawl
     preemptible_code = args.preemptible_code
     pre_instance_name = args.pre_instance_name
-    
+    zone = utils.get_zone_of_marketplace(marketplace)
+
     if preemptible_code == "0":
         preemptible_code = uuid.uuid4().hex
 
@@ -400,7 +401,7 @@ def main(argv):
             if response == None:
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "":
-                    stop_instance(pre_instance_name)
+                    stop_instance(pre_instance_name, zone)
                 else:
                     assert response != None, "Could not get response within time break condition"
 
@@ -442,7 +443,7 @@ def main(argv):
     
     # if script is called by preemptible instance it should be deleted by itself
     if pre_instance_name != "":
-        stop_instance(pre_instance_name)
+        stop_instance(pre_instance_name, zone)
 
     test = 0
 

@@ -182,3 +182,12 @@ def get_random_headers(marketplace):
         'sec-fetch-user': '?1',
         'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'}
     return headers
+
+def get_zone_of_marketplace(marketplace):
+    zone = ""
+    if marketplace == "de":
+        zone = "europe-west3-c"
+    # TODO implement other cases
+    else:
+        print("Marketplace is not fully implemented")
+    return zone
