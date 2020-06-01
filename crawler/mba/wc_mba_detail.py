@@ -340,7 +340,8 @@ def main(argv):
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
     parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
-    parser.add_argument('--preemptible_code', default="0", type=str, help='Identifier of instance. Default 0 which leads to GUID.')
+    parser.add_argument('--preemptible_code', default="0", type=str, help='Identifier of instance for pree logs. Default 0 which leads to GUID.')
+    parser.add_argument('--pre_instance_name', default="", type=str, help='Name of instance. Important: if set, script will stop instance after successfull operation. Default "".')
 
     print(os.getcwd())
     print(argv)
@@ -357,6 +358,7 @@ def main(argv):
     time_break_sec = args.time_break_sec
     seconds_between_crawl = args.seconds_between_crawl
     preemptible_code = args.preemptible_code
+    pre_instance_name = args.pre_instance_name
     
     if preemptible_code == "0":
         preemptible_code = uuid.uuid4().hex
@@ -427,6 +429,12 @@ def main(argv):
     if type(df_successfull_proxies) != type(None):
         print(df_successfull_proxies.iloc[0])
     #df_successfull_proxies.to_csv("data/successfull_proxies.csv")
+    
+    # if script is called by preemptible instance it should be deleted by itself
+    if pre_instance_name != "":
+        bashCommand = "gcloud compute instances stop " + pre_instance_name
+        stream = os.popen(bashCommand)
+        output = stream.read()
 
     test = 0
 
