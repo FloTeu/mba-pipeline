@@ -136,6 +136,8 @@ def main(argv):
     if ".py" in argv[0]:
         argv = argv[1:len(argv)]
 
+    time_start = time.time()
+
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
@@ -145,11 +147,7 @@ def main(argv):
     time_break_sec = args.time_break_sec
     seconds_between_crawl = args.seconds_between_crawl
 
-    if marketplace == "de":
-        zone = "europe-west3-c"
-    # TODO implement other cases
-    else:
-        print("Marketplace is not fully implemented")
+    zone = utils.get_zone_of_marketplace(marketplace)
 
     while True:
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, zone)
@@ -165,6 +163,7 @@ def main(argv):
             if len(df_product_details) == 0:
                 delete_all_instance(number_running_instances, marketplace, zone)
                 print("Crawling is finished")
+                print("Elapsed time: %.2f seconds" % (time.time() - time_start))
 
             # if no data exists delete all preemptible instances
 
