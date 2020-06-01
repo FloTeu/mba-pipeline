@@ -89,6 +89,7 @@ def update_preemptible_logs(pree_id, marketplace, status):
 
 def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
+    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name)
     # get terminated instances
     currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, zone)
     # if instance is terminated it should be restarted and not recreated
@@ -96,7 +97,6 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         bashCommand = get_bash_start_pre_instance(pre_instance_name,zone)
     # if instance does not exists it should be created
     else:
-        create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name)
         bashCommand = get_bash_create_pre_instance(pre_instance_name,zone)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
