@@ -164,6 +164,7 @@ def main(argv):
                 delete_all_instance(number_running_instances, marketplace, zone)
                 print("Crawling is finished")
                 print("Elapsed time: %.2f seconds" % (time.time() - time_start))
+                break
 
             # if no data exists delete all preemptible instances
 
