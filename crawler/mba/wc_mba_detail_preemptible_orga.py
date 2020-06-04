@@ -28,6 +28,7 @@ git clone https://github.com/Flo95x/mba-pipeline.git
 pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt 
 cd mba-pipeline/crawler/mba/
 sudo chmod 777 data/mba_detail_page.html
+sudo chmod 777 data/*
 /usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail.py {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {}
     '''.format(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name)
     # save product detail page locally
@@ -160,13 +161,12 @@ def main(argv):
             # check there is still data to crawl
             df_product_details = get_asin_product_detail_crawled(marketplace)
             print("There are %s asins to crawl" % len(df_product_details))
+            # if no data to crawl exists delete all preemptible instances
             if len(df_product_details) == 0:
                 delete_all_instance(number_running_instances, marketplace, zone)
                 print("Crawling is finished")
                 print("Elapsed time: %.2f seconds" % (time.time() - time_start))
                 break
-
-            # if no data exists delete all preemptible instances
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
             for id in not_running_threat_ids:
