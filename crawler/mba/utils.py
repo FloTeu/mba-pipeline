@@ -191,3 +191,49 @@ def get_zone_of_marketplace(marketplace):
     else:
         print("Marketplace is not fully implemented")
     return zone
+
+def get_div_in_html(html_str, div_class_or_id):
+    html_for_bs = ""
+    count_div = 0
+    start_saving_html = False
+    html_tag = ""
+    start_get_tag = False
+    html_tag_finished = ""
+    
+    assert not "captcha" in html_str.lower(), "Captcha is requested. Crawling will be stoped"
+
+    for char in html_str:
+        
+        if div_class_or_id in html_tag and char == ">":
+            start_saving_html = True
+        
+        html_tag = html_tag + char
+        if char == "<":
+            start_get_tag = True
+        if char == ">":
+            html_tag_finished = html_tag
+            start_get_tag = False
+            html_tag = ""
+        
+        # if div is opening div count is increasing by one
+        if "<div" in html_tag_finished and start_saving_html:
+            count_div += 1
+        # if div is opening div count is decreasing by one
+        if "</div" in html_tag_finished and start_saving_html:
+            count_div -= 1
+        # as long as initial parent div is not closed we fill out html str  
+        if start_saving_html and html_for_bs == "":
+            html_for_bs += html_tag_finished
+        elif start_saving_html:
+            html_for_bs += char
+
+        # Breaking condition if closing div is reached
+        if start_saving_html and count_div == 0:
+            html_for_bs = html_for_bs[1:len(html_for_bs)]
+            break
+
+        html_tag_finished = ""
+    
+    assert html_for_bs != "", "HTML does not contains: " + div_class_or_id
+
+    return html_for_bs

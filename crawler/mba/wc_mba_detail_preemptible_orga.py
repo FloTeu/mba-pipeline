@@ -27,8 +27,9 @@ cd home/
 git clone https://github.com/Flo95x/mba-pipeline.git
 pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt 
 cd mba-pipeline/crawler/mba/
+sudo mkdir data
 sudo chmod 777 data/mba_detail_page.html
-sudo chmod 777 data/*
+sudo chmod 777 data/
 /usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail.py {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {}
     '''.format(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name)
     # save product detail page locally
@@ -95,7 +96,7 @@ def update_preemptible_logs(pree_id, marketplace, status):
     df_reservation_status = df_reservation.drop_duplicates("asin")
     # get list of asins that are currently blocked by preemptible instances
     df_reservation_status_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]
-    print("%s asins where not correctly crawled by %s" %(len(df_reservation_status_blocked), pree_id))
+    print("%s asins were not correctly crawled by %s" %(len(df_reservation_status_blocked), pree_id))
     df_reservation_status_blocked['timestamp'] = timestamp
     df_reservation_status_blocked['timestamp'] = df_reservation_status_blocked['timestamp'].astype('datetime64')
     df_reservation_status_blocked['status'] = status
@@ -165,7 +166,7 @@ def main(argv):
             if len(df_product_details) == 0:
                 delete_all_instance(number_running_instances, marketplace, zone)
                 print("Crawling is finished")
-                print("Elapsed time: %.2f seconds" % (time.time() - time_start))
+                print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
                 break
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]

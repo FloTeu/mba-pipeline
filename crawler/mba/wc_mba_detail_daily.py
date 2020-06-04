@@ -26,24 +26,16 @@ from proxy_requests import ProxyRequests
 import dateparser
 import uuid
 
-def make_url_to_proxy_crawl_url(api_key, url_mba):
-    url = quote_plus(url_mba)
-    url_proxycrawl = 'https://api.proxycrawl.com/?token='+api_key+'&url=' + url
-    return url_proxycrawl
-
-def save_img(response, file_name):
-    with open("mba-pipeline/crawler/mba/data/"+ file_name +".jpg", 'wb') as f:
-        response.raw.decode_content = True
-        shutil.copyfileobj(response.raw, f) 
-
-def get_asin_product_detail_crawled(marketplace):
+def get_asin_product_detail_daily_crawled(marketplace):
     project_id = 'mba-pipeline'
     reservationdate = datetime.datetime.now()
     dataset_id = "preemptible_logs"
-    table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+    table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
     reservation_table_id = dataset_id + "." + table_id
     bq_client = bigquery.Client(project=project_id)
-    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    # TODO get those which are not already crawled today
+    # TODO remove asins that return a 404 (not found) error
+    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details_daily t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
     if utils.does_table_exist(project_id, dataset_id, table_id):
         # get reservation logs
         df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
@@ -58,27 +50,25 @@ def get_asin_product_detail_crawled(marketplace):
     return df_product_details
 
 def get_product_information_de(list_product_information):
-    weight = [""]
-    upload_date = [""]
+    customer_recession_score_mean = [None]
     customer_recession_score = [""]
-    customer_recession_count = [""]
+    customer_recession_count = [None]
     mba_bsr_str = [""]
+    mba_bsr = [None]
     array_mba_bsr = []
     array_mba_bsr_categorie = []
 
     for info in list_product_information:
         info_text = info.get_text().lower()
-        if "gewicht" in info_text or "weight" in info_text:
-            weight = [info.get_text()]
-        if "seit" in info_text or "available" in info_text:
-            upload_date = [info.get_text()]
         if "rezension" in info_text or "review" in info_text:
             try:
                 customer_recession_score = [info.find("span", class_="a-declarative").find("a").find("i").get_text()]
                 customer_recession_count = [int(info.find("span", class_="a-size-small").find("a").get_text().split(" ")[0])]
+                customer_recession_score_mean = [float(customer_recession_score.split(" von")[0].replace(",","."))]
             except:
                 customer_recession_score = [""]
                 customer_recession_count = [0]
+                customer_recession_score_mean = [0.0]
         try:
             if info["id"] == "SalesRank":
                 mba_bsr_str = [info.get_text().replace("\n", "")]
@@ -89,11 +79,11 @@ def get_product_information_de(list_product_information):
                     array_mba_bsr.append(bsr)
                     bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
                     array_mba_bsr_categorie.append(bsr_categorie)
-
+                mba_bsr = [int(bsr_iterator[0].split("in")[0].replace(".", ""))]
         except:
             pass
 
-    return weight, upload_date, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie
+    return customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie
 
 def get_product_information(marketplace, list_product_information):
     if marketplace == "de":
@@ -102,59 +92,25 @@ def get_product_information(marketplace, list_product_information):
         assert False, "Marketplace not known"
 
 
-def get_product_detail_df(soup, asin, url_mba, marketplace):
-    product_feature = soup.find("div", id="feature-bullets")
-    product_description = soup.find("div", id="productDescription_feature_div")
+def get_product_detail_daily_df(soup, asin, url_mba, marketplace):
     product_information = soup.find("div", id="detail-bullets_feature_div")
     
     # get all headline infos 
-    title = [soup.find("span", id="productTitle").get_text().replace("\n","").replace("                                                                                                                                                        ","").replace("                                                                                                                        ", "")]
-    brand = [soup.find("a", id="bylineInfo").get_text()]
-    url_brand = ["/".join(url_mba.split("/")[0:3]) + soup.find("a", id="bylineInfo")["href"]]
-    price = [soup.find("span", id="priceblock_ourprice").get_text()]
-
-    array_fit_types = []
-    div_fit_types = soup.find("div", id="variation_fit_type").find_all("span", class_="a-size-base")
-    # found more than one fit type
-    if len(div_fit_types) > 0:
-        for fit_type in div_fit_types:
-            array_fit_types.append(fit_type.get_text())
-    else:
-        array_fit_types.append(soup.find("div", id="variation_fit_type").find("span").get_text())
-
-
-    array_color_names = []
-    span_color_names = soup.find("div", id="variation_color_name").find_all("span", class_="a-declarative")
-    if len(span_color_names) > 0:
-        for color_name in span_color_names:
-            array_color_names.append(color_name.find("img")["alt"])
-    else:
-        array_color_names.append(soup.find("div", id="variation_color_name").find("span").get_text())
-    color_count = [len(array_color_names)]
-
-    array_product_features = []
-    for feature in product_feature.find("ul").find_all("li"):
-        array_product_features.append(feature.get_text().replace("\n","").replace("\t",""))
-
-    # get product description
+    price_str = [soup.find("span", id="priceblock_ourprice").get_text()]
     try:
-        product_description = [product_description.find("div", id="productDescription").get_text().replace("\n", "")]
+        price = float(price_str[0].split("\xa0")[0].replace(",","."))
     except:
-        product_description = [""]
-
+        price = 0.0
     # get all product information
     list_product_information = product_information.find("ul").find_all("li")
-    weight, upload_date_str, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+    customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
     
-    # try to get real upload date
-    upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]
-
     crawlingdate = [datetime.datetime.now()]
 
-    df_products_details = pd.DataFrame(data={"asin":[asin],"title":title,"brand":brand,"url_brand":url_brand,"price":price,"fit_types":[array_fit_types],"color_names":[array_color_names],"color_count":color_count,"product_features":[array_product_features],"description":product_description,"weight": weight,"upload_date_str":upload_date_str,"upload_date": upload_date,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count,"mba_bsr_str": mba_bsr_str, "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp":crawlingdate})
+    product_information_str = ",".join([i.text for i in list_product_information])
+    df_products_details = pd.DataFrame(data={"asin":[asin],"price":price,"price_str":price_str,"bsr":mba_bsr,"bsr_str":mba_bsr_str, "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":customer_recession_score_mean,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count, "timestamp":crawlingdate, "product_information_html":product_information_str})
     # transform date/timestamo columns to datetime objects
     df_products_details['timestamp'] = df_products_details['timestamp'].astype('datetime64')
-    df_products_details['upload_date'] = df_products_details['upload_date'].astype('datetime64')
 
     return df_products_details
 
@@ -281,7 +237,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     # return None if no response could be crawled
     return None
 
-def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address):
+def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, bsr, price):
     global df_successfull_proxies
     error_str = ""
     if type(df_successfull_proxies) != type(None):
@@ -289,7 +245,7 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
         error_str = "Error count: " + str(df_successfull_proxies.iloc[0]["errorCount"]) + " errors: " + ",".join(df_successfull_proxies.iloc[0]["errors"])
 
     reservationdate = datetime.datetime.now()
-    df_reservation = pd.DataFrame({"asin": [str(asin)], "timestamp": [reservationdate], "status": [str(status)], "pree_id": [str(preemptible_code)], "ip_address":[ip_address], "error_log": [error_str]})
+    df_reservation = pd.DataFrame({"asin": [str(asin)], "status": [str(status)], "pree_id": [str(preemptible_code)], "ip_address":[ip_address], "error_log": [error_str], "timestamp": [reservationdate], "bsr":[bsr], "price":[price]})
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
     df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
@@ -303,6 +259,19 @@ def get_extrenal_ip(pre_instance_name, zone):
     stream = os.popen(bashCommand)
     ip_address = stream.read()
     return ip_address.replace("\n", "")
+
+def make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace):
+    reservationdate = datetime.datetime.now()
+    df_reservation = df_product_details_tocrawl.iloc[0:number_products][["asin"]].copy()
+    df_reservation['status'] = "blocked"
+    df_reservation['pree_id'] = preemptible_code
+    df_reservation['ip_address'] = ip_address
+    df_reservation['error_log'] = ""
+    df_reservation['timestamp'] = reservationdate
+    df_reservation['bsr'] = ""
+    df_reservation['price'] = ""
+    df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
+    df_reservation.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -340,7 +309,7 @@ def main(argv):
     args = parser.parse_args()
 
     # get asins which are not already crawled
-    df_product_details_tocrawl = get_asin_product_detail_crawled(marketplace)
+    df_product_details_tocrawl = get_asin_product_detail_daily_crawled(marketplace)
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
@@ -353,15 +322,7 @@ def main(argv):
     if number_products == 0:
         number_products = len(df_product_details_tocrawl)
 
-    reservationdate = datetime.datetime.now()
-    df_reservation = df_product_details_tocrawl.iloc[0:number_products][["asin"]].copy()
-    df_reservation['status'] = "blocked"
-    df_reservation['pree_id'] = preemptible_code
-    df_reservation['ip_address'] = ip_address
-    df_reservation['error_log'] = ""
-    df_reservation['timestamp'] = reservationdate
-    df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
-    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+    make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace)
 
     for j, product_row in df_product_details_tocrawl.iloc[0:number_products].iterrows():
         asin = product_row["asin"]
@@ -374,40 +335,43 @@ def main(argv):
         
             if response == None:
                 # if script is called by preemptible instance it should be deleted by itself
-                if pre_instance_name != "":
+                if pre_instance_name != "" and "pre" in pre_instance_name:
                     stop_instance(pre_instance_name, zone)
                 else:
                     assert response != None, "Could not get response within time break condition"
 
             if response == 404:
                 crawlingdate = [datetime.datetime.now()]
-                df_product_details = pd.DataFrame(data={"asin":[asin],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":crawlingdate})
+                df_product_details = pd.DataFrame(data={"asin":[asin],"price":[404.0],"price_str":["404"],"bsr":[404],"bsr_str":["404"], "array_bsr": [["404"]], "array_bsr_categorie": [["404"]],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":crawlingdate})
                 # transform date/timestamo columns to datetime objects
                 df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
-                df_product_details['upload_date'] = df_product_details['upload_date'].astype('datetime64')
-                df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address)
+                df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, "404", "404")
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
 
-            # save product detail page locally
-            with open("data/mba_detail_page.html", "w") as f:
-                f.write(response.text)
-
             # transform html response to soup format
             soup = BeautifulSoup(utils.get_div_in_html(response.text, 'id="dp-container"'), 'html.parser')
-            
-            # save html in storage
-            utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/mba_detail_page.html", "logs/"+marketplace+"/product_detail/"+str(asin)+".html")
+
         else:
             with open("data/mba_detail_page.html") as f:
                 html_str = f.read()
                 asin = "B086D9RL8Q"
                 soup = BeautifulSoup(utils.get_div_in_html(html_str, 'id="dp-container"'), 'html.parser') 
 
-        df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
-        df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address)
+        df_product_details = get_product_detail_daily_df(soup, asin, url_product_asin, marketplace)
+        
+        # save product information string locally
+        with open("data/product_information.txt", "w") as f:
+            f.write(df_product_details.loc[0,"product_information_html"])
+            df_product_details = df_product_details.drop(['product_information_html'], axis=1)
+            
+        # save product information in storage
+        timestamp = datetime.datetime.now()
+        utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/product_information.txt", "logs/"+marketplace+"/product_information_daily/"+str(asin)+"_%s_%s_%s.txt"%(timestamp.year, timestamp.month, timestamp.day))
+  
+        df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, str(df_product_details.loc[0,"bsr"]), str(df_product_details.loc[0,"price_str"]))
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
     global df_successfull_proxies
