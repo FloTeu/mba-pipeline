@@ -178,8 +178,8 @@ def main(argv):
                 update_preemptible_logs(pree_id, marketplace, "failure")
                 # start instance and startupscript
                 start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone)
-                # before next instance starts 10 seconds should the script wait
-                time.sleep(10)
+                # before next instance starts 15 seconds should the script wait
+                time.sleep(15)
 
 if __name__ == '__main__':
     main(sys.argv)
