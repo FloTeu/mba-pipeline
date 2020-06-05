@@ -35,7 +35,7 @@ def get_asin_product_detail_daily_crawled(marketplace):
     bq_client = bigquery.Client(project=project_id)
     # TODO get those which are not already crawled today
     # TODO remove asins that return a 404 (not found) error
-    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details_daily t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
     if utils.does_table_exist(project_id, dataset_id, table_id):
         # get reservation logs
         df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
@@ -50,13 +50,13 @@ def get_asin_product_detail_daily_crawled(marketplace):
     return df_product_details
 
 def get_product_information_de(list_product_information):
-    customer_recession_score_mean = [None]
+    customer_recession_score_mean = [0.0]
     customer_recession_score = [""]
-    customer_recession_count = [None]
+    customer_recession_count = [0]
     mba_bsr_str = [""]
-    mba_bsr = [None]
-    array_mba_bsr = []
-    array_mba_bsr_categorie = []
+    mba_bsr = [0]
+    array_mba_bsr = [""]
+    array_mba_bsr_categorie = [""]
 
     for info in list_product_information:
         info_text = info.get_text().lower()
@@ -107,7 +107,7 @@ def get_product_detail_daily_df(soup, asin, url_mba, marketplace):
     
     crawlingdate = [datetime.datetime.now()]
 
-    product_information_str = ",".join([i.text for i in list_product_information])
+    product_information_str = str(product_information) + ",PRICE:" + price_str[0]
     df_products_details = pd.DataFrame(data={"asin":[asin],"price":price,"price_str":price_str,"bsr":mba_bsr,"bsr_str":mba_bsr_str, "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":customer_recession_score_mean,"customer_review_score": customer_recession_score,"customer_review_count": customer_recession_count, "timestamp":crawlingdate, "product_information_html":product_information_str})
     # transform date/timestamo columns to datetime objects
     df_products_details['timestamp'] = df_products_details['timestamp'].astype('datetime64')
@@ -136,6 +136,9 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     global time_since_last_crawl
     global df_successfull_proxies
 
+    if not use_proxy:
+        last_successfull_crawler = "gcp_proxy"
+
     def reset_proxies_and_country_list():
         global proxy_list
         global country_list    
@@ -153,10 +156,12 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             proxy_list = suc_proxy_list + new_proxy_list
             country_list = suc_country_list + new_country_list
     
-    def set_error_data(proxy, message):
+    def set_error_data(proxy, country, message):
         global df_successfull_proxies
+        if type(df_successfull_proxies) == type(None):
+            df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[0],"errorCount": [0], "errors":[[]]})
         # add error if preveasly successfull proxy was used
-        if type(df_successfull_proxies) != type(None) and proxy in df_successfull_proxies["proxy"].tolist():
+        if proxy in df_successfull_proxies["proxy"].tolist():
             index = df_successfull_proxies[df_successfull_proxies["proxy"] == proxy].index.values[0]
             df_successfull_proxies.loc[index, "errorCount"]  = df_successfull_proxies.loc[index, "errorCount"] + 1
             df_successfull_proxies.loc[index, "errors"].append(message)
@@ -186,6 +191,9 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
 
         try:
             headers = utils.get_random_headers(marketplace)
+            # if no proxy server is used, the script should wait after each response try
+            if not use_proxy:
+                time_since_last_crawl = time.time()
             # try to get response
             if use_proxy:
                 response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
@@ -195,14 +203,16 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             if response.status_code == 200:
                 if "captcha" in response.text.lower():
                     print("No Match: Got code 200, but captcha is requested. User agent: %s. Try next proxy... (Country: %s)" % (headers['user-agent'],country))
-                    set_error_data(proxy, "captcha")
-                    reset_proxies_and_country_list()
+                    set_error_data(proxy, country, "captcha")
+                    if use_proxy:
+                        reset_proxies_and_country_list()
                     continue
                 # successfull crawl
                 else:
                     # start global time variable to check duration between successfull crawling with same proxie
-                    time_since_last_crawl = time.time()
                     last_successfull_crawler = proxy
+                    if use_proxy:
+                        time_since_last_crawl = time.time()
                     # save successfull proxy in dataframe
                     if type(df_successfull_proxies) == type(None):
                         df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[1],"errorCount": [0], "errors":[[]]})
@@ -215,23 +225,24 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                         else:
                             df_successfull_proxies.append({"proxy": [proxy], "country": [country_list], "successCount":[1], "errorCount": [0], "errors":[[]]}, ignore_index=None)
                     
-                    print("Match: Scrape successfull in %.2f seconds (Country: %s)" % ((time.time() - time_start), country))
+                    print("Match: Scrape successfull in %.2f minutes (Country: %s)" % ((time.time() - time_start)/60, country))
                     return response
             else:
-                #TODO: If status code is 404, Product was probably removed because of violation of law
                 # Save that information
                 print("No Match: Status code: " + str(response.status_code) + ", user agent: %s (Country: %s)" % (headers['user-agent'], country))
                 if response.status_code == 404:
                     print("Url not found. Product was probably removed")
                     return 404
-                set_error_data(proxy, "Status code: " + str(response.status_code))
-                reset_proxies_and_country_list()
+                set_error_data(proxy, country, "Status code: " + str(response.status_code))
+                if use_proxy:
+                    reset_proxies_and_country_list()
                 continue
         except Exception as e:
             print("No Match: got exception: %s (Country: %s)" % (type(e).__name__, country))
             #print(str(e))
-            set_error_data(proxy, "Exception: " + str((type(e).__name__)))
-            reset_proxies_and_country_list()
+            set_error_data(proxy, country, "Exception: " + str((type(e).__name__)))
+            if use_proxy:
+                reset_proxies_and_country_list()
             continue
 
     # return None if no response could be crawled
@@ -241,13 +252,12 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
     global df_successfull_proxies
     error_str = ""
     if type(df_successfull_proxies) != type(None):
-        print(df_successfull_proxies.iloc[0])
         error_str = "Error count: " + str(df_successfull_proxies.iloc[0]["errorCount"]) + " errors: " + ",".join(df_successfull_proxies.iloc[0]["errors"])
 
     reservationdate = datetime.datetime.now()
     df_reservation = pd.DataFrame({"asin": [str(asin)], "status": [str(status)], "pree_id": [str(preemptible_code)], "ip_address":[ip_address], "error_log": [error_str], "timestamp": [reservationdate], "bsr":[bsr], "price":[price]})
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
-    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+    df_reservation.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
 
 def stop_instance(pre_instance_name, zone):
     bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
@@ -368,7 +378,7 @@ def main(argv):
             
         # save product information in storage
         timestamp = datetime.datetime.now()
-        utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/product_information.txt", "logs/"+marketplace+"/product_information_daily/"+str(asin)+"_%s_%s_%s.txt"%(timestamp.year, timestamp.month, timestamp.day))
+        utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/product_information.txt", "logs/"+marketplace+"/product_information_daily/%s_%s_%s_"%(timestamp.year, timestamp.month, timestamp.day)+str(asin)+".txt" )
   
         df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
         update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, str(df_product_details.loc[0,"bsr"]), str(df_product_details.loc[0,"price_str"]))
@@ -377,7 +387,6 @@ def main(argv):
     global df_successfull_proxies
     if type(df_successfull_proxies) != type(None):
         print(df_successfull_proxies.iloc[0])
-    #df_successfull_proxies.to_csv("data/successfull_proxies.csv")
     
     # if script is called by preemptible instance it should be deleted by itself
     if pre_instance_name != "" and "pre" in pre_instance_name:

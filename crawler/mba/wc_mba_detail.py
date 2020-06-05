@@ -180,6 +180,9 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     global time_since_last_crawl
     global df_successfull_proxies
 
+    if not use_proxy:
+        last_successfull_crawler = "gcp_proxy"
+
     def reset_proxies_and_country_list():
         global proxy_list
         global country_list    
@@ -197,10 +200,12 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             proxy_list = suc_proxy_list + new_proxy_list
             country_list = suc_country_list + new_country_list
     
-    def set_error_data(proxy, message):
+    def set_error_data(proxy, country, message):
         global df_successfull_proxies
+        if type(df_successfull_proxies) == type(None):
+            df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[0],"errorCount": [0], "errors":[[]]})
         # add error if preveasly successfull proxy was used
-        if type(df_successfull_proxies) != type(None) and proxy in df_successfull_proxies["proxy"].tolist():
+        if proxy in df_successfull_proxies["proxy"].tolist():
             index = df_successfull_proxies[df_successfull_proxies["proxy"] == proxy].index.values[0]
             df_successfull_proxies.loc[index, "errorCount"]  = df_successfull_proxies.loc[index, "errorCount"] + 1
             df_successfull_proxies.loc[index, "errors"].append(message)
@@ -230,6 +235,9 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
 
         try:
             headers = utils.get_random_headers(marketplace)
+            # if no proxy server is used, the script should wait after each response try
+            if not use_proxy:
+                time_since_last_crawl = time.time()
             # try to get response
             if use_proxy:
                 response = requests.get(url_product_asin, timeout=connection_timeout, proxies=proxies, headers=headers)#, verify=False)
@@ -239,14 +247,16 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
             if response.status_code == 200:
                 if "captcha" in response.text.lower():
                     print("No Match: Got code 200, but captcha is requested. User agent: %s. Try next proxy... (Country: %s)" % (headers['user-agent'],country))
-                    set_error_data(proxy, "captcha")
-                    reset_proxies_and_country_list()
+                    set_error_data(proxy, country, "captcha")
+                    if use_proxy:
+                        reset_proxies_and_country_list()
                     continue
                 # successfull crawl
                 else:
                     # start global time variable to check duration between successfull crawling with same proxie
-                    time_since_last_crawl = time.time()
                     last_successfull_crawler = proxy
+                    if use_proxy:
+                        time_since_last_crawl = time.time()
                     # save successfull proxy in dataframe
                     if type(df_successfull_proxies) == type(None):
                         df_successfull_proxies = pd.DataFrame(data={"proxy": [proxy], "country": [country], "successCount":[1],"errorCount": [0], "errors":[[]]})
@@ -259,23 +269,24 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                         else:
                             df_successfull_proxies.append({"proxy": [proxy], "country": [country_list], "successCount":[1], "errorCount": [0], "errors":[[]]}, ignore_index=None)
                     
-                    print("Match: Scrape successfull in %.2f seconds (Country: %s)" % ((time.time() - time_start), country))
+                    print("Match: Scrape successfull in %.2f minutes (Country: %s)" % ((time.time() - time_start)/60, country))
                     return response
             else:
-                #TODO: If status code is 404, Product was probably removed because of violation of law
                 # Save that information
                 print("No Match: Status code: " + str(response.status_code) + ", user agent: %s (Country: %s)" % (headers['user-agent'], country))
                 if response.status_code == 404:
                     print("Url not found. Product was probably removed")
                     return 404
-                set_error_data(proxy, "Status code: " + str(response.status_code))
-                reset_proxies_and_country_list()
+                set_error_data(proxy, country, "Status code: " + str(response.status_code))
+                if use_proxy:
+                    reset_proxies_and_country_list()
                 continue
         except Exception as e:
             print("No Match: got exception: %s (Country: %s)" % (type(e).__name__, country))
             #print(str(e))
-            set_error_data(proxy, "Exception: " + str((type(e).__name__)))
-            reset_proxies_and_country_list()
+            set_error_data(proxy, country, "Exception: " + str((type(e).__name__)))
+            if use_proxy:
+                reset_proxies_and_country_list()
             continue
 
     # return None if no response could be crawled
