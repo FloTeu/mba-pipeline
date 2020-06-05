@@ -156,8 +156,9 @@ def main(argv):
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
-            print("All instances are running. Wait 5 minutes...")
-            time.sleep(60 * 5)
+            time_wait_minutes = 3
+            print("All instances are running. Wait %s minutes..." %str(time_wait_minutes))
+            time.sleep(60 * time_wait_minutes)
         # else preemptible logs need to be updated in case of failure and new instance need to be started
         else:
             # check there is still data to crawl

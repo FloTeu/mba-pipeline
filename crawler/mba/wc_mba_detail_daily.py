@@ -64,10 +64,12 @@ def get_product_information_de(list_product_information):
             try:
                 customer_recession_score = [info.find("span", class_="a-declarative").find("a").find("i").get_text()]
                 customer_recession_count = [int(info.find("span", class_="a-size-small").find("a").get_text().split(" ")[0])]
-                customer_recession_score_mean = [float(customer_recession_score.split(" von")[0].replace(",","."))]
             except:
                 customer_recession_score = [""]
                 customer_recession_count = [0]
+            try:
+                customer_recession_score_mean = [float(customer_recession_score[0].split(" von")[0].replace(",","."))]
+            except:
                 customer_recession_score_mean = [0.0]
         try:
             if info["id"] == "SalesRank":
