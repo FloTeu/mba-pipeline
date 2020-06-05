@@ -17,8 +17,7 @@ def get_asin_product_detail_daily_crawled(marketplace):
     table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
     reservation_table_id = dataset_id + "." + table_id
     bq_client = bigquery.Client(project=project_id)
-    df_product_details_daily = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details_daily t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
-    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
+    df_product_details_daily = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
 
     return df_product_details_daily
 
@@ -157,6 +156,7 @@ def main(argv):
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
+            print("All instances are running. Wait 5 minutes...")
             time.sleep(60 * 5)
         # else preemptible logs need to be updated in case of failure and new instance need to be started
         else:

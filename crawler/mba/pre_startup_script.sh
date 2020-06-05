@@ -6,5 +6,5 @@ cd mba-pipeline/crawler/mba/
 sudo mkdir data
 sudo chmod 777 data/product_information.txt
 sudo chmod 777 data/
-/usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail_daily.py de --number_products 10 --connection_timeout 10.0 --time_break_sec 240 --seconds_between_crawl 20 --preemptible_code thread-1 --pre_instance_name mba-de-detail-pre-1
+/usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail_daily.py de --number_products 10 --connection_timeout 10.0 --time_break_sec 240 --seconds_between_crawl 20 --preemptible_code thread-2 --pre_instance_name mba-de-detail-pre-2
     

@@ -55,8 +55,8 @@ def get_product_information_de(list_product_information):
     customer_recession_count = [0]
     mba_bsr_str = [""]
     mba_bsr = [0]
-    array_mba_bsr = [""]
-    array_mba_bsr_categorie = [""]
+    array_mba_bsr = []
+    array_mba_bsr_categorie = []
 
     for info in list_product_information:
         info_text = info.get_text().lower()
