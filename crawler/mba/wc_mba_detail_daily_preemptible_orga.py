@@ -21,7 +21,7 @@ def get_asin_product_detail_daily_crawled(marketplace):
 
     return df_product_details_daily
 
-def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name):
+def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone):
     startup_script = '''#!/bin/sh
 cd home/
 git clone https://github.com/Flo95x/mba-pipeline.git
@@ -30,8 +30,8 @@ cd mba-pipeline/crawler/mba/
 sudo mkdir data
 sudo chmod 777 data/product_information.txt
 sudo chmod 777 data/
-/usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail_daily.py {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {}
-    '''.format(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name)
+/usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail_daily.py {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
+    '''.format(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
     # save product detail page locally
     with open("/home/f_teutsch/mba-pipeline/crawler/mba/pre_startup_script.sh", "w+") as f:
         f.write(startup_script)
@@ -84,11 +84,14 @@ def get_currently_terminated_instance(number_running_instances, marketplace, zon
 
     return currently_terminated_instance
 
-def update_preemptible_logs(pree_id, marketplace, status):
+def update_preemptible_logs(pree_id, marketplace, status, is_daily):
     project_id = 'mba-pipeline'
     timestamp = datetime.datetime.now()
     dataset_id = "preemptible_logs"
-    table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day)
+    if is_daily:
+        table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day)
+    else:
+        table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day)
     reservation_table_id = dataset_id + "." + table_id
     bq_client = bigquery.Client(project=project_id)
     # get reservation logs
@@ -105,7 +108,7 @@ def update_preemptible_logs(pree_id, marketplace, status):
 
 def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
-    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name)
+    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone)
     # get terminated instances
     currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, zone)
     # if instance is terminated it should be restarted and not recreated
@@ -128,6 +131,7 @@ def delete_all_instance(number_running_instances, marketplace, zone):
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
+    parser.add_argument('daily', type=utils.str2bool, nargs='?', const=True, help='Should the webcrawler for daily crawling be used or the normal one time detail crawler?')
     parser.add_argument('--number_running_instances', default=3, type=int, help='Number of preemptible instances that shoul run parallel. Default is 3.')
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
@@ -143,6 +147,7 @@ def main(argv):
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
+    daily = args.daily
     number_running_instances = args.number_running_instances
     number_products = args.number_products
     connection_timeout = args.connection_timeout
@@ -151,6 +156,7 @@ def main(argv):
 
     zone = utils.get_zone_of_marketplace(marketplace)
 
+    is_first_call = True
     while True:
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, zone)
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
@@ -175,11 +181,14 @@ def main(argv):
             for id in not_running_threat_ids:
                 pree_id = "thread-" + str(id)
                 # update preemptible logs with failure statement
-                update_preemptible_logs(pree_id, marketplace, "failure")
+                if not is_first_call:
+                    update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
                 start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)
+        
+        is_first_call=False
 
 if __name__ == '__main__':
     main(sys.argv)

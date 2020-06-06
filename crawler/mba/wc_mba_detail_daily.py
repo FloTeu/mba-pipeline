@@ -294,6 +294,7 @@ def main(argv):
     parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
     parser.add_argument('--preemptible_code', default="0", type=str, help='Identifier of instance for pree logs. Default 0 which leads to GUID.')
     parser.add_argument('--pre_instance_name', default="", type=str, help='Name of instance. Important: if set, script will stop instance after successfull operation. Default "".')
+    parser.add_argument('--zone', default="", type=str, help='Zone of instance. Must fit to close the instance correctly after successfull run. Default mayor zone of marketplace.')
 
     print(os.getcwd())
     print(argv)
@@ -311,7 +312,9 @@ def main(argv):
     seconds_between_crawl = args.seconds_between_crawl
     preemptible_code = args.preemptible_code
     pre_instance_name = args.pre_instance_name
-    zone = utils.get_zone_of_marketplace(marketplace)
+    zone = args.zone
+    if zone == "":
+        zone = utils.get_zone_of_marketplace(marketplace)
     ip_address = get_extrenal_ip(pre_instance_name, zone)
 
     if preemptible_code == "0":

@@ -7,6 +7,7 @@ from lxml.html import fromstring
 import random 
 from re import findall
 from bs4 import BeautifulSoup
+import argparse
 
 pd.options.mode.chained_assignment = None 
 client = bigquery.Client()
@@ -239,3 +240,13 @@ def get_div_in_html(html_str, div_class_or_id):
     assert html_for_bs != "", "HTML does not contains: " + div_class_or_id
 
     return html_for_bs
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
