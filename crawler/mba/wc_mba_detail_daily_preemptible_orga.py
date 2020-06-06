@@ -52,9 +52,10 @@ def get_bash_delete_pre_instance(instance_name, zone):
     bash_command = 'yes Y | gcloud compute instances delete {} --zone {}'.format(instance_name, zone)
     return bash_command
 
-def get_currently_running_instance(number_running_instances, marketplace, zone):
+def get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone):
     currently_running_instance = []
     for i in range(number_running_instances):
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -68,9 +69,10 @@ def get_currently_running_instance(number_running_instances, marketplace, zone):
 
     return currently_running_instance
 
-def get_currently_terminated_instance(number_running_instances, marketplace, zone):
+def get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone):
     currently_terminated_instance = []
     for i in range(number_running_instances):
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
@@ -106,11 +108,11 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
     if len(df_reservation_status_blocked) > 0:
         df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
     create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone)
     # get terminated instances
-    currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, zone)
+    currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone)
     # if instance is terminated it should be restarted and not recreated
     if pre_instance_name in currently_terminated_instance:
         bashCommand = get_bash_start_pre_instance(pre_instance_name,zone)
@@ -120,9 +122,10 @@ def start_instance(marketplace, number_running_instances, number_products,connec
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
 
-def delete_all_instance(number_running_instances, marketplace, zone):
+def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone):
     print("Start to delete all preemptible instances")
     for i in range(number_running_instances):
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_delete_pre_instance(pre_instance_name, zone)
         stream = os.popen(bashCommand)
@@ -137,6 +140,7 @@ def main(argv):
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
     parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
+    parser.add_argument('--max_instances_of_zone', default=4, type=int, help='Quota of GCP for maximum instances per zone')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -153,13 +157,16 @@ def main(argv):
     connection_timeout = args.connection_timeout
     time_break_sec = args.time_break_sec
     seconds_between_crawl = args.seconds_between_crawl
+    max_instances_of_zone = args.max_instances_of_zone
 
-    zone = utils.get_zone_of_marketplace(marketplace)
+    zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0)
+    #zone = "europe-west1-b"
 
     is_first_call = True
     while True:
-        currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, zone)
+        currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone)
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=len(currently_running_instance))
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
             time_wait_minutes = 3
@@ -172,19 +179,20 @@ def main(argv):
             print("There are %s asins to crawl" % len(df_product_detail_dailys))
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail_dailys) == 0:
-                delete_all_instance(number_running_instances, marketplace, zone)
+                delete_all_instance(number_running_instances, marketplace, max_instances_of_zone)
                 print("Crawling is finished")
                 print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
                 break
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
             for id in not_running_threat_ids:
-                pree_id = "thread-" + str(id)
+                zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=id-1)
+                pree_id = "thread-" + str(id) + "-" + zone
                 # update preemptible logs with failure statement
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)
         

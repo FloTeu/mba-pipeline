@@ -186,13 +186,32 @@ def get_random_headers(marketplace):
         'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'}
     return headers
 
-def get_zone_of_marketplace(marketplace):
+def get_zone_of_marketplace(marketplace, max_instances_of_zone=4, number_running_instances=0):
     zone = ""
     if marketplace == "de":
-        zone = "europe-west3-c"
+        if number_running_instances < max_instances_of_zone:
+            zone = "europe-west3-a"
+        elif number_running_instances >= max_instances_of_zone and number_running_instances < max_instances_of_zone*2:
+            zone = "europe-west6-a"
+        elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
+            zone = "europe-west1-b"
+            '''
+            elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
+                zone = "europe-west3-c"
+            elif number_running_instances >= max_instances_of_zone*3 and number_running_instances < max_instances_of_zone*4:
+                zone = "europe-west6-a"
+            elif number_running_instances >= max_instances_of_zone*4 and number_running_instances < max_instances_of_zone*5:
+                zone = "europe-west6-b"
+            elif number_running_instances >= max_instances_of_zone*5 and number_running_instances < max_instances_of_zone*6:
+                zone = "europe-west6-c"
+            '''
+        else:
+            assert False, "Quota limit exceed. You cant get more instances"
     # TODO implement other cases
     else:
         print("Marketplace is not fully implemented")
+        assert False, "Marketplace is not fully implemented"
+
     return zone
 
 def get_div_in_html(html_str, div_class_or_id):
