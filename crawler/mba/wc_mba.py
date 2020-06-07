@@ -174,6 +174,7 @@ def main(argv):
     else:
         count_pages = pages
 
+    make_one_more_request = 0
     no_response = False
     for current_page in np.arange(start_page, start_page+count_pages, 1):
         #print(current_page)
@@ -218,7 +219,10 @@ def main(argv):
         print("Page " + str(current_page) + " successfully crawled")
         # BREAK CONDITION only if pages parameter is not set
         if pages == 0 and asin_already_crawled:
-            break
+            if make_one_more_request == 1:
+                break
+            make_one_more_request = make_one_more_request + 1
+            
         #'''
     bucket_name = "5c0ae2727a254b608a4ee55a15a05fb7"
     folder_name = "mba-shirts"

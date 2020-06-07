@@ -10,28 +10,47 @@ import datetime
 import utils
 
 
-def get_asin_product_detail_daily_crawled(marketplace):
+def get_asin_product_detail_to_crawl(marketplace, daily):
     project_id = 'mba-pipeline'
     reservationdate = datetime.datetime.now()
+    #reservationdate = datetime.date(2020, 6, 6)
     dataset_id = "preemptible_logs"
-    table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
-    reservation_table_id = dataset_id + "." + table_id
     bq_client = bigquery.Client(project=project_id)
-    df_product_details_daily = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
+    if daily:
+        table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+        df_product = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
+    else:
+        table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+        df_product = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    
+    reservation_table_id = dataset_id + "." + table_id
+    if utils.does_table_exist(project_id, dataset_id, table_id):
+            # get reservation logs
+            df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
+            df_reservation_status = df_reservation.drop_duplicates("asin")
+            # get list of asins that are currently blocked by preemptible instances
+            asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
+            # filter asins for those which are not blocked
+            matching_asins = df_product["asin"].isin(asins_blocked)
+            print("%s asins are currently blocked and will not be crawled" % str(len([i for i in matching_asins if i == True])))
+            df_product = df_product[~matching_asins]
 
-    return df_product_details_daily
+    return df_product
 
-def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone):
+def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone, daily):
+    if daily:
+        py_script = "wc_mba_detail_daily.py"
+    else:
+        py_script = "wc_mba_detail.py"
     startup_script = '''#!/bin/sh
 cd home/
 git clone https://github.com/Flo95x/mba-pipeline.git
 pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt 
 cd mba-pipeline/crawler/mba/
 sudo mkdir data
-sudo chmod 777 data/product_information.txt
 sudo chmod 777 data/
-/usr/bin/python3 /home/mba-pipeline/crawler/mba/wc_mba_detail_daily.py {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
-    '''.format(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
+/usr/bin/python3 /home/mba-pipeline/crawler/mba/{} {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
+    '''.format(py_script, marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
     # save product detail page locally
     with open("/home/f_teutsch/mba-pipeline/crawler/mba/pre_startup_script.sh", "w+") as f:
         f.write(startup_script)
@@ -105,12 +124,14 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
     df_reservation_status_blocked['timestamp'] = timestamp
     df_reservation_status_blocked['timestamp'] = df_reservation_status_blocked['timestamp'].astype('datetime64')
     df_reservation_status_blocked['status'] = status
-    if len(df_reservation_status_blocked) > 0:
+    if len(df_reservation_status_blocked) > 0 and is_daily:
         df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+    elif len(df_reservation_status_blocked) > 0 and not is_daily:
+        df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
-    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone)
+    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily)
     # get terminated instances
     currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone)
     # if instance is terminated it should be restarted and not recreated
@@ -175,12 +196,13 @@ def main(argv):
         # else preemptible logs need to be updated in case of failure and new instance need to be started
         else:
             # check there is still data to crawl
-            df_product_detail_dailys = get_asin_product_detail_daily_crawled(marketplace)
-            print("There are %s asins to crawl" % len(df_product_detail_dailys))
+            df_product_detail = get_asin_product_detail_to_crawl(marketplace, daily)
+            print("There are %s asins to crawl" % len(df_product_detail))
             # if no data to crawl exists delete all preemptible instances
-            if len(df_product_detail_dailys) == 0:
+            if len(df_product_detail) == 0:
+                print("Crawling is finished. Wait 3 minutes to make sure that all scripts are finished.")
+                time.sleep(3*60)
                 delete_all_instance(number_running_instances, marketplace, max_instances_of_zone)
-                print("Crawling is finished")
                 print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
                 break
 
@@ -192,10 +214,9 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily)
                 # before next instance starts 15 seconds should the script wait
-                time.sleep(15)
-        
+                time.sleep(15)        
         is_first_call=False
 
 if __name__ == '__main__':
