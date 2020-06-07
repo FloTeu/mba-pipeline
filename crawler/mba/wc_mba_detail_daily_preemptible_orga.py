@@ -125,9 +125,15 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
     df_reservation_status_blocked['timestamp'] = df_reservation_status_blocked['timestamp'].astype('datetime64')
     df_reservation_status_blocked['status'] = status
     if len(df_reservation_status_blocked) > 0 and is_daily:
-        df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+        try:
+            df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+        except:
+            pass
     elif len(df_reservation_status_blocked) > 0 and not is_daily:
-        df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+        try:
+            df_reservation_status_blocked.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(timestamp.year, timestamp.month, timestamp.day),project_id="mba-pipeline", if_exists="append")
+        except:
+            pass
 
 def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
