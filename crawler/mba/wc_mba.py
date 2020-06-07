@@ -148,11 +148,6 @@ def main(argv):
     # get all arguments
     args = parser.parse_args()
 
-    #df = get_df_hobbies("de")
-    df = pd.read_csv("data/hobbies_de.csv")
-    hobbies_list = df["hobby"].tolist()
-    test_hobby = hobbies_list[4]
-
     # get already crawled asin list
     asin_crawled_list = get_asin_crawled("mba_de.products")
 
@@ -180,9 +175,9 @@ def main(argv):
         #print(current_page)
         #'''
         timeout = time.time() + 60
-        response = requests.get(utils.make_url_to_proxy_crawl_url(api_key,url_mba), stream=True)
+        response = requests.get(make_url_to_proxy_crawl_url(api_key,url_mba), stream=True)
         while response.status_code != 200:
-            response = requests.get(utils.make_url_to_proxy_crawl_url(url_mba), stream=True)
+            response = requests.get(make_url_to_proxy_crawl_url(api_key,url_mba), stream=True)
             if time.time() > timeout:
                 no_response = True
                 break
@@ -216,12 +211,12 @@ def main(argv):
         # get link to next page 
         url_mba = "/".join(url_mba.split("/")[0:3]) + soup.find("ul", class_="a-pagination").find(class_="a-last").find("a")["href"]
         
-        print("Page " + str(current_page) + " successfully crawled")
+        print("Page " + str(current_page) + " successfully crawled with %s new asins" % str(len(df_products)))
         # BREAK CONDITION only if pages parameter is not set
-        if pages == 0 and asin_already_crawled:
-            if make_one_more_request == 1:
-                break
-            make_one_more_request = make_one_more_request + 1
+        if pages == 0 and asin_already_crawled and len(df_products) == 0:
+            #if make_one_more_request == 17:
+            break
+            #make_one_more_request = make_one_more_request + 1
             
         #'''
     bucket_name = "5c0ae2727a254b608a4ee55a15a05fb7"
