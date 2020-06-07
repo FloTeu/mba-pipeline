@@ -187,7 +187,6 @@ def main(argv):
     while True:
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone)
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
-        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=len(currently_running_instance))
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
             time_wait_minutes = 3

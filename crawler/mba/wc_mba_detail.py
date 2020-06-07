@@ -292,7 +292,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     # return None if no response could be crawled
     return None
 
-def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address):
+def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, pre_instance_name, zone):
     global df_successfull_proxies
     error_str = ""
     if type(df_successfull_proxies) != type(None):
@@ -302,7 +302,11 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
     reservationdate = datetime.datetime.now()
     df_reservation = pd.DataFrame({"asin": [str(asin)], "timestamp": [reservationdate], "status": [str(status)], "pree_id": [str(preemptible_code)], "ip_address":[ip_address], "error_log": [error_str]})
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
-    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+    # TODO: fix this error
+    try:
+        df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+    except:
+        stop_instance(pre_instance_name, zone)
 
 def stop_instance(pre_instance_name, zone):
     bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
@@ -375,8 +379,11 @@ def main(argv):
     df_reservation['error_log'] = ""
     df_reservation['timestamp'] = reservationdate
     df_reservation['timestamp'] = df_reservation['timestamp'].astype('datetime64')
-    df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
-
+    try:
+        df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
+    except:
+        stop_instance(pre_instance_name, zone)
+        
     for j, product_row in df_product_details_tocrawl.iloc[0:number_products].iterrows():
         asin = product_row["asin"]
         url_product = product_row["url_product"]
@@ -400,7 +407,7 @@ def main(argv):
                 df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
                 df_product_details['upload_date'] = df_product_details['upload_date'].astype('datetime64')
                 df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address)
+                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, pre_instance_name, zone)
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
 
@@ -421,7 +428,7 @@ def main(argv):
 
         df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
         df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address)
+        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, pre_instance_name, zone)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
     global df_successfull_proxies
