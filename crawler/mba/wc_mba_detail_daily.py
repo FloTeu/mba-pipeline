@@ -367,7 +367,11 @@ def main(argv):
                 df_product_details = pd.DataFrame(data={"asin":[asin],"price":[404.0],"price_str":["404"],"bsr":[404],"bsr_str":["404"], "array_bsr": [["404"]], "array_bsr_categorie": [["404"]],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":crawlingdate})
                 # transform date/timestamo columns to datetime objects
                 df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
-                df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+                # TODO find better solution
+                try:
+                    df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+                except:
+                    stop_instance(pre_instance_name, zone)
                 update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, "404", "404", pre_instance_name, zone)
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
@@ -391,8 +395,11 @@ def main(argv):
         # save product information in storage
         timestamp = datetime.datetime.now()
         utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/product_information.txt", "logs/"+marketplace+"/product_information_daily/%s_%s_%s_"%(timestamp.year, timestamp.month, timestamp.day)+str(asin)+".txt" )
-  
-        df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+        # TODO find better solution
+        try:
+            df_product_details.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+        except:
+            stop_instance(pre_instance_name, zone)
         update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, str(df_product_details.loc[0,"bsr"]), str(df_product_details.loc[0,"price_str"]), pre_instance_name, zone)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
