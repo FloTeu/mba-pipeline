@@ -401,8 +401,8 @@ def main(argv):
                 #except:
                 #    stop_instance(pre_instance_name, zone)
                 
-                bsr_list.append(df_product_details.loc[0,"404"])
-                price_list.append(df_product_details.loc[0,"404"])
+                bsr_list.append(df_product_details.loc[0,"bsr"])
+                price_list.append(df_product_details.loc[0,"price_str"])
                 #update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, "404", "404", pre_instance_name, zone)
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
