@@ -191,7 +191,7 @@ def get_zone_of_marketplace(marketplace, max_instances_of_zone=4, number_running
     zone = ""
     if marketplace == "de":
         if number_running_instances < max_instances_of_zone:
-            zone = "europe-west3-a"
+            zone = "europe-west4-a"
         elif number_running_instances >= max_instances_of_zone and number_running_instances < max_instances_of_zone*2:
             zone = "europe-west6-a"
         elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:

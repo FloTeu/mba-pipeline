@@ -97,7 +97,7 @@ def get_currently_running_instance(number_running_instances, marketplace, max_in
         zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
-        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
         output, error = process.communicate()
         try:
             status = str(output).split("status: ")[1].split("\\")[0]
@@ -114,7 +114,7 @@ def get_currently_terminated_instance(number_running_instances, marketplace, max
         zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
-        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
         output, error = process.communicate()
         try:
             status = str(output).split("status: ")[1].split("\\")[0]
@@ -170,8 +170,10 @@ def start_instance(marketplace, number_running_instances, number_products,connec
     output, error = process.communicate()
     ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
     if ip_address in blocked_ips:
-        print("IP address %s is blocked. Instance will be stopped again..." % ip_address)
-        utils.stop_instance(pre_instance_name, zone)
+        print("IP address %s is blocked. Instance will be deleted again..." % ip_address)
+        bashCommand = get_bash_delete_pre_instance(pre_instance_name, zone)
+        stream = os.popen(bashCommand)
+        output = stream.read()
 
 def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone):
     print("Start to delete all preemptible instances")
@@ -251,7 +253,7 @@ def main(argv):
                 # start instance and startupscript
                 start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips)
                 # before next instance starts 15 seconds should the script wait
-                time.sleep(15)        
+                time.sleep(15)       
         is_first_call=False
 
 if __name__ == '__main__':
