@@ -177,7 +177,7 @@ def get_random_headers(marketplace):
         'cache-control': 'no-cache',
         'dnt': '1',
         'upgrade-insecure-requests': '1',
-        'user-agent': user_agent # get_random_user_agent() #'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'
+        'user-agent': get_random_user_agent() #'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'
         ,
         'sec-fetch-site': 'cross-site',
         'sec-fetch-mode': 'navigate',
