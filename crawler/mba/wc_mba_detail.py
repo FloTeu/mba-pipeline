@@ -306,18 +306,8 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone)
 
-def stop_instance(pre_instance_name, zone):
-    bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
-    stream = os.popen(bashCommand)
-    output = stream.read()
-
-def get_extrenal_ip(pre_instance_name, zone):
-    bashCommand = "yes Y | gcloud compute instances describe {} --zone {}  --format='get(networkInterfaces[0].accessConfigs[0].natIP)'".format(pre_instance_name, zone)
-    stream = os.popen(bashCommand)
-    ip_address = stream.read()
-    return ip_address.replace("\n", "")
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -353,7 +343,7 @@ def main(argv):
     zone = args.zone
     if zone == "":
         zone = utils.get_zone_of_marketplace(marketplace)
-    ip_address = get_extrenal_ip(pre_instance_name, zone)
+    ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
 
     if preemptible_code == "0":
         preemptible_code = uuid.uuid4().hex
@@ -366,7 +356,7 @@ def main(argv):
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
-            stop_instance(pre_instance_name, zone)
+            utils.stop_instance(pre_instance_name, zone)
         return 0
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
     df_product_details_tocrawl["url_product_asin"] =  df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
@@ -386,7 +376,7 @@ def main(argv):
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone)
         
     for j, product_row in df_product_details_tocrawl.iloc[0:number_products].iterrows():
         asin = product_row["asin"]
@@ -398,9 +388,11 @@ def main(argv):
             response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=connection_timeout, time_break_sec=time_break_sec, seconds_between_crawl=seconds_between_crawl)
         
             if response == None:
+                # update reservation logs with blacklist of ip 
+                update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, "blacklist", "blacklist", pre_instance_name, zone, api_key, chat_id)
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "":
-                    stop_instance(pre_instance_name, zone)
+                    utils.stop_instance(pre_instance_name, zone)
                 else:
                     assert response != None, "Could not get response within time break condition"
 
@@ -442,7 +434,7 @@ def main(argv):
     
     # if script is called by preemptible instance it should be deleted by itself
     if pre_instance_name != "" and "pre" in pre_instance_name:
-        stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone)
 
     test = 0
 

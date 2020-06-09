@@ -37,6 +37,26 @@ def get_asin_product_detail_to_crawl(marketplace, daily):
 
     return df_product
 
+def get_blacklisted_ips(marketplace, daily):
+    project_id = 'mba-pipeline'
+    reservationdate = datetime.datetime.now()
+    dataset_id = "preemptible_logs"
+    bq_client = bigquery.Client(project=project_id)
+    if daily:
+        table_id = "mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+    else:
+        table_id = "mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day)
+    
+    reservation_table_id = dataset_id + "." + table_id
+    ip_blocked = []
+    if utils.does_table_exist(project_id, dataset_id, table_id):
+        # get reservation logs
+        df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 WHERE status = 'blacklist' order by t0.timestamp DESC").to_dataframe().drop_duplicates()
+        df_reservation_status = df_reservation.drop_duplicates("ip_address")
+        # get list of asins that are currently blocked by preemptible instances
+        ip_blocked = df_reservation_status["ip_address"].tolist()
+    return ip_blocked
+
 def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone, daily, api_key, chat_id):
     if daily:
         py_script = "wc_mba_detail_daily.py"
@@ -135,7 +155,7 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
         except:
             pass
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
     create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily, api_key, chat_id)
     # get terminated instances
@@ -148,6 +168,10 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         bashCommand = get_bash_create_pre_instance(pre_instance_name,zone)
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
+    ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
+    if ip_address in blocked_ips:
+        print("IP address %s is blocked. Instance will be stopped again..." % ip_address)
+        utils.stop_instance(pre_instance_name, zone)
 
 def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone):
     print("Start to delete all preemptible instances")
@@ -199,7 +223,7 @@ def main(argv):
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
-            time_wait_minutes = 3
+            time_wait_minutes = 10
             print("All instances are running. Wait %s minutes..." %str(time_wait_minutes))
             time.sleep(60 * time_wait_minutes)
         # else preemptible logs need to be updated in case of failure and new instance need to be started
@@ -207,6 +231,8 @@ def main(argv):
             # check there is still data to crawl
             df_product_detail = get_asin_product_detail_to_crawl(marketplace, daily)
             print("There are %s asins to crawl" % len(df_product_detail))
+            # get blacklisted ips 
+            blocked_ips = get_blacklisted_ips(marketplace, daily)
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail) == 0:
                 print("Crawling is finished. Wait 3 minutes to make sure that all scripts are finished.")
@@ -223,7 +249,7 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)        
         is_first_call=False

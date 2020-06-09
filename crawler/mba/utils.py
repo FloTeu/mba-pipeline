@@ -8,6 +8,7 @@ import random
 from re import findall
 from bs4 import BeautifulSoup
 import argparse
+import os 
 
 pd.options.mode.chained_assignment = None 
 client = bigquery.Client()
@@ -270,7 +271,17 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+def get_extrenal_ip(pre_instance_name, zone):
+    bashCommand = "yes Y | gcloud compute instances describe {} --zone {}  --format='get(networkInterfaces[0].accessConfigs[0].natIP)'".format(pre_instance_name, zone)
+    stream = os.popen(bashCommand)
+    ip_address = stream.read()
+    return ip_address.replace("\n", "")
 
+def stop_instance(pre_instance_name, zone):
+    bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
+    stream = os.popen(bashCommand)
+    output = stream.read()
+    
 def send_msg(target, msg, api_key):
     """
     Send a msg to an open conversation in telegram.

@@ -389,6 +389,8 @@ def main(argv):
             if response == None:
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "" and "pre" in pre_instance_name:
+                    # update reservation logs with blacklist of ip 
+                    update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, "blacklist", "blacklist", pre_instance_name, zone, api_key, chat_id)
                     stop_instance(pre_instance_name, zone, "Response is none because of time break condition", api_key, chat_id)
                 else:
                     assert response != None, "Could not get response within time break condition"
