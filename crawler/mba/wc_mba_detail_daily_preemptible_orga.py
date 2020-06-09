@@ -37,7 +37,7 @@ def get_asin_product_detail_to_crawl(marketplace, daily):
 
     return df_product
 
-def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone, daily):
+def create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone, daily, api_key, chat_id):
     if daily:
         py_script = "wc_mba_detail_daily.py"
     else:
@@ -49,8 +49,8 @@ pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt
 cd mba-pipeline/crawler/mba/
 sudo mkdir data
 sudo chmod 777 data/
-/usr/bin/python3 /home/mba-pipeline/crawler/mba/{} {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
-    '''.format(py_script, marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
+/usr/bin/python3 /home/mba-pipeline/crawler/mba/{} {} --telegram_api_key {} --telegram_chatid {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
+    '''.format(py_script, marketplace, api_key, chat_id, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
     # save product detail page locally
     with open("/home/f_teutsch/mba-pipeline/crawler/mba/pre_startup_script.sh", "w+") as f:
         f.write(startup_script)
@@ -135,9 +135,9 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
         except:
             pass
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
-    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily)
+    create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily, api_key, chat_id)
     # get terminated instances
     currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone)
     # if instance is terminated it should be restarted and not recreated
@@ -162,6 +162,8 @@ def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('daily', type=utils.str2bool, nargs='?', const=True, help='Should the webcrawler for daily crawling be used or the normal one time detail crawler?')
+    parser.add_argument('--telegram_api_key',default="", help='API key of mba bot', type=str)
+    parser.add_argument('--telegram_chatid', default="", help='Id of channel like private chat or group channel', type=str)
     parser.add_argument('--number_running_instances', default=3, type=int, help='Number of preemptible instances that shoul run parallel. Default is 3.')
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
@@ -179,6 +181,8 @@ def main(argv):
     args = parser.parse_args(argv)
     marketplace = args.marketplace
     daily = args.daily
+    api_key = args.telegram_api_key
+    chat_id = args.telegram_chatid
     number_running_instances = args.number_running_instances
     number_products = args.number_products
     connection_timeout = args.connection_timeout
@@ -219,7 +223,7 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)        
         is_first_call=False
