@@ -269,3 +269,24 @@ def str2bool(v):
         return False
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
+def send_msg(target, msg, api_key):
+    """
+    Send a msg to an open conversation in telegram.
+
+    :param msg: A string. There are problems with special characters...
+    :return:
+    """
+    bot_token = api_key
+    bot_chatID = target
+    # Format right
+    msg = msg.replace('_', '\\_')
+    send_text = 'https://api.telegram.org/bot' + bot_token + \
+        '/sendMessage?chat_id=' + bot_chatID + '&parse_mode=Markdown&text=' + msg
+    try:
+        response = requests.get(send_text)
+        return response.json()
+    except:
+        print("Telegram massage could not be sended.")
+        return ""

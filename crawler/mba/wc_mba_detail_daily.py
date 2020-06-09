@@ -126,7 +126,7 @@ df_successfull_proxies = None
 #df_successfull_proxies = pd.DataFrame({"proxy": ["213.213"], "country": ["DE"], "successCount":[1], "errorCount": [0], "errors":[[]]})
 
 test = 0
-def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
+def get_response(marketplace, url_product_asin, api_key, chat_id, use_proxy=True, connection_timeout=5.0,time_break_sec=60, seconds_between_crawl=20):
     time_start = time.time()
     headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
     
@@ -235,6 +235,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
                 if response.status_code == 404:
                     print("Url not found. Product was probably removed")
                     return 404
+                utils.send_msg(chat_id, "Scrap not successfull. Got status code: {}".format(str(response.status_code)), api_key)
                 set_error_data(proxy, country, "Status code: " + str(response.status_code))
                 if use_proxy:
                     reset_proxies_and_country_list()
@@ -250,7 +251,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     # return None if no response could be crawled
     return None
 
-def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, bsr, price, pre_instance_name, zone):
+def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, bsr, price, pre_instance_name, zone, api_key, chat_id):
     global df_successfull_proxies
     error_str = ""
     if type(df_successfull_proxies) != type(None):
@@ -263,7 +264,7 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        stop_instance(pre_instance_name, zone)
+        stop_instance(pre_instance_name, zone, "Can not update bigquery reservation table", api_key, chat_id)
 
 def update_reservation_logs_list(marketplace, asin_list, status, preemptible_code, ip_address, bsr_list, price_list, pre_instance_name, zone):
     global df_successfull_proxies
@@ -285,7 +286,9 @@ def update_reservation_logs_list(marketplace, asin_list, status, preemptible_cod
             pass
         #stop_instance(pre_instance_name, zone)
 
-def stop_instance(pre_instance_name, zone):
+def stop_instance(pre_instance_name, zone, msg, api_key, chat_id):
+    ip_adress = get_extrenal_ip(pre_instance_name, zone)
+    utils.send_msg(chat_id, "Instance {} is stopped | IP: {} | Reason: {}".format(pre_instance_name, str(ip_adress), msg), api_key)
     bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
     stream = os.popen(bashCommand)
     output = stream.read()
@@ -296,7 +299,7 @@ def get_extrenal_ip(pre_instance_name, zone):
     ip_address = stream.read()
     return ip_address.replace("\n", "")
 
-def make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone):
+def make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone, api_key, chat_id):
     reservationdate = datetime.datetime.now()
     df_reservation = df_product_details_tocrawl.iloc[0:number_products][["asin"]].copy()
     df_reservation['status'] = "blocked"
@@ -310,11 +313,13 @@ def make_reservation(df_product_details_tocrawl,number_products,preemptible_code
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_daily_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        stop_instance(pre_instance_name, zone)
+        stop_instance(pre_instance_name, zone, "Can not update big query reservation", api_key, chat_id)
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
+    parser.add_argument('--telegram_api_key',default="", help='API key of mba bot', type=str)
+    parser.add_argument('--telegram_chatid', default="", help='Id of channel like private chat or group channel', type=str)
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
@@ -333,6 +338,8 @@ def main(argv):
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
+    api_key = args.telegram_api_key
+    chat_id = args.telegram_chatid
     number_products = args.number_products
     connection_timeout = args.connection_timeout
     time_break_sec = args.time_break_sec
@@ -355,7 +362,7 @@ def main(argv):
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
-            stop_instance(pre_instance_name, zone)
+            stop_instance(pre_instance_name, zone, "No data to crawl", api_key, chat_id)
         return 0
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
     df_product_details_tocrawl["url_product_asin"] =  df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
@@ -364,7 +371,7 @@ def main(argv):
     if number_products == 0:
         number_products = len(df_product_details_tocrawl)
 
-    make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone)
+    make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone, api_key, chat_id)
     df_product_details_total = None
     asin_list = []
     bsr_list = []
@@ -377,12 +384,12 @@ def main(argv):
         asin_list.append(asin)
         if True:
             # try to get reponse with free proxies
-            response = get_response(marketplace, url_product_asin, use_proxy=False, connection_timeout=connection_timeout, time_break_sec=time_break_sec, seconds_between_crawl=seconds_between_crawl)
+            response = get_response(marketplace, url_product_asin, api_key, chat_id, use_proxy=False, connection_timeout=connection_timeout, time_break_sec=time_break_sec, seconds_between_crawl=seconds_between_crawl)
         
             if response == None:
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "" and "pre" in pre_instance_name:
-                    stop_instance(pre_instance_name, zone)
+                    stop_instance(pre_instance_name, zone, "Response is none because of time break condition", api_key, chat_id)
                 else:
                     assert response != None, "Could not get response within time break condition"
 
@@ -442,7 +449,7 @@ def main(argv):
         try:
             df_product_details_total.to_gbq("mba_" + marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
         except:
-            stop_instance(pre_instance_name, zone)
+            stop_instance(pre_instance_name, zone, "Can not update bigquery product detail daily table", api_key, chat_id)
     update_reservation_logs_list(marketplace, asin_list, "success", preemptible_code, ip_address, bsr_list, price_list, pre_instance_name, zone)
 
     global df_successfull_proxies
@@ -451,7 +458,7 @@ def main(argv):
     
     # if script is called by preemptible instance it should be deleted by itself
     if pre_instance_name != "" and "pre" in pre_instance_name:
-        stop_instance(pre_instance_name, zone)
+        stop_instance(pre_instance_name, zone, "Success", api_key, chat_id)
 
 
 if __name__ == '__main__':

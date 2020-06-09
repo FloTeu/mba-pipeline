@@ -322,6 +322,8 @@ def get_extrenal_ip(pre_instance_name, zone):
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
+    parser.add_argument('--telegram_api_key',default="", help='API key of mba bot', type=str)
+    parser.add_argument('--telegram_chatid', default="", help='Id of channel like private chat or group channel', type=str)
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
@@ -340,6 +342,8 @@ def main(argv):
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
+    api_key = args.telegram_api_key
+    chat_id = args.telegram_chatid
     number_products = args.number_products
     connection_timeout = args.connection_timeout
     time_break_sec = args.time_break_sec
