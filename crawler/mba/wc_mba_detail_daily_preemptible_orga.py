@@ -237,8 +237,10 @@ def main(argv):
             blocked_ips = get_blacklisted_ips(marketplace, daily)
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail) == 0:
-                print("Crawling is finished. Wait 3 minutes to make sure that all scripts are finished.")
-                time.sleep(3*60)
+                puffer_minutes = 5
+                time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
+                print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
+                time.sleep(time_sleep_minutes*60)
                 delete_all_instance(number_running_instances, marketplace, max_instances_of_zone)
                 print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
                 break

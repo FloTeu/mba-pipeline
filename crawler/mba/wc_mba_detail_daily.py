@@ -358,7 +358,7 @@ def main(argv):
     args = parser.parse_args()
 
     # get asins which are not already crawled
-    df_product_details_tocrawl = get_asin_product_detail_daily_crawled(marketplace)
+    df_product_details_tocrawl = get_asin_product_detail_daily_crawled(marketplace).sample(frac=1).reset_index(drop=True)
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
