@@ -187,7 +187,8 @@ def get_response(marketplace, url_product_asin, api_key, chat_id, use_proxy=True
         
         # wait seconds to make sure successfull proxie is not blacklisted
         if last_successfull_crawler == proxy and time_since_last_crawl != None and seconds_between_crawl > (time.time()-time_since_last_crawl):
-            wait_seconds = seconds_between_crawl - (time.time()-time_since_last_crawl)
+            # add randomnes of plus or minus 5 seconds
+            wait_seconds = seconds_between_crawl - (time.time()-time_since_last_crawl) - random.randint(-5, 5)
             print("Same proxie used, wait for %.2f seconds" % wait_seconds)
             time.sleep(wait_seconds)
 
@@ -423,7 +424,7 @@ def main(argv):
             with open("data/mba_detail_page.html") as f:
                 html_str = f.read()
                 asin = "B086D9RL8Q"
-                soup = BeautifulSoup(utils.get_div_in_html(html_str, 'id="dp-container"'), 'html.parser') 
+                soup = BeautifulSoup(utils.get_div_in_html(html_str, 'id="dp-container"'), 'html.parser')
 
         df_product_details = get_product_detail_daily_df(soup, asin, url_product_asin, marketplace)
         bsr_list.append(df_product_details.loc[0,"bsr"])
