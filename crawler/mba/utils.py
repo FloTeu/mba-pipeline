@@ -189,14 +189,14 @@ def get_random_headers(marketplace):
 
 def get_zone_of_marketplace(marketplace, max_instances_of_zone=4, number_running_instances=0):
     zone = ""
-    possible_zones = ["europe-west3-a","europe-west4-a","europe-west6-a","europe-west1-b"]
+    possible_zones = {"Frankfurt":"europe-west3-a","Niederlande":"europe-west4-a","Zürich":"europe-west6-a","Belgien":"europe-west1-b","London":"europe-west2-b", "Irland":"europe-north1-a"}
     if marketplace == "de":
         if number_running_instances < max_instances_of_zone:
-            zone = "europe-west4-a"
+            zone = possible_zones["Irland"]
         elif number_running_instances >= max_instances_of_zone and number_running_instances < max_instances_of_zone*2:
-            zone = "europe-west1-b"
+            zone = possible_zones["London"]
         elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
-            zone = "europe-west6-1"
+            zone = possible_zones["Zürich"]
             '''
             elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
                 zone = "europe-west3-c"
