@@ -66,6 +66,7 @@ TEMPLATES = [
 
         'libraries':{
             'index': 'merchiewer.templatetags.index',
+            'define_action': 'merchiewer.templatetags.define_action',
 
             }
         },

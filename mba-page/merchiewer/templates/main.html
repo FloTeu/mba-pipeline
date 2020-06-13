@@ -3,13 +3,34 @@
         <meta charset="utf-8">
         <title>Merchiewer</title>
     </head>
-    <body>
+    <body style="background-color:grey;">
         <h1>This is the main page</h1>
-          {% if asin %}
+          {% if shirt_info.asin %}
                 <table>
-                {% for asin_i in asin %}
-                    <tr><td>{% load index %}{{ price_max|index:forloop.counter0 }}, {{ asin_i }}</td></tr>
+                {% load define_action %} 
+                {% define 0 as innerCounter %}
+                {% with ''|center:5 as range %}
+                {% for i in range %}
+                {% with forloop.parentloop.counter0 as outerCount %}
+                    <tr>
+                        {% with ''|center:6 as range %}
+                        {% for j in range %}
+                        {% with forloop.counter as innerCounter2 %}
+                        
+                        <td> 
+                            {% define innerCounter|add:1 as innerCounter %}
+                            {% define innerCounter as innerCounter %}
+                            {{ innerCounter }}
+                            {% load index %}{{ shirt_info.price_max|index:innerCounter }},{{ shirt_info.asin|index:innerCounter}}
+                            <!--img src={% load index %}{{ shirt_info.url|index:forloop.counter }} alt="Shirt could not be loaded" width=auto height=auto-->
+                        </td>
+                        {% endwith %}
+                        {% endfor %}
+                        {% endwith %}
+                    </tr>
+                {% endwith %}
                 {% endfor %}
+                {% endwith %}
                 </table>
             {% else %}
                 <p>No shirts are available.</p>
