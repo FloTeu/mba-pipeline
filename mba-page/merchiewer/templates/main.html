@@ -8,6 +8,7 @@
           {% if shirt_info.asin %}
                 <table>
                 {% load define_action %} 
+                {% load index %}
                 {% define 0 as innerCounter %}
                 {% with ''|center:rows as range %}
                 {% for i in range %}
@@ -21,8 +22,19 @@
                             {% multiply outerCount columns as outerCount_mull %}
                             {% with outerCount_mull|add:innerCounter as counter_total %}
                             {{filter}}
-                            {% load index %}{{ shirt_info.price_max|index:counter_total }},{{ shirt_info.asin|index:counter_total}}
-                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=150 height=150>
+                            
+                            {% if show_detail_info %}
+                            <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
+                            <p style="margin:0">price_max: {{ shirt_info.price_max|index:counter_total }}</p>
+                            <p style="margin:0">price_min: {{ shirt_info.price_min|index:counter_total }}</p>
+                            <p style="margin:0">bsr_mean: {{ shirt_info.bsr_mean|index:counter_total }}</p>
+                            <p style="margin:0">bsr_max: {{ shirt_info.bsr_max|index:counter_total }}</p>
+                            <p style="margin:0">bsr_min: {{ shirt_info.bsr_min|index:counter_total }}</p>
+                            <p style="margin:0">score_mean: {{ shirt_info.score_mean|index:counter_total }}</p>
+                            <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
+                            <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
+                            {% endif %}
+                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
                             {% endwith %}
                         </td>
                         {% endwith %}

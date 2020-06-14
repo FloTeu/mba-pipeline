@@ -53,16 +53,25 @@ def get_shirts(marketplace, limit=None, in_test_mode=False):
 
     return df_shirts
     
-def main(request, filter=None):
+def main(request):
     iterator=itertools.count()
-    latest_question_list = [{"name":"Florian"},{"name":"Chiara"},{"name":"Simone"}]
     marketplace = "de"
     df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True).head(100)
-    df_shirts = df_shirts.sort_values(filter, ascending=False)
+    df_shirts = df_shirts.round(2)
+    
+    filter = request.GET.get('sort_by')
+    desc = request.GET.get('direction')
+    show_detail_info = request.GET.get('show_detail_info')
+    #q_desc = request.GET["direction"]
+
+    if filter != None:
+        if desc == "desc":
+            df_shirts = df_shirts.sort_values(filter, ascending=False)
+        else:
+            df_shirts = df_shirts.sort_values(filter, ascending=True)
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : 6, "rows": 2, "filter":filter})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : 6, "rows": 5,"show_detail_info":show_detail_info, "filter":filter})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=True)
