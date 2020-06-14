@@ -218,6 +218,7 @@ def main(argv):
 
     zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0)
     #zone = "europe-west1-b"
+    count_to_crawl = len(get_asin_product_detail_to_crawl(marketplace, daily))
 
     is_first_call = True
     while True:
@@ -235,9 +236,10 @@ def main(argv):
             print("There are %s asins to crawl" % len(df_product_detail))
             # get blacklisted ips 
             blocked_ips = get_blacklisted_ips(marketplace, daily)
+            utils.send_msg(chat_id,"%s of %s" %(len(df_product_detail), count_to_crawl),api_key)
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail) == 0:
-                puffer_minutes = 5
+                puffer_minutes = 7
                 time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
                 print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
                 time.sleep(time_sleep_minutes*60)

@@ -9,26 +9,27 @@
                 <table>
                 {% load define_action %} 
                 {% define 0 as innerCounter %}
-                {% with ''|center:5 as range %}
+                {% with ''|center:rows as range %}
                 {% for i in range %}
-                {% with forloop.parentloop.counter0 as outerCount %}
                     <tr>
-                        {% with ''|center:6 as range %}
+                        {% with ''|center:columns as range %}
                         {% for j in range %}
-                        {% with forloop.counter as innerCounter2 %}
+                        {% with forloop.parentloop.counter0 as outerCount %}
+                        {% with forloop.counter0 as innerCounter %}
                         
                         <td> 
-                            {% define innerCounter|add:1 as innerCounter %}
-                            {% define innerCounter as innerCounter %}
-                            {{ innerCounter }}
-                            {% load index %}{{ shirt_info.price_max|index:innerCounter }},{{ shirt_info.asin|index:innerCounter}}
-                            <!--img src={% load index %}{{ shirt_info.url|index:forloop.counter }} alt="Shirt could not be loaded" width=auto height=auto-->
+                            {% multiply outerCount columns as outerCount_mull %}
+                            {% with outerCount_mull|add:innerCounter as counter_total %}
+                            {{filter}}
+                            {% load index %}{{ shirt_info.price_max|index:counter_total }},{{ shirt_info.asin|index:counter_total}}
+                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=150 height=150>
+                            {% endwith %}
                         </td>
+                        {% endwith %}
                         {% endwith %}
                         {% endfor %}
                         {% endwith %}
                     </tr>
-                {% endwith %}
                 {% endfor %}
                 {% endwith %}
                 </table>

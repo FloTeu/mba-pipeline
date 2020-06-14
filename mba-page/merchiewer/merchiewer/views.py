@@ -53,15 +53,16 @@ def get_shirts(marketplace, limit=None, in_test_mode=False):
 
     return df_shirts
     
-def main(request):
+def main(request, filter=None):
     iterator=itertools.count()
     latest_question_list = [{"name":"Florian"},{"name":"Chiara"},{"name":"Simone"}]
     marketplace = "de"
-    df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True).head(10)
+    df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True).head(100)
+    df_shirts = df_shirts.sort_values(filter, ascending=False)
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
 
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : 6, "rows": 2, "filter":filter})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=True)
