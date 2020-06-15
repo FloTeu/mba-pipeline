@@ -56,15 +56,22 @@ def get_shirts(marketplace, limit=None, in_test_mode=False):
 def main(request):
     iterator=itertools.count()
     marketplace = "de"
-    df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True).head(100)
+    df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True)
     df_shirts = df_shirts.round(2)
     
     filter = request.GET.get('sort_by')
     desc = request.GET.get('direction')
-    show_detail_info = request.GET.get('
-    show_detail_info = request.GET.get('show_detail_info')')
-    columns = int(request.GET.get('columns'))
-    rows = int(request.GET.get('rows'))
+    show_detail_info = request.GET.get('show_detail_info')
+    columns = request.GET.get('columns')
+    rows = request.GET.get('rows')
+    if columns == None:
+        columns = 6
+    else:
+        columns = int(columns)
+    if rows == None:
+        rows = 5
+    else:
+        rows = int(rows)
     #q_desc = request.GET["direction"]
 
     if filter != None:
