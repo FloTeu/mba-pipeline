@@ -72,7 +72,7 @@ sudo chmod 777 data/
 /usr/bin/python3 /home/mba-pipeline/crawler/mba/{} {} --telegram_api_key {} --telegram_chatid {} --number_products {} --connection_timeout {} --time_break_sec {} --seconds_between_crawl {} --preemptible_code {} --pre_instance_name {} --zone {}
     '''.format(py_script, marketplace, api_key, chat_id, number_products, connection_timeout, time_break_sec, seconds_between_crawl, preemptible_code, pre_instance_name, zone)
     # save product detail page locally
-    with open("~/mba-pipeline/crawler/mba/pre_startup_script.sh", "w+") as f:
+    with open("pre_startup_script.sh", "w+") as f:
         f.write(startup_script)
 
 def get_bash_create_pre_instance(instance_name, zone):
