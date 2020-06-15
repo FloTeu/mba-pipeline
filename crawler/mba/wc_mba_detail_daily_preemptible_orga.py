@@ -76,19 +76,19 @@ sudo chmod 777 data/
         f.write(startup_script)
 
 def get_bash_create_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances create {} --preemptible --zone {} --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=/home/f_teutsch/mba-pipeline/crawler/mba/pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances create {} --preemptible --zone {} --project mba-pipeline --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=/home/f_teutsch/mba-pipeline/crawler/mba/pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
     return bash_command
 
 def get_bash_start_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances start {} --zone {}'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances start {} --zone {} --project mba-pipeline'.format(instance_name, zone)
     return bash_command
 
 def get_bash_describe_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances describe {} --zone {}'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances describe {} --zone {} --project mba-pipeline'.format(instance_name, zone)
     return bash_command
 
 def get_bash_delete_pre_instance(instance_name, zone):
-    bash_command = 'yes Y | gcloud compute instances delete {} --zone {}'.format(instance_name, zone)
+    bash_command = 'yes Y | gcloud compute instances delete {} --zone {} --project mba-pipeline'.format(instance_name, zone)
     return bash_command
 
 def get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone):
