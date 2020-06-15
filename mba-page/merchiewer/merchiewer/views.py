@@ -61,7 +61,10 @@ def main(request):
     
     filter = request.GET.get('sort_by')
     desc = request.GET.get('direction')
-    show_detail_info = request.GET.get('show_detail_info')
+    show_detail_info = request.GET.get('
+    show_detail_info = request.GET.get('show_detail_info')')
+    columns = int(request.GET.get('columns'))
+    rows = int(request.GET.get('rows'))
     #q_desc = request.GET["direction"]
 
     if filter != None:
@@ -71,7 +74,7 @@ def main(request):
             df_shirts = df_shirts.sort_values(filter, ascending=True)
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : 6, "rows": 5,"show_detail_info":show_detail_info, "filter":filter})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":show_detail_info, "filter":filter})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=True)

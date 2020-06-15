@@ -91,10 +91,10 @@ def get_bash_delete_pre_instance(instance_name, zone):
     bash_command = 'yes Y | gcloud compute instances delete {} --zone {}  '.format(instance_name, zone)
     return bash_command
 
-def get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone):
+def get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space):
     currently_running_instance = []
     for i in range(number_running_instances):
-        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i,region_space=region_space)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
@@ -108,10 +108,10 @@ def get_currently_running_instance(number_running_instances, marketplace, max_in
 
     return currently_running_instance
 
-def get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone):
+def get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone,region_space):
     currently_terminated_instance = []
     for i in range(number_running_instances):
-        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i,region_space=region_space)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_describe_pre_instance(pre_instance_name,zone)
         process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=False)
@@ -155,11 +155,11 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
         except:
             pass
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips,region_space):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
     create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily, api_key, chat_id)
     # get terminated instances
-    currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone)
+    currently_terminated_instance = get_currently_terminated_instance(number_running_instances, marketplace, max_instances_of_zone,region_space)
     # if instance is terminated it should be restarted and not recreated
     if pre_instance_name in currently_terminated_instance:
         bashCommand = get_bash_start_pre_instance(pre_instance_name,zone)
@@ -175,10 +175,10 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         stream = os.popen(bashCommand)
         output = stream.read()
 
-def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone):
+def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space):
     print("Start to delete all preemptible instances")
     for i in range(number_running_instances):
-        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i)
+        zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=i,region_space=region_space)
         pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(i+1)
         bashCommand = get_bash_delete_pre_instance(pre_instance_name, zone)
         stream = os.popen(bashCommand)
@@ -224,7 +224,7 @@ def main(argv):
 
     is_first_call = True
     while True:
-        currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone)
+        currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space)
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
         # if every instance is runnning program sleeps for 5 minutes
         if len(currently_running_instance) == number_running_instances:
@@ -245,7 +245,7 @@ def main(argv):
                 time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
                 print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
                 time.sleep(time_sleep_minutes*60)
-                delete_all_instance(number_running_instances, marketplace, max_instances_of_zone)
+                delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space=region_space)
                 print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
                 break
 
@@ -257,7 +257,7 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips, region_space)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)       
         is_first_call=False
