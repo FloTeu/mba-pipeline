@@ -187,16 +187,17 @@ def get_random_headers(marketplace):
         'accept-language': 'de-DE,de;q=0.9,en-US;q=0.8,en;q=0.7'}
     return headers
 
-def get_zone_of_marketplace(marketplace, max_instances_of_zone=4, number_running_instances=0):
+def get_zone_of_marketplace(marketplace, max_instances_of_zone=4, number_running_instances=0, region_space=1):
     zone = ""
     possible_zones = {"Frankfurt":"europe-west3-a","Niederlande":"europe-west4-a","Zürich":"europe-west6-a","Belgien":"europe-west1-b","London":"europe-west2-b", "Irland":"europe-north1-a"}
+    region_space_dict = {1: [possible_zones["Frankfurt"],possible_zones["Zürich"]], 2:[possible_zones["London"],possible_zones["Irland"]], 3:[possible_zones["Niederlande"],possible_zones["Belgien"]]}
     if marketplace == "de":
         if number_running_instances < max_instances_of_zone:
-            zone = possible_zones["Zürich"]
+            zone = region_space_dict[region_space][0]
         elif number_running_instances >= max_instances_of_zone and number_running_instances < max_instances_of_zone*2:
-            zone = possible_zones["Frankfurt"]
+            zone = region_space_dict[region_space][1]
         elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
-            zone = possible_zones["Zürich"]
+            zone = possible_zones["Irland"]
             '''
             elif number_running_instances >= max_instances_of_zone*2 and number_running_instances < max_instances_of_zone*3:
                 zone = "europe-west3-c"

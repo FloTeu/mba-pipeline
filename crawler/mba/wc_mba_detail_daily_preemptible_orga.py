@@ -188,6 +188,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('daily', type=utils.str2bool, nargs='?', const=True, help='Should the webcrawler for daily crawling be used or the normal one time detail crawler?')
+    parser.add_argument('region_space', type=int, help='1 = Zürich and Frankfurt, 2 = London and Irland, 3 = Belgien and Niederlande ')
     parser.add_argument('--telegram_api_key',default="", help='API key of mba bot', type=str)
     parser.add_argument('--telegram_chatid', default="", help='Id of channel like private chat or group channel', type=str)
     parser.add_argument('--number_running_instances', default=3, type=int, help='Number of preemptible instances that shoul run parallel. Default is 3.')
@@ -207,6 +208,7 @@ def main(argv):
     args = parser.parse_args(argv)
     marketplace = args.marketplace
     daily = args.daily
+    region_space = args.region_space
     api_key = args.telegram_api_key
     chat_id = args.telegram_chatid
     number_running_instances = args.number_running_instances
@@ -216,7 +218,7 @@ def main(argv):
     seconds_between_crawl = args.seconds_between_crawl
     max_instances_of_zone = args.max_instances_of_zone
 
-    zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0)
+    zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0,region_space=region_space)
     #zone = "europe-west1-b"
     count_to_crawl = len(get_asin_product_detail_to_crawl(marketplace, daily))
 
@@ -249,7 +251,7 @@ def main(argv):
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
             for id in not_running_threat_ids:
-                zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=id-1)
+                zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=id-1,region_space=region_space)
                 pree_id = "thread-" + str(id) + "-" + zone
                 # update preemptible logs with failure statement
                 if not is_first_call:
