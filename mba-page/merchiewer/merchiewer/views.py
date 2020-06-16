@@ -35,7 +35,7 @@ def get_sql(marketplace, limit, filter=None):
         assert False, "filter is not correctly set"
 
     SQL_STATEMENT = """
-    SELECT t0.*, t1.url, Date(t2.upload_date) as upload_date FROM (
+    SELECT t0.*, t1.url, Date(t2.upload_date) as upload_date, t2.product_features FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
             AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min,
             AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
@@ -50,12 +50,12 @@ def get_sql(marketplace, limit, filter=None):
     """.format(marketplace, SQL_LIMIT)
     return SQL_STATEMENT
 
-def get_shirts(marketplace, limit=None, in_test_mode=False, filter=filter):
+def get_shirts(marketplace, limit=None, in_test_mode=False, filter=None):
     import os 
     print(os.getcwd())
 
     if in_test_mode:
-        df_shirts=pd.read_csv("merchiewer/data/shirts.csv")
+        df_shirts=pd.read_csv("merchiewer/data/shirts2.csv")
     else:
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
@@ -101,6 +101,6 @@ def main(request):
     return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":show_detail_info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
-#df_shirts = get_shirts("de", limit=None, in_test_mode=True)
-#df_shirts.to_csv("mba-pipeline/mba-page/merchiewer/merchiewer/data/shirts.csv", index=None)
+#df_shirts = get_shirts("de", limit=None, in_test_mode=False)
+#df_shirts.to_csv("mba-pipeline/mba-page/merchiewer/merchiewer/data/shirts2.csv", index=None)
 #test = 0
