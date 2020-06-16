@@ -16,7 +16,7 @@ def about(request):
     return HttpResponse("about")
 
 
-def get_sql(marketplace, limit):
+def get_sql(marketplace, limit, filter=None):
     if limit == None:
         SQL_LIMIT = ""
     elif type(limit) == int and limit > 0:
@@ -25,6 +25,15 @@ def get_sql(marketplace, limit):
         assert False, "limit is not correctly set"
 
     
+    if filter == None:
+        SQL_WHERE= "where bsr != 0 and bsr != 404"
+    elif filter == "only 404":
+        SQL_WHERE = "where bsr = 404"
+    elif filter == "only 0":
+        SQL_WHERE = "where bsr = 0"
+    else:
+        assert False, "filter is not correctly set"
+
     SQL_STATEMENT = """
     SELECT t0.*, t1.url, Date(t2.upload_date) as upload_date FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
@@ -41,27 +50,27 @@ def get_sql(marketplace, limit):
     """.format(marketplace, SQL_LIMIT)
     return SQL_STATEMENT
 
-def get_shirts(marketplace, limit=None, in_test_mode=False):
+def get_shirts(marketplace, limit=None, in_test_mode=False, filter=filter):
     import os 
     print(os.getcwd())
+
     if in_test_mode:
         df_shirts=pd.read_csv("merchiewer/data/shirts.csv")
     else:
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
-        df_shirts = bq_client.query(get_sql(marketplace, limit)).to_dataframe().drop_duplicates()
+        df_shirts = bq_client.query(get_sql(marketplace, limit, filter)).to_dataframe().drop_duplicates()
 
     return df_shirts
     
 def main(request):
     iterator=itertools.count()
     marketplace = "de"
-    df_shirts = get_shirts(marketplace, limit=30, in_test_mode=True)
-    df_shirts = df_shirts.round(2)
     
-    filter = request.GET.get('sort_by')
+    sort_by = request.GET.get('sort_by')
     desc = request.GET.get('direction')
     show_detail_info = request.GET.get('show_detail_info')
+    filter = request.GET.get('filter')
     columns = request.GET.get('columns')
     rows = request.GET.get('rows')
     if columns == None:
@@ -72,16 +81,24 @@ def main(request):
         rows = 5
     else:
         rows = int(rows)
+
+    if filter == "0":
+        filter = "only 0"
+    elif filter == "404":
+        filter = "only 404"
     #q_desc = request.GET["direction"]
 
-    if filter != None:
+    df_shirts = get_shirts(marketplace, limit=None, in_test_mode=True, filter=filter)
+    df_shirts = df_shirts.round(2)
+
+    if sort_by != None:
         if desc == "desc":
-            df_shirts = df_shirts.sort_values(filter, ascending=False)
+            df_shirts = df_shirts.sort_values(sort_by, ascending=False)
         else:
-            df_shirts = df_shirts.sort_values(filter, ascending=True)
+            df_shirts = df_shirts.sort_values(sort_by, ascending=True)
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":show_detail_info, "filter":filter})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":show_detail_info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=True)
