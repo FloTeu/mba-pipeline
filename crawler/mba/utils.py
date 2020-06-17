@@ -280,7 +280,10 @@ def get_extrenal_ip(pre_instance_name, zone):
     ip_address = stream.read()
     return ip_address.replace("\n", "")
 
-def stop_instance(pre_instance_name, zone):
+def stop_instance(pre_instance_name, zone, msg=None, api_key=None, chat_id=None):
+    if msg!=None and api_key!=None and chat_id != None:
+        ip_adress = get_extrenal_ip(pre_instance_name, zone)
+        send_msg(chat_id, "Instance {} is stopped | IP: {} | Reason: {}".format(pre_instance_name, str(ip_adress), msg), api_key)
     bashCommand = "yes Y | gcloud compute instances stop {} --zone {}".format(pre_instance_name, zone)
     stream = os.popen(bashCommand)
     output = stream.read()

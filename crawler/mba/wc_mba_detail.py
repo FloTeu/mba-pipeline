@@ -306,7 +306,7 @@ def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_addr
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        utils.stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone, msg="Can not update big query reservation", api_key=api_key, chat_id=chat_id)
 
 
 def main(argv):
@@ -356,7 +356,7 @@ def main(argv):
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
-            utils.stop_instance(pre_instance_name, zone)
+            utils.stop_instance(pre_instance_name, zone, msg="No data to crawl", api_key=api_key, chat_id=chat_id)
         return 0
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
     df_product_details_tocrawl["url_product_asin"] =  df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
@@ -376,7 +376,7 @@ def main(argv):
     try:
         df_reservation.to_gbq("preemptible_logs.mba_detail_" + marketplace + "_preemptible_%s_%s_%s"%(reservationdate.year, reservationdate.month, reservationdate.day),project_id="mba-pipeline", if_exists="append")
     except:
-        utils.stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone, msg="Can not update big query reservation", api_key=api_key, chat_id=chat_id)
         
     for j, product_row in df_product_details_tocrawl.iloc[0:number_products].iterrows():
         asin = product_row["asin"]
@@ -389,10 +389,10 @@ def main(argv):
         
             if response == None:
                 # update reservation logs with blacklist of ip 
-                update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, "blacklist", "blacklist", pre_instance_name, zone, api_key, chat_id)
+                update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, pre_instance_name, zone)
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "":
-                    utils.stop_instance(pre_instance_name, zone)
+                    utils.stop_instance(pre_instance_name, zone, msg="Response is none because of time break condition", api_key=api_key, chat_id=chat_id)
                 else:
                     assert response != None, "Could not get response within time break condition"
 
@@ -434,7 +434,7 @@ def main(argv):
     
     # if script is called by preemptible instance it should be deleted by itself
     if pre_instance_name != "" and "pre" in pre_instance_name:
-        utils.stop_instance(pre_instance_name, zone)
+        utils.stop_instance(pre_instance_name, zone, msg="Success", api_key=api_key, chat_id=chat_id)
 
     test = 0
 
