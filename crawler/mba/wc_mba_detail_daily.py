@@ -372,7 +372,7 @@ def main(argv):
     if number_products == 0:
         number_products = len(df_product_details_tocrawl)
 
-    #make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone, api_key, chat_id)
+    make_reservation(df_product_details_tocrawl,number_products,preemptible_code,ip_address,marketplace,pre_instance_name, zone, api_key, chat_id)
     df_product_details_total = None
     asin_list = []
     bsr_list = []
