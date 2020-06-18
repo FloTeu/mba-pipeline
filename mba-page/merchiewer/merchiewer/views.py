@@ -35,9 +35,9 @@ def get_sql(marketplace, limit, filter=None):
         assert False, "filter is not correctly set"
 
     SQL_STATEMENT = """
-    SELECT t0.*, t1.url, Date(t2.upload_date) as upload_date, t2.product_features FROM (
+    SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
-            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min,
+            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
             AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
             FROM `mba-pipeline.mba_{}.products_details_daily`
     where bsr != 0 and bsr != 404
@@ -55,7 +55,7 @@ def get_shirts(marketplace, limit=None, in_test_mode=False, filter=None):
     print(os.getcwd())
 
     if in_test_mode:
-        df_shirts=pd.read_csv("merchiewer/data/shirts2.csv")
+        df_shirts=pd.read_csv("merchiewer/data/shirts2.csv", sep="\t")
     else:
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
@@ -73,14 +73,7 @@ def main(request):
     filter = request.GET.get('filter')
     columns = request.GET.get('columns')
     rows = request.GET.get('rows')
-    if columns == None:
-        columns = 6
-    else:
-        columns = int(columns)
-    if rows == None:
-        rows = 5
-    else:
-        rows = int(rows)
+    key = request.GET.get('s')
 
     if filter == "0":
         filter = "only 0"
@@ -90,6 +83,23 @@ def main(request):
 
     df_shirts = get_shirts(marketplace, limit=None, in_test_mode=True, filter=filter)
     df_shirts = df_shirts.round(2)
+
+    if key != None:
+        df_shirts  = df_shirts[df_shirts["product_features"].str.contains(key, case=False)]
+
+    number_shirts = len(df_shirts)
+    if columns == None:
+        columns = 6
+    else:
+        columns = int(columns)
+    row_max = int(number_shirts / columns)
+
+    if rows == None:
+        rows = 5
+    else:
+        rows = int(rows)
+    if rows > row_max:
+        rows = row_max
 
     if sort_by != None:
         if desc == "desc":
@@ -102,5 +112,5 @@ def main(request):
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)
-#df_shirts.to_csv("mba-pipeline/mba-page/merchiewer/merchiewer/data/shirts2.csv", index=None)
+#df_shirts.to_csv("mba-pipeline/mba-page/merchiewer/merchiewer/data/shirts2.csv", index=None, sep="\t")
 #test = 0

@@ -155,7 +155,7 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
         except:
             pass
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips,region_space):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips,region_space, time_start):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
     create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily, api_key, chat_id)
     # get terminated instances
@@ -169,11 +169,22 @@ def start_instance(marketplace, number_running_instances, number_products,connec
     process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
     ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
-    if ip_address in blocked_ips:
+    time_start = time.time()
+    while ip_address in blocked_ips:
+        # delete instance
         print("IP address %s is blocked. Instance will be deleted again..." % ip_address)
-        bashCommand = get_bash_delete_pre_instance(pre_instance_name, zone)
-        stream = os.popen(bashCommand)
+        bashCommand_delete = get_bash_delete_pre_instance(pre_instance_name, zone)
+        stream = os.popen(bashCommand_delete)
         output = stream.read()
+        # create instance
+        bashCommand = get_bash_create_pre_instance(pre_instance_name,zone)
+        process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
+        output, error = process.communicate()
+        ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
+        # cant find instance in five minutes -> break
+        if(time.time()-time_start) > 60*5:
+            finish_script(5,seconds_between_crawl,number_products,30,number_running_instances,marketplace,max_instances_of_zone,region_space,time_start)
+            assert False, "No ip address left"
 
 def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space):
     print("Start to delete all preemptible instances")
@@ -184,6 +195,13 @@ def delete_all_instance(number_running_instances, marketplace, max_instances_of_
         stream = os.popen(bashCommand)
         output = stream.read()
 
+def finish_script(puffer_minutes,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start):
+    time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
+    print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
+    time.sleep(time_sleep_minutes*60)
+    delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space=region_space)
+    print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
+    
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
@@ -241,12 +259,7 @@ def main(argv):
             utils.send_msg(chat_id,"%s of %s" %(len(df_product_detail), count_to_crawl),api_key)
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail) == 0:
-                puffer_minutes = 7
-                time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
-                print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
-                time.sleep(time_sleep_minutes*60)
-                delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space=region_space)
-                print("Elapsed time: %.2f minutes" % ((time.time() - time_start)/60))
+                finish_script(5,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start)
                 break
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
@@ -257,7 +270,7 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips, region_space)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips, region_space, time_start)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)       
         is_first_call=False
