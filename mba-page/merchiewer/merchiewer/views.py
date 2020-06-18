@@ -35,18 +35,36 @@ def get_sql(marketplace, limit, filter=None):
         assert False, "filter is not correctly set"
 
     SQL_STATEMENT = """
-    SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url FROM (
+    SELECT t_fin.* FROM (
+SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
             AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
             AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
-            FROM `mba-pipeline.mba_{}.products_details_daily`
+            FROM `mba-pipeline.mba_{0}.products_details_daily`
     where bsr != 0 and bsr != 404
     group by asin
     ) t0
     left join `mba-pipeline.mba_de.products_images` t1 on t0.asin = t1.asin
     left join `mba-pipeline.mba_de.products_details` t2 on t0.asin = t2.asin
-    order by t0.bsr_mean
-    {}
+  
+    
+    union all 
+    
+    SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url FROM (
+    SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
+            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
+            AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
+            FROM `mba-pipeline.mba_{0}.products_details_daily`
+    where bsr = 0 and bsr != 404
+    and asin NOT IN (SELECT asin FROM `mba-pipeline.mba_de.products_details_daily` WHERE bsr != 0 and bsr != 404 group by asin)
+    group by asin
+    ) t0
+    left join `mba-pipeline.mba_de.products_images` t1 on t0.asin = t1.asin
+    left join `mba-pipeline.mba_de.products_details` t2 on t0.asin = t2.asin
+    
+    ) t_fin
+    order by t_fin.bsr_mean
+    {1}
     """.format(marketplace, SQL_LIMIT)
     return SQL_STATEMENT
 
@@ -69,7 +87,7 @@ def main(request):
     
     sort_by = request.GET.get('sort_by')
     desc = request.GET.get('direction')
-    show_detail_info = request.GET.get('show_detail_info')
+    info = request.GET.get('info')
     filter = request.GET.get('filter')
     columns = request.GET.get('columns')
     rows = request.GET.get('rows')
@@ -103,12 +121,19 @@ def main(request):
 
     if sort_by != None:
         if desc == "desc":
-            df_shirts = df_shirts.sort_values(sort_by, ascending=False)
+            if "bsr" in sort_by: 
+                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=False)
+            else:
+                df_shirts = df_shirts.sort_values(sort_by, ascending=False)
         else:
-            df_shirts = df_shirts.sort_values(sort_by, ascending=True)
+            if "bsr" in sort_by: 
+                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=True)
+            else:
+                df_shirts = df_shirts.sort_values(sort_by, ascending=True)
+                
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":show_detail_info, "sort_by":sort_by})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)

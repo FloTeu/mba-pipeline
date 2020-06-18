@@ -1,9 +1,11 @@
+{% load static %}
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
         <meta charset="utf-8">
         <title>Merchiewer</title>
     </head>
-    <body style="background-color:grey;">
+    <body>
         <h1>This is the main page</h1>
           {% if shirt_info.asin %}
                 <table>
@@ -21,9 +23,9 @@
                         <td> 
                             {% multiply outerCount columns as outerCount_mull %}
                             {% with outerCount_mull|add:innerCounter as counter_total %}
-                            {{sort_by}}
                             
                             <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
+                            <p style="margin:0">Titel: {{ shirt_info.title|index:counter_total }}</p>
                             {% if show_detail_info %}
                             <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
                             <p style="margin:0">price_max: {{ shirt_info.price_max|index:counter_total }}</p>
@@ -31,6 +33,7 @@
                             <p style="margin:0">bsr_mean: {{ shirt_info.bsr_mean|index:counter_total }}</p>
                             <p style="margin:0">bsr_max: {{ shirt_info.bsr_max|index:counter_total }}</p>
                             <p style="margin:0">bsr_min: {{ shirt_info.bsr_min|index:counter_total }}</p>
+                            <p style="margin:0">bsr_count: {{ shirt_info.bsr_count|index:counter_total }}</p>
                             <p style="margin:0">score_mean: {{ shirt_info.score_mean|index:counter_total }}</p>
                             <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
                             <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
