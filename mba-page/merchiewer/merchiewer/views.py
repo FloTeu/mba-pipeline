@@ -136,7 +136,20 @@ def main(request):
     df_shirts = df_shirts.round(2)
 
     if key != None:
-        df_shirts  = df_shirts[df_shirts["product_features"].str.contains(key, case=False)]
+        df_shirts = df_shirts[df_shirts.apply(lambda x: key.lower() in x.product_features.lower() or key.lower() in x.title.lower(), axis=1)]
+        #df_shirts  = df_shirts[df_shirts["product_features"].str.contains(key, case=False)]
+
+    if sort_by != None:
+        if desc == "desc":
+            if "bsr" in sort_by or "trend" in sort_by: 
+                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=False)
+            else:
+                df_shirts = df_shirts.sort_values(sort_by, ascending=False)
+        else:
+            if "bsr" in sort_by or "trend" in sort_by: 
+                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=True)
+            else:
+                df_shirts = df_shirts.sort_values(sort_by, ascending=True)
 
     number_shirts = len(df_shirts)
     if columns == None:
@@ -151,19 +164,7 @@ def main(request):
         rows = int(rows)
     if rows > row_max:
         rows = row_max
-
-    if sort_by != None:
-        if desc == "desc":
-            if "bsr" in sort_by or "trend" in sort_by: 
-                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=False)
-            else:
-                df_shirts = df_shirts.sort_values(sort_by, ascending=False)
-        else:
-            if "bsr" in sort_by or "trend" in sort_by: 
-                df_shirts = df_shirts[df_shirts["bsr_max"]!=0].sort_values(sort_by, ascending=True)
-            else:
-                df_shirts = df_shirts.sort_values(sort_by, ascending=True)
-                
+        
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
     return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
