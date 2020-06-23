@@ -110,19 +110,27 @@ def get_product_information(marketplace, list_product_information):
         assert False, "Marketplace not known"
 
 
-def get_product_detail_daily_df(soup, asin, url_mba, marketplace):
+def get_product_detail_daily_df(soup, asin, url_mba, marketplace, api_key="", chat_id=""):
     product_information = soup.find("div", id="detail-bullets_feature_div")
     
     # get all headline infos 
-    price_str = [soup.find("span", id="priceblock_ourprice").get_text()]
+    try:
+        price_str = [soup.find("span", id="priceblock_ourprice").get_text()]
+    except:
+        utils.send_msg(chat_id, "Could not get price of product: " + str(asin), api_key)
+        price_str = ["ERROR"]
     try:
         price = float(price_str[0].split("\xa0")[0].replace(",","."))
     except:
         price = 0.0
     # get all product information
     list_product_information = product_information.find("ul").find_all("li")
-    customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
-    
+    try:
+        customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+    except:
+        utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
+        return 404
+
     crawlingdate = [datetime.datetime.now()]
 
     product_information_str = str(product_information) + ",PRICE:" + price_str[0]
@@ -377,6 +385,8 @@ def main(argv):
     # get asins which are not already crawled
     df_product_details_tocrawl_total = get_asin_product_detail_daily_crawled(marketplace)
     df_product_details_tocrawl = df_product_details_tocrawl_total[0:int(number_products/2)].reset_index(drop=True)
+    # remove asins that are in priority order
+    df_product_details_tocrawl_total = df_product_details_tocrawl_total[~df_product_details_tocrawl_total.asin.isin(df_product_details_tocrawl["asin"].tolist())]
     df_product_details_tocrawl = df_product_details_tocrawl.append(df_product_details_tocrawl_total.sample(frac=1).reset_index(drop=True))
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
@@ -443,8 +453,13 @@ def main(argv):
                 html_str = f.read()
                 asin = "B086D9RL8Q"
                 soup = BeautifulSoup(utils.get_div_in_html(html_str, 'id="dp-container"'), 'html.parser')
-
-        df_product_details = get_product_detail_daily_df(soup, asin, url_product_asin, marketplace)
+        try:
+            df_product_details = get_product_detail_daily_df(soup, asin, url_product_asin, marketplace)
+        except:
+            utils.send_msg(chat_id, "Error while trying to get information for asin: " + str(asin), api_key)
+            continue
+        if df_product_details == 404:
+            continue
         bsr_list.append(df_product_details.loc[0,"bsr"])
         price_list.append(df_product_details.loc[0,"price_str"])
         # save product information string locally
