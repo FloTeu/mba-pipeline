@@ -129,7 +129,7 @@ def get_product_detail_daily_df(soup, asin, url_mba, marketplace, api_key="", ch
         customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
     except:
         utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
-        return 404
+        raise ValueError
 
     crawlingdate = [datetime.datetime.now()]
 
@@ -457,8 +457,6 @@ def main(argv):
             df_product_details = get_product_detail_daily_df(soup, asin, url_product_asin, marketplace)
         except:
             utils.send_msg(chat_id, "Error while trying to get information for asin: " + str(asin), api_key)
-            continue
-        if df_product_details == 404:
             continue
         bsr_list.append(df_product_details.loc[0,"bsr"])
         price_list.append(df_product_details.loc[0,"price_str"])
