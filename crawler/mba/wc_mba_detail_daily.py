@@ -35,7 +35,23 @@ def get_asin_product_detail_daily_crawled(marketplace):
     bq_client = bigquery.Client(project=project_id)
     # TODO get those which are not already crawled today
     # TODO remove asins that return a 404 (not found) error
-    df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
+    SQL_STATEMENT = '''
+    SELECT t0.asin, t0.url_product, t2.bsr_count FROM mba_{0}.products t0 LEFT JOIN (SELECT * FROM mba_{0}.products_details_daily WHERE DATE(timestamp) = '{1}-{2}-{3}' or price_str = '404') t1 on t0.asin = t1.asin 
+        LEFT JOIN 
+        (
+        SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
+                    AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
+                    AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
+                    FROM `mba-pipeline.mba_{0}.products_details_daily`
+            where bsr != 404
+            group by asin
+        ) t2 on t0.asin = t2.asin 
+        where t1.asin IS NULL 
+        order by t2.bsr_count
+    '''.format(marketplace, reservationdate.year, reservationdate.month, reservationdate.day)
+    #df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
+    df_product_details = bq_client.query(SQL_STATEMENT).to_dataframe().drop_duplicates()
+
     if utils.does_table_exist(project_id, dataset_id, table_id):
         # get reservation logs
         df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
@@ -359,7 +375,9 @@ def main(argv):
     args = parser.parse_args()
 
     # get asins which are not already crawled
-    df_product_details_tocrawl = get_asin_product_detail_daily_crawled(marketplace).sample(frac=1).reset_index(drop=True)
+    df_product_details_tocrawl_total = get_asin_product_detail_daily_crawled(marketplace)
+    df_product_details_tocrawl = df_product_details_tocrawl_total[0:int(number_products/2)].reset_index(drop=True)
+    df_product_details_tocrawl = df_product_details_tocrawl.append(df_product_details_tocrawl_total.sample(frac=1).reset_index(drop=True))
     if len(df_product_details_tocrawl) == 0:
         print("no data to crawl")
         if pre_instance_name != "" and "pre" in pre_instance_name:
