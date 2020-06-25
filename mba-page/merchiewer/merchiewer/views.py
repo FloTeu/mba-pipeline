@@ -167,7 +167,7 @@ def main(request):
         
     shirt_info = df_shirts.to_dict(orient='list')
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
+    return render(request, 'main_boss.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)

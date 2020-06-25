@@ -1,0 +1,69 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>Merchiewer</title>
+        {% load static %}
+        <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+    </head>
+    <body>
+        <h1>This is the main page</h1>
+        <ul class="flex">
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Active</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            </li>
+            <li class="mr-6">
+              <a class="text-gray-400 cursor-not-allowed" href="#">Disabled</a>
+            </li>
+          </ul>
+          {% if shirt_info.asin %}
+                <table>
+                {% load define_action %} 
+                {% load index %}
+                {% define 0 as innerCounter %}
+                {% with ''|center:rows as range %}
+                {% for i in range %}
+                    <tr>
+                        {% with ''|center:columns as range %}
+                        {% for j in range %}
+                        {% with forloop.parentloop.counter0 as outerCount %}
+                        {% with forloop.counter0 as innerCounter %}
+                        
+                        <td> 
+                            {% multiply outerCount columns as outerCount_mull %}
+                            {% with outerCount_mull|add:innerCounter as counter_total %}
+                            {{sort_by}}
+                            
+                            <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
+                            {% if show_detail_info %}
+                            <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
+                            <p style="margin:0">price_max: {{ shirt_info.price_max|index:counter_total }}</p>
+                            <p style="margin:0">price_min: {{ shirt_info.price_min|index:counter_total }}</p>
+                            <p style="margin:0">bsr_mean: {{ shirt_info.bsr_mean|index:counter_total }}</p>
+                            <p style="margin:0">bsr_max: {{ shirt_info.bsr_max|index:counter_total }}</p>
+                            <p style="margin:0">bsr_min: {{ shirt_info.bsr_min|index:counter_total }}</p>
+                            <p style="margin:0">score_mean: {{ shirt_info.score_mean|index:counter_total }}</p>
+                            <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
+                            <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
+                            {% endif %}
+                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
+                            {% endwith %}
+                        </td>
+                        {% endwith %}
+                        {% endwith %}
+                        {% endfor %}
+                        {% endwith %}
+                    </tr>
+                {% endfor %}
+                {% endwith %}
+                </table>
+            {% else %}
+                <p>No shirts are available.</p>
+            {% endif %}
+    </body>
+</html>

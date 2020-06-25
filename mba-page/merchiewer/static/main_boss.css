@@ -4,5 +4,6 @@
 
 @tailwind utilities;
 
-body {background-color: grey;}
-h1 {color: rgb(156, 240, 11);}
+body {
+    background-color: pink;
+}
