@@ -213,7 +213,7 @@ def main(argv):
         
         print("Page " + str(current_page) + " successfully crawled with %s new asins" % str(len(df_products)))
         # BREAK CONDITION only if pages parameter is not set
-        if pages == 0 and asin_already_crawled and len(df_products) < (42/2):
+        if pages == 0 and asin_already_crawled and len(df_products) < (48/3):
             #if make_one_more_request == 3:
             break
             #make_one_more_request = make_one_more_request + 1

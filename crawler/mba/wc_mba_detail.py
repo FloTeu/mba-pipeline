@@ -102,7 +102,7 @@ def get_product_information(marketplace, list_product_information):
         assert False, "Marketplace not known"
 
 
-def get_product_detail_df(soup, asin, url_mba, marketplace):
+def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=""):
     product_feature = soup.find("div", id="feature-bullets")
     product_description = soup.find("div", id="productDescription_feature_div")
     product_information = soup.find("div", id="detail-bullets_feature_div")
@@ -111,7 +111,11 @@ def get_product_detail_df(soup, asin, url_mba, marketplace):
     title = [soup.find("span", id="productTitle").get_text().replace("\n","").replace("                                                                                                                                                        ","").replace("                                                                                                                        ", "")]
     brand = [soup.find("a", id="bylineInfo").get_text()]
     url_brand = ["/".join(url_mba.split("/")[0:3]) + soup.find("a", id="bylineInfo")["href"]]
-    price = [soup.find("span", id="priceblock_ourprice").get_text()]
+    try:
+        price = [soup.find("span", id="priceblock_ourprice").get_text()]
+    except:
+        utils.send_msg(chat_id, "Could not get price of product: " + str(asin), api_key)
+        price = ["ERROR"]
 
     array_fit_types = []
     div_fit_types = soup.find("div", id="variation_fit_type").find_all("span", class_="a-size-base")
@@ -144,7 +148,11 @@ def get_product_detail_df(soup, asin, url_mba, marketplace):
 
     # get all product information
     list_product_information = product_information.find("ul").find_all("li")
-    weight, upload_date_str, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+    try:
+        weight, upload_date_str, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+    except:
+        utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
+        raise ValueError
     
     # try to get real upload date
     upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]
@@ -421,8 +429,11 @@ def main(argv):
                 html_str = f.read()
                 asin = "B086D9RL8Q"
                 soup = BeautifulSoup(utils.get_div_in_html(html_str, 'id="dp-container"'), 'html.parser') 
-
-        df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace)
+        try:
+            df_product_details = get_product_detail_df(soup, asin, url_product_asin, marketplace, chat_id, api_key)
+        except:
+            utils.send_msg(chat_id, "Error while trying to get information for asin: " + str(asin), api_key)
+            continue
         df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
         update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, pre_instance_name, zone)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
