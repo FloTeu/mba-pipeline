@@ -239,9 +239,10 @@ def main(argv):
     zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0,region_space=region_space)
     #zone = "europe-west1-b"
     count_to_crawl = len(get_asin_product_detail_to_crawl(marketplace, daily))
-
+    
     is_first_call = True
     while True:
+        time_wait_minutes = 0
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space)
         currently_running_ids = [int(i.split("-")[-1]) for i in currently_running_instance]
         # if every instance is runnning program sleeps for 5 minutes
