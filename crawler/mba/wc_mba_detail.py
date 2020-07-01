@@ -153,7 +153,7 @@ def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=
     except:
         utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
         raise ValueError
-    
+
     # try to get real upload date
     upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]
 
@@ -434,7 +434,10 @@ def main(argv):
         except:
             utils.send_msg(chat_id, "Error while trying to get information for asin: " + str(asin), api_key)
             continue
-        df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+        try:
+            df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+        except:
+            update_reservation_logs(marketplace, asin, "failure", preemptible_code, ip_address, pre_instance_name, zone)
         update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, pre_instance_name, zone)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
