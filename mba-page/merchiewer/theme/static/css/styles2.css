@@ -1,0 +1,15 @@
+@tailwind base;
+
+@tailwind components;
+
+@tailwind utilities;
+
+body {
+    background-color: #4a5568;
+}
+
+#titlecolor{
+    color: whitesmoke;
+    font-size: 32px;
+  }
+  

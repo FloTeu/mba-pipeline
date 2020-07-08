@@ -4,27 +4,28 @@
         <title>Merchiewer</title>
         {% load static %}
         <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+        <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
     </head>
     <body>
 
      
-        <div class="flex justify-center items-center py-6 bg-gray-700">
-        <ul class="flex">
-            <li class="mr-6">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Active</a>
+        <div class="pt-2 md:pt-1 pb-1 px-2 mt-0 h-auto w-full z-20 top-0 bg-gray-800">
+        <ul class=" flex right-0">
+            <li class="mr-8">
+              <a class="text-blue-500 hover:text-blue-800" href="?sort_by=bsr_mean">Most Selled</a>
             </li>
-            <li class="mr-6">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            <li class="mr-8">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Most Viewed</a>
             </li>
-            <li class="mr-6">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Link</a>
+            <li class="mr-8">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Cool Stuff</a>
             </li>
           </ul>
         </div>
         <div class="flex justify-center items-center">
-          <h1 >Welcome to Merchiewer</h1>
+          <h1 id="titlecolor" >Welcome to Merchiewer</h1>
         </div>
-          <div class="flex justify-center flex-wrap p-10">
+          <div class="flex-grow">
           {% if shirt_info.asin %}
                 <table>
                 {% load define_action %} 
@@ -41,7 +42,7 @@
                         <td> 
                             {% multiply outerCount columns as outerCount_mull %}
                             {% with outerCount_mull|add:innerCounter as counter_total %}
-                            <div class="relative w-48 h-60 m-5  shadow-lg">
+                            <div class="flex flex-wrap w-4/5 h-70 m-5  shadow-md">
                             <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
                             {% if show_detail_info %}
                             <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>

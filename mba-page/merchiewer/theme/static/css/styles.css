@@ -19043,12 +19043,9 @@ video {
 }
 
 body {
-  background-color: grey;
+  background-color: #718096;
 }
 
-h1 {
-  color: #9cf00b;
-}
 
 @media (min-width: 640px) {
   .sm\:space-y-0 > :not(template) ~ :not(template) {
