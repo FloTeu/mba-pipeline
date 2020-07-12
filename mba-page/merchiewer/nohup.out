@@ -1,0 +1,44 @@
+[12/Jul/2020 10:44:20] "GET / HTTP/1.1" 200 22946
+[12/Jul/2020 10:44:20] "GET /static/css/style.css HTTP/1.1" 404 179
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 17 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): admin, auth, contenttypes, sessions.
+Run 'python manage.py migrate' to apply them.
+July 12, 2020 - 10:43:44
+Django version 3.0.7, using settings 'merchiewer.settings'
+Starting development server at http://0.0.0.0:80/
+Quit the server with CONTROL-C.
+/home/flo_t_1995/mba-pipeline/mba-page/merchiewer
+Data already loaded today
+[12/Jul/2020 10:45:41] "GET / HTTP/1.1" 200 22825
+[12/Jul/2020 10:45:41] "GET /static/css/styles2.css HTTP/1.1" 404 179
+[12/Jul/2020 10:45:41] "GET /static/css/styles.css HTTP/1.1" 404 179
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 17 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): admin, auth, contenttypes, sessions.
+Run 'python manage.py migrate' to apply them.
+July 12, 2020 - 10:45:40
+Django version 3.0.7, using settings 'merchiewer.settings'
+Starting development server at http://0.0.0.0:80/
+Quit the server with CONTROL-C.
+/home/flo_t_1995/mba-pipeline/mba-page/merchiewer
+Data already loaded today
+[12/Jul/2020 10:46:42] "GET / HTTP/1.1" 200 22825
+[12/Jul/2020 10:46:42] "GET /static/css/styles2.css HTTP/1.1" 404 179
+[12/Jul/2020 10:46:42] "GET /static/css/styles.css HTTP/1.1" 404 179
+Performing system checks...
+
+System check identified no issues (0 silenced).
+
+You have 17 unapplied migration(s). Your project may not work properly until you apply the migrations for app(s): admin, auth, contenttypes, sessions.
+Run 'python manage.py migrate' to apply them.
+July 12, 2020 - 10:46:41
+Django version 3.0.7, using settings 'merchiewer.settings'
+Starting development server at http://0.0.0.0:80/
+Quit the server with CONTROL-C.
+/home/flo_t_1995/mba-pipeline/mba-page/merchiewer
+Data already loaded today

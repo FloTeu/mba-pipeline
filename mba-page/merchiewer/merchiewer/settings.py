@@ -23,9 +23,9 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '^+95%c0gtk3!@%644h2vxkhzq6w0q8!a&_teew#eptv#ftlm-*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123']
 
 
 # Application definition
