@@ -15,10 +15,13 @@
               <a class="text-blue-500 hover:text-blue-800" href="?sort_by=bsr_mean">Most Selled</a>
             </li>
             <li class="mr-8">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Most Viewed</a>
+              <a class="text-blue-500 hover:text-blue-800" href="?sort_by=trend">Trend</a>
             </li>
             <li class="mr-8">
               <a class="text-blue-500 hover:text-blue-800" href="#">Cool Stuff</a>
+            </li>
+            <li class="mr-8">
+              <a class="text-blue-500 hover:text-blue-800" href="#">Trend</a>
             </li>
           </ul>
         </div>
@@ -43,6 +46,10 @@
                             {% multiply outerCount columns as outerCount_mull %}
                             {% with outerCount_mull|add:innerCounter as counter_total %}
                             <div class="flex flex-wrap w-4/5 h-70 m-5  shadow-md">
+                              <div class="tooltip">Titel anzeigen
+                                
+                             
+                              <span class="tooltiptext"><p style="margin:0">Titel: {{shirt_info.title|index:counter_total }} </p> </span></div>
                             <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
                             {% if show_detail_info %}
                             <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
@@ -55,8 +62,12 @@
                             <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
                             <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
                             {% endif %}
-                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
+                            <div class = "md:flex">
+                              <div class="md:flex-shrink">
+                            <img class="rounded-lg md:w-46" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
                             {% endwith %}
+                            </div>
+                          </div>
                           </div>
                         </td>
                         {% endwith %}
