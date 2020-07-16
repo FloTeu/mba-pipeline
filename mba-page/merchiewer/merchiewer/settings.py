@@ -15,6 +15,7 @@ import os
 # Build paths inside the project like this: os.path.join(BASE_DIR, ...)
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
+NPM_BIN_PATH = '/usr/local/bin/npm'
 
 # Quick-start development settings - unsuitable for production
 # See https://docs.djangoproject.com/en/3.0/howto/deployment/checklist/
@@ -23,9 +24,10 @@ BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SECRET_KEY = '^+95%c0gtk3!@%644h2vxkhzq6w0q8!a&_teew#eptv#ftlm-*'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = False
+DEBUG = True
 
-ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123']
+#ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123', 'merchwatch.de']
+ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123', 'merchwatch.de',  '127.0.0.1']
 
 
 # Application definition
@@ -128,6 +130,14 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/3.0/howto/static-files/
 
 STATIC_URL = '/static/'
+# path used for collectstatic, *where the webserver not django will expect to find files*
+#STATIC_ROOT = '/home/flo_t_1995/mba-pipeline/mba-page/merchiewer/theme/static'
 
-STATICFILES_DIRS = ["/home/chiara/mba-pipeline/mba-page/merchiewer/static"]
+STATICFILES_DIRS = ["/home/flo_t_1995/mba-pipeline/mba-page/merchiewer/theme/static"]
 #STATICFILES_DIRS = ["~/mba-pipeline/mba-page/merchiewer/static"]
+
+# List of finder classes that know how to find static files in various locations.
+STATICFILES_FINDERS = (
+    'django.contrib.staticfiles.finders.FileSystemFinder',
+    'django.contrib.staticfiles.finders.AppDirectoriesFinder',
+) 
