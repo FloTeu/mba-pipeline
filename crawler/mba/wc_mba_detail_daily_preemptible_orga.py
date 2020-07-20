@@ -91,6 +91,10 @@ def get_bash_delete_pre_instance(instance_name, zone):
     bash_command = 'yes Y | gcloud compute instances delete {} --zone {}  '.format(instance_name, zone)
     return bash_command
 
+def get_bash_stop_instance(instance_name, zone):
+    bash_command = 'yes Y | gcloud compute instances stop {} --zone {}  '.format(instance_name, zone)
+    return bash_command
+
 def get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space):
     currently_running_instance = []
     for i in range(number_running_instances):
@@ -282,7 +286,7 @@ def main(argv):
         is_first_call=False
 
     if stop_instance_by_itself:
-        bashCommand = get_bash_delete_pre_instance(instance_name, "us-central1-a")
+        bashCommand = get_bash_stop_instance(instance_name, "us-central1-a")
         stream = os.popen(bashCommand)
         output = stream.read()
 
