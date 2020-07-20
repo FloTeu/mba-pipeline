@@ -215,7 +215,9 @@ def main(argv):
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
     parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
     parser.add_argument('--max_instances_of_zone', default=4, type=int, help='Quota of GCP for maximum instances per zone')
-
+    parser.add_argument('--instance_name', default="", type=str, help='Name of the instance this script is executed of')
+    parser.add_argument('--stop_instance_by_itself', default=0, type=int, help='If 1 instances stops itself if its finished')
+    
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
         argv = argv[1:len(argv)]
@@ -235,12 +237,15 @@ def main(argv):
     time_break_sec = args.time_break_sec
     seconds_between_crawl = args.seconds_between_crawl
     max_instances_of_zone = args.max_instances_of_zone
+    stop_instance_by_itself = args.stop_instance_by_itself
+    instance_name = args.instance_name
 
     zone = utils.get_zone_of_marketplace(marketplace, max_instances_of_zone=max_instances_of_zone, number_running_instances=0,region_space=region_space)
     #zone = "europe-west1-b"
     count_to_crawl = len(get_asin_product_detail_to_crawl(marketplace, daily))
     
     is_first_call = True
+
     while True:
         time_wait_minutes = 0
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space)
@@ -275,6 +280,12 @@ def main(argv):
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)       
         is_first_call=False
+
+    if stop_instance_by_itself:
+        bashCommand = get_bash_delete_pre_instance(instance_name, "us-central1-a")
+        stream = os.popen(bashCommand)
+        output = stream.read()
+
 
 if __name__ == '__main__':
     main(sys.argv)
