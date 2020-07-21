@@ -89,17 +89,17 @@ def check_if_shirts_today_exist(file_path):
 
 def get_shirts(marketplace, limit=None, in_test_mode=False, filter=None):
     print(os.getcwd())
-    file_path = "merchiewer/data/shirts.csv"
+    file_path = "merchwatch/data/shirts.csv"
     if check_if_shirts_today_exist(file_path):
         print("Data already loaded today")
-        df_shirts=pd.read_csv("merchiewer/data/shirts.csv", sep="\t")
+        df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
     else:
         print("Load shirt data from bigquery")
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
         df_shirts = bq_client.query(get_sql(marketplace, limit, filter)).to_dataframe().drop_duplicates()
         df_shirts = make_trend_column(df_shirts)
-        df_shirts.to_csv("merchiewer/data/shirts.csv", index=None, sep="\t")
+        df_shirts.to_csv("merchwatch/data/shirts.csv", index=None, sep="\t")
         print("Loading completed.")
         #df_shirts[df_shirts["bsr_mean"] != 0][["trend", "time_since_upload","time_since_upload_norm", "bsr_mean"]].head(10)
     
@@ -107,7 +107,7 @@ def get_shirts(marketplace, limit=None, in_test_mode=False, filter=None):
 
     '''
     if in_test_mode:
-        df_shirts=pd.read_csv("merchiewer/data/shirts2.csv", sep="\t")
+        df_shirts=pd.read_csv("merchwatch/data/shirts2.csv", sep="\t")
     else:
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
@@ -171,5 +171,5 @@ def main(request):
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)
-#df_shirts.to_csv("mba-pipeline/mba-page/merchiewer/merchiewer/data/shirts2.csv", index=None, sep="\t")
+#df_shirts.to_csv("mba-pipeline/mba-page/merchwatch/merchwatch/data/shirts2.csv", index=None, sep="\t")
 #test = 0

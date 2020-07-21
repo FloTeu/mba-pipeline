@@ -1,34 +1,12 @@
+{% load static %}
 <html>
     <head>
+        <link rel="stylesheet" type="text/css" href="{% static 'css/style.css' %}">
         <meta charset="utf-8">
-        <title>Merchiewer</title>
-        {% load static %}
-        <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-        <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
+        <title>merchwatch</title>
     </head>
     <body>
-
-     
-        <div class="pt-2 md:pt-1 pb-1 px-2 mt-0 h-auto w-full z-20 top-0 bg-gray-800">
-        <ul class=" flex right-0">
-            <li class="mr-8">
-              <a class="text-blue-500 hover:text-blue-800" href="?sort_by=bsr_mean">Most Selled</a>
-            </li>
-            <li class="mr-8">
-              <a class="text-blue-500 hover:text-blue-800" href="?sort_by=trend">Trend</a>
-            </li>
-            <li class="mr-8">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Cool Stuff</a>
-            </li>
-            <li class="mr-8">
-              <a class="text-blue-500 hover:text-blue-800" href="#">Trend</a>
-            </li>
-          </ul>
-        </div>
-        <div class="flex justify-center items-center">
-          <h1 id="titlecolor" >Welcome to Merchiewer</h1>
-        </div>
-          <div class="flex-grow">
+        <h1>This is the main page</h1>
           {% if shirt_info.asin %}
                 <table>
                 {% load define_action %} 
@@ -45,12 +23,9 @@
                         <td> 
                             {% multiply outerCount columns as outerCount_mull %}
                             {% with outerCount_mull|add:innerCounter as counter_total %}
-                            <div class="flex flex-wrap w-4/5 h-70 m-5  shadow-md">
-                              <div class="tooltip">Titel anzeigen
-                                
-                             
-                              <span class="tooltiptext"><p style="margin:0">Titel: {{shirt_info.title|index:counter_total }} </p> </span></div>
+                            
                             <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
+                            <p style="margin:0">Titel: {{ shirt_info.title|index:counter_total }}</p>
                             {% if show_detail_info %}
                             <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
                             <p style="margin:0">price_max: {{ shirt_info.price_max|index:counter_total }}</p>
@@ -58,17 +33,13 @@
                             <p style="margin:0">bsr_mean: {{ shirt_info.bsr_mean|index:counter_total }}</p>
                             <p style="margin:0">bsr_max: {{ shirt_info.bsr_max|index:counter_total }}</p>
                             <p style="margin:0">bsr_min: {{ shirt_info.bsr_min|index:counter_total }}</p>
+                            <p style="margin:0">bsr_count: {{ shirt_info.bsr_count|index:counter_total }}</p>
                             <p style="margin:0">score_mean: {{ shirt_info.score_mean|index:counter_total }}</p>
                             <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
                             <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
                             {% endif %}
-                            <div class = "md:flex">
-                              <div class="md:flex-shrink">
-                            <img class="rounded-lg md:w-46" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
+                            <img src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
                             {% endwith %}
-                            </div>
-                          </div>
-                          </div>
                         </td>
                         {% endwith %}
                         {% endwith %}
@@ -78,10 +49,8 @@
                 {% endfor %}
                 {% endwith %}
                 </table>
-              </div>
             {% else %}
                 <p>No shirts are available.</p>
             {% endif %}
-          
     </body>
 </html>
