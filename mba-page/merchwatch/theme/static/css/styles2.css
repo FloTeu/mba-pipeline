@@ -30,3 +30,6 @@ body {
     visibility: visible;
   }
   
+  .plotdiv{
+    width: 200px;
+  }

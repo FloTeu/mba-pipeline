@@ -133,6 +133,7 @@ class DataHandler():
             df_shirts = df_shirts.merge(df_additional_data, 
                 left_index=True, right_index=True)
             df_shirts = self.make_trend_column(df_shirts)
+            df_shirts["plot"] = df_shirts.apply(lambda x: self.create_plot_html(x, df_shirts_detail_daily), axis=1)
             df_shirts.to_csv("merchwatch/data/shirts.csv", index=None, sep="\t")
             print("Loading completed.")
             #df_shirts[df_shirts["bsr_mean"] != 0][["trend", "time_since_upload","time_since_upload_norm", "bsr_mean"]].head(10)
@@ -156,7 +157,7 @@ class DataHandler():
                      "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"),  margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
                 output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
         return plot_div
-'''
+#'''
 dataHandleModel = DataHandler()
 #dataHandleModel.get_sql_shirts("de", None)
 project_id = 'mba-pipeline'
@@ -167,10 +168,10 @@ filter=None
 #df_shirts_detail_daily = bq_client.query(dataHandleModel.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
 df_shirts, df_shirts_detail_daily = dataHandleModel.get_shirts(marketplace, limit=limit)
 df_shirts2 = df_shirts.iloc[0:10].copy()
-df_shirts2["plot"] = df_shirts2.apply(lambda x: dataHandleModel.create_plot_html(x,df_shirts_detail_daily), axis=1)
+#df_shirts2["plot"] = df_shirts2.apply(lambda x: dataHandleModel.create_plot_html(x,df_shirts_detail_daily), axis=1)
 
 
 #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 #df_shirts2["bsr_last"], df_shirts2["price_last"], df_shirts2["bsr_first"], df_shirts2["price_first"] = df_shirts2.apply(lambda x: get_first_and_last_data(x["asin"]), axis=1)
-'''
+#'''
 test = 0
