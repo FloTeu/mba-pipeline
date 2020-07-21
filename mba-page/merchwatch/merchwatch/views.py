@@ -11,7 +11,9 @@ from datetime import date
 import datetime 
 import time 
 from .data_handler import DataHandler 
-
+from plotly.offline import plot
+import plotly.graph_objs as go
+from plotly.graph_objs import Scatter
 
 register = template.Library()
 
@@ -35,6 +37,7 @@ def main(request):
     columns = request.GET.get('columns')
     rows = request.GET.get('rows')
     key = request.GET.get('s')
+    page = request.GET.get('page')
 
     if filter == "0":
         filter = "only 0"
@@ -75,9 +78,55 @@ def main(request):
     if rows > row_max:
         rows = row_max
         
+    if page == None:
+        page = 1
+    else:
+        page = int(page)
+
+    df_shirts = df_shirts.iloc[(page-1)*(columns*rows):((page-1)*(columns*rows) + (columns*rows))]
+    df_shirts["plot"] = df_shirts.apply(lambda x: DataHandlerModel.create_plot_html(x, df_shirts_detail_daily), axis=1)
+
     shirt_info = df_shirts.to_dict(orient='list')
+    print(len(df_shirts))
+    print(page, (page-1)*(columns*rows), ((page-1)*(columns*rows) + (columns*rows)))
+    
+
+
+    #fig = go.Figure()
+
+    x_data = ['2020-07-20', '2020-07-17', '2020-07-15', '2020-07-14', '2020-07-13', '2020-07-10', '2020-07-09']
+    y_data = [359, 175, 159, 158, 223, 172, 418]
+
+    #fig = Scatter(x=x_data, y=y_data,
+    #                    mode='lines', name='test',
+    #                    opacity=0.8, marker_color='green')
+    '''
+    scatter = go.Scatter(x=x_data, y=y_data,
+                     mode='lines', name='test',
+                     opacity=0.8, marker_color='green')
+    fig.add_trace(scatter)
+
+    fig.update_layout(
+    margin=dict(l=20, r=20, t=20, b=20),
+    paper_bgcolor="LightSteelBlue", 
+    )
+    '''
+    config = {'displayModeBar': False}#{"staticPlot": True}
+
+    plot_div = plot([Scatter(x=x_data, y=y_data,
+                       mode='lines', name='test',
+                    opacity=0.8, marker_color='green')],
+               output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
+
+    
+
+    plot_div2 = plot([Scatter(x=x_data, y=y_data,
+                       mode='lines', name='test2',
+                    opacity=0.8, marker_color='green')],
+               output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
+
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
+    return render(request, 'main.html', {"shirt_info":shirt_info, "plt_div":plot_div, "plt_div2":plot_div2,"iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)

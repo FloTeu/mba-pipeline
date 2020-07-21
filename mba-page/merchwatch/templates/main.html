@@ -5,10 +5,10 @@
         {% load static %}
         <link rel="stylesheet" href="{% static 'css/styles.css' %}">
         <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
     </head>
     <body>
 
-     
         <div class="pt-2 md:pt-1 pb-1 px-2 mt-0 h-auto w-full z-20 top-0 bg-gray-800">
         <ul class=" flex right-0">
             <li class="mr-8">
@@ -26,7 +26,7 @@
           </ul>
         </div>
         <div class="flex justify-center items-center">
-          <h1 id="titlecolor" >Welcome to merchwatch</h1>
+          <h1 id="titlecolor" >Welcome to merchwatch</h1> 
         </div>
           <div class="flex-grow">
           {% if shirt_info.asin %}
@@ -68,10 +68,16 @@
                             {% endif %}
                             <div class = "md:flex">
                               <div class="md:flex-shrink">
-                            <img class="rounded-lg md:w-46" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
-                            {% endwith %}
+                                <img class="rounded-lg md:w-46" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
+                                     
+                            {% autoescape off %}
+                            {{ shirt_info.plot|index:counter_total }}
+                            {% endautoescape %} 
+                                {% endwith %}   
+                                </div>  
+                          </div> 
+                            <div class = "md:flex">  
                             </div>
-                          </div>
                           </div>
                         </td>
                         {% endwith %}

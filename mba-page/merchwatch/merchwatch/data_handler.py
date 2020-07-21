@@ -4,8 +4,13 @@ import itertools
 from sklearn import preprocessing
 import os 
 from datetime import date
+import re
 import datetime 
-import time 
+import time
+from plotly.offline import plot
+import plotly.graph_objs as go
+from plotly.graph_objs import Scatter 
+from plotly.graph_objs import Layout 
 
 
 class DataHandler():
@@ -109,7 +114,9 @@ class DataHandler():
             bq_client = bigquery.Client(project=project_id)
             df_shirts = bq_client.query(self.get_sql_shirts(marketplace, limit, filter)).to_dataframe().drop_duplicates()
             df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
-            df_shirts.to_csv("merchwatch/data/shirts_detail_daily.csv", index=None, sep="\t")
+            #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: datetime.datetime.strptime(re.search(r'\d{4}-\d{2}-\d{2}', x["timestamp"]).group(), '%Y-%m-%d').date(), axis=1)
+            df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+            df_shirts_detail_daily.to_csv("merchwatch/data/shirts_detail_daily.csv", index=None, sep="\t")
             def get_first_and_last_data(asin):
                 # return last_bsr, last_price, first_bsr, first_price
                 occurences = (df_shirts_detail_daily.asin.values == asin)
@@ -131,6 +138,24 @@ class DataHandler():
             #df_shirts[df_shirts["bsr_mean"] != 0][["trend", "time_since_upload","time_since_upload_norm", "bsr_mean"]].head(10)
         
         return df_shirts, df_shirts_detail_daily
+
+    def create_plot_html(self, df_shirts_row, df_shirts_detail_daily):
+        config = {'displayModeBar': False}#{"staticPlot": True}
+        df_asin_detail_daily = df_shirts_detail_daily[df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        
+        #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
+        #                mode='lines', name='plot_' + df_shirts_row["asin"],
+        #                opacity=0.8, marker_color='green', showlegend=False, yaxis="y"
+        #                )
+        #        ],
+        #        output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
+
+        plot_div = plot({"data": [go.Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
+                        mode='lines', name='plot_' + df_shirts_row["asin"],
+                        opacity=0.8, marker_color='green', showlegend=False, yaxis="y")],
+                     "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"),  margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
+                output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
+        return plot_div
 '''
 dataHandleModel = DataHandler()
 #dataHandleModel.get_sql_shirts("de", None)
@@ -139,9 +164,13 @@ bq_client = bigquery.Client(project=project_id)
 marketplace = "de"
 limit = None
 filter=None
-df_shirts = bq_client.query(dataHandleModel.get_sql_shirts(marketplace, limit, filter)).to_dataframe().drop_duplicates()
-df_shirts_detail_daily = bq_client.query(dataHandleModel.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
+#df_shirts_detail_daily = bq_client.query(dataHandleModel.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
+df_shirts, df_shirts_detail_daily = dataHandleModel.get_shirts(marketplace, limit=limit)
+df_shirts2 = df_shirts.iloc[0:10].copy()
+df_shirts2["plot"] = df_shirts2.apply(lambda x: dataHandleModel.create_plot_html(x,df_shirts_detail_daily), axis=1)
 
+
+#df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 #df_shirts2["bsr_last"], df_shirts2["price_last"], df_shirts2["bsr_first"], df_shirts2["price_first"] = df_shirts2.apply(lambda x: get_first_and_last_data(x["asin"]), axis=1)
 '''
 test = 0
