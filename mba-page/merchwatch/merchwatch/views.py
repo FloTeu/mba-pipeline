@@ -14,6 +14,7 @@ from .data_handler import DataHandler
 from plotly.offline import plot
 import plotly.graph_objs as go
 from plotly.graph_objs import Scatter
+from django.core.paginator import Paginator
 
 register = template.Library()
 
@@ -55,12 +56,12 @@ def main(request):
     if sort_by != None:
         if desc == "desc":
             if "bsr" in sort_by or "trend" in sort_by: 
-                df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404)].sort_values(sort_by, ascending=False)
+                df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404) & (~df_shirts["upload_date"].isnull())].sort_values(sort_by, ascending=False)
             else:
                 df_shirts = df_shirts.sort_values(sort_by, ascending=False)
         else:
             if "bsr" in sort_by or "trend" in sort_by: 
-                df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404)].sort_values(sort_by, ascending=True)
+                df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404) & (~df_shirts["upload_date"].isnull())].sort_values(sort_by, ascending=True)
             else:
                 df_shirts = df_shirts.sort_values(sort_by, ascending=True)
 
@@ -83,16 +84,23 @@ def main(request):
     else:
         page = int(page)
 
+
+    # pagination 
+    contact_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())-(columns*rows)]
+    paginator = Paginator(contact_list, (columns*rows)) # Show 25 contacts per page.
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+
     df_shirts = df_shirts.iloc[(page-1)*(columns*rows):((page-1)*(columns*rows) + (columns*rows))]
     #df_shirts["plot"] = df_shirts.apply(lambda x: DataHandlerModel.create_plot_html(x, df_shirts_detail_daily), axis=1)
 
     shirt_info = df_shirts.to_dict(orient='list')
     print(len(df_shirts))
     print(page, (page-1)*(columns*rows), ((page-1)*(columns*rows) + (columns*rows)))
-    
 
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
+    return render(request, 'main.html', {"shirt_info":shirt_info,'page_obj': page_obj, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)

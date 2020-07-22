@@ -6,8 +6,21 @@
         <link rel="stylesheet" href="{% static 'css/styles.css' %}">
         <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-173227654-1"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'UA-173227654-1');
+        </script>
+
     </head>
     <body>
+      
+      {% load define_action %} 
+      {% load index %}
 
         <div class="pt-2 md:pt-1 pb-1 px-2 mt-0 h-auto w-full z-20 top-0 bg-gray-800">
         <ul class=" flex right-0">
@@ -28,11 +41,27 @@
         <div class="flex justify-center items-center">
           <h1 id="titlecolor" >Welcome to merchwatch</h1> 
         </div>
+        <div class="pagination">
+          <span class="step-links">
+              {% if page_obj.has_previous %}
+                  <a href="?{% url_replace request 'page' 1 %}">&laquo; first</a>
+                  <a href="?{% url_replace request 'page' page_obj.previous_page_number %}">previous</a>
+              {% endif %}
+      
+              <span class="current">
+                  Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+              </span>
+      
+              {% if page_obj.has_next %}
+                  <a href="?{% url_replace request 'page' page_obj.next_page_number %}">next</a>
+                  <!--a href="?page={{ page_obj.next_page_number }}">next</a-->
+                  <a href="?{% url_replace request 'page' page_obj.paginator.num_pages %}">last &raquo;</a>
+              {% endif %}
+          </span>
+      </div>
           <div class="flex-grow">
           {% if shirt_info.asin %}
                 <table>
-                {% load define_action %} 
-                {% load index %}
                 {% define 0 as innerCounter %}
                 {% with ''|center:rows as range %}
                 {% for i in range %}
@@ -99,6 +128,23 @@
             {% else %}
                 <p>No shirts are available.</p>
             {% endif %}
+            <div class="pagination">
+              <span class="step-links">
+                  {% if page_obj.has_previous %}
+                      <a href="?{% url_replace request 'page' 1 %}">&laquo; first</a>
+                      <a href="?{% url_replace request 'page' page_obj.previous_page_number %}">previous</a>
+                  {% endif %}
           
+                  <span class="current">
+                      Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}.
+                  </span>
+          
+                  {% if page_obj.has_next %}
+                      <a href="?{% url_replace request 'page' page_obj.next_page_number %}">next</a>
+                      <!--a href="?page={{ page_obj.next_page_number }}">next</a-->
+                      <a href="?{% url_replace request 'page' page_obj.paginator.num_pages %}">last &raquo;</a>
+                  {% endif %}
+              </span>
+          </div>
     </body>
 </html>
