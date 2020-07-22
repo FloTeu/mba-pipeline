@@ -157,7 +157,7 @@ class DataHandler():
                      "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"),  margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
                 output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
         return plot_div
-#'''
+'''
 dataHandleModel = DataHandler()
 #dataHandleModel.get_sql_shirts("de", None)
 project_id = 'mba-pipeline'
@@ -173,5 +173,5 @@ df_shirts2 = df_shirts.iloc[0:10].copy()
 
 #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 #df_shirts2["bsr_last"], df_shirts2["price_last"], df_shirts2["bsr_first"], df_shirts2["price_first"] = df_shirts2.apply(lambda x: get_first_and_last_data(x["asin"]), axis=1)
-#'''
+'''
 test = 0

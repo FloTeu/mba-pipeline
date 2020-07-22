@@ -45,7 +45,7 @@ def main(request):
         filter = "only 404"
     #q_desc = request.GET["direction"]
 
-    df_shirts, df_shirts_detail_daily = DataHandlerModel.get_shirts(marketplace, limit=None, in_test_mode=True, filter=filter)
+    df_shirts = DataHandlerModel.get_shirts(marketplace, limit=None, in_test_mode=True, filter=filter)
     df_shirts = df_shirts.round(2)
 
     if key != None:

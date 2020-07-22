@@ -159,7 +159,7 @@ def update_preemptible_logs(pree_id, marketplace, status, is_daily):
         except:
             pass
 
-def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips,region_space, time_start):
+def start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips,region_space, time_start, instance_name, stop_instance_by_itself):
     pre_instance_name = "mba-"+marketplace+"-detail-pre-"+ str(id)
     create_startup_script(marketplace, number_products, connection_timeout, time_break_sec, seconds_between_crawl, pree_id, pre_instance_name, zone, daily, api_key, chat_id)
     # get terminated instances
@@ -188,6 +188,11 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         # cant find instance in five minutes -> break
         if(time.time()-time_start) > 60*5:
             finish_script(5,seconds_between_crawl,number_products,30,number_running_instances,marketplace,max_instances_of_zone,region_space,time_start)
+            print("No ip address left")
+            if stop_instance_by_itself:
+                bashCommand = get_bash_stop_instance(instance_name, "us-central1-a")
+                stream = os.popen(bashCommand)
+                output = stream.read()
             assert False, "No ip address left"
 
 def delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space):
@@ -280,7 +285,7 @@ def main(argv):
                 if not is_first_call:
                     update_preemptible_logs(pree_id, marketplace, "failure", daily)
                 # start instance and startupscript
-                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips, region_space, time_start)
+                start_instance(marketplace, number_running_instances, number_products,connection_timeout, time_break_sec, seconds_between_crawl, pree_id, id, zone, max_instances_of_zone, daily, api_key, chat_id, blocked_ips, region_space, time_start, instance_name, stop_instance_by_itself)
                 # before next instance starts 15 seconds should the script wait
                 time.sleep(15)       
         is_first_call=False
