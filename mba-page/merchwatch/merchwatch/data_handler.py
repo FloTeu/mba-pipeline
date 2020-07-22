@@ -107,7 +107,7 @@ class DataHandler():
         if self.check_if_shirts_today_exist(file_path):
             print("Data already loaded today")
             df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
-            df_shirts_detail_daily=pd.read_csv("merchwatch/data/shirts_detail_daily.csv", sep="\t")
+            #df_shirts_detail_daily=pd.read_csv("merchwatch/data/shirts_detail_daily.csv", sep="\t")
         else:
             print("Load shirt data from bigquery")
             project_id = 'mba-pipeline'
@@ -138,7 +138,7 @@ class DataHandler():
             print("Loading completed.")
             #df_shirts[df_shirts["bsr_mean"] != 0][["trend", "time_since_upload","time_since_upload_norm", "bsr_mean"]].head(10)
         
-        return df_shirts, df_shirts_detail_daily
+        return df_shirts
 
     def create_plot_html(self, df_shirts_row, df_shirts_detail_daily):
         config = {'displayModeBar': False}#{"staticPlot": True}
@@ -166,7 +166,7 @@ marketplace = "de"
 limit = None
 filter=None
 #df_shirts_detail_daily = bq_client.query(dataHandleModel.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
-df_shirts, df_shirts_detail_daily = dataHandleModel.get_shirts(marketplace, limit=limit)
+df_shirts = dataHandleModel.get_shirts(marketplace, limit=limit)
 df_shirts2 = df_shirts.iloc[0:10].copy()
 #df_shirts2["plot"] = df_shirts2.apply(lambda x: dataHandleModel.create_plot_html(x,df_shirts_detail_daily), axis=1)
 
