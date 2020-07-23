@@ -121,7 +121,7 @@ class DataHandler():
     def get_shirts(self, marketplace, limit=None, in_test_mode=False, filter=None):
         print(os.getcwd())
         file_path = "merchwatch/data/shirts.csv"
-        
+        # If data already loaded today return it
         if self.check_if_shirts_today_exist(file_path):
             print("Data already loaded today")
             df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
