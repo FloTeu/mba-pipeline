@@ -50,7 +50,8 @@ def main(request):
     df_shirts = df_shirts.round(2)
 
     if key != None:
-        df_shirts = df_shirts[df_shirts.apply(lambda x: key.lower() in x.product_features.lower() or key.lower() in x.title.lower(), axis=1)]
+        df_shirts = df_shirts.dropna()
+        df_shirts = df_shirts[df_shirts.apply(lambda x: key.lower() in x.product_features.lower() or key.lower() in x.title.lower() or key.lower() in x.asin.lower(), axis=1)]
         #df_shirts  = df_shirts[df_shirts["product_features"].str.contains(key, case=False)]
 
     if sort_by != None:
@@ -70,7 +71,11 @@ def main(request):
         columns = 6
     else:
         columns = int(columns)
-    row_max = int(number_shirts / columns)
+    if (number_shirts / columns) < 1:
+        row_max = 1
+        columns = int(columns * (number_shirts / columns))
+    else:
+        row_max = int(number_shirts / columns)
 
     if rows == None:
         rows = 5
@@ -86,8 +91,8 @@ def main(request):
 
 
     # pagination 
-    contact_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())-(columns*rows)]
-    paginator = Paginator(contact_list, (columns*rows)) # Show 25 contacts per page.
+    asin_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())-(columns*rows)]
+    paginator = Paginator(asin_list, (columns*rows))
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
