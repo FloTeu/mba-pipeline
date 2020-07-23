@@ -11,6 +11,7 @@ from plotly.offline import plot
 import plotly.graph_objs as go
 from plotly.graph_objs import Scatter 
 from plotly.graph_objs import Layout 
+import gc
 
 
 class DataHandler():
@@ -168,6 +169,7 @@ class DataHandler():
                 print("Start to create plots")
                 df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
                 df_shirts_asin_chunk.to_gbq("mba_de.plots", project_id="mba-pipeline", if_exists=if_exists)
+                gc.collect()
             
             df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
             # save dataframe with shirts in local storage
