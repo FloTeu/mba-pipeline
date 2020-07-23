@@ -122,7 +122,7 @@ class DataHandler():
         print(os.getcwd())
         file_path = "merchwatch/data/shirts.csv"
         
-        if False:#self.check_if_shirts_today_exist(file_path):
+        if self.check_if_shirts_today_exist(file_path):
             print("Data already loaded today")
             df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
             #df_shirts_detail_daily=pd.read_csv("merchwatch/data/shirts_detail_daily.csv", sep="\t")
