@@ -94,6 +94,8 @@ def main(request):
 
     df_shirts = df_shirts.iloc[(page-1)*(columns*rows):((page-1)*(columns*rows) + (columns*rows))]
     #df_shirts["plot"] = df_shirts.apply(lambda x: DataHandlerModel.create_plot_html(x, df_shirts_detail_daily), axis=1)
+    df_shirts_plots = DataHandlerModel.get_df_plots("de", df_shirts["asin"].tolist())
+    df_shirts = df_shirts.join(df_shirts_plots.set_index('asin'), on='asin')
 
     shirt_info = df_shirts.to_dict(orient='list')
     print(len(df_shirts))

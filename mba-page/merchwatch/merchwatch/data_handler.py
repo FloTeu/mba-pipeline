@@ -16,6 +16,7 @@ from plotly.graph_objs import Layout
 class DataHandler():
     def __init__(self):
         self.filePath = None
+        self.df_shirts_detail_daily = None
 
     def get_sql_shirts(self, marketplace, limit=None, filter=None):
         if limit == None:
@@ -83,6 +84,20 @@ class DataHandler():
         """.format(marketplace, SQL_LIMIT)
         return SQL_STATEMENT
 
+    def get_sql_plots(self, marketplace, asin_list):
+            SQL_WHERE_IN = "('" + "','".join(asin_list) + "')"
+            SQL_STATEMENT = """
+            SELECT asin, plot FROM `mba-pipeline.mba_{0}.plots`
+            where asin in {1}
+            """.format(marketplace, SQL_WHERE_IN)
+            return SQL_STATEMENT
+
+    def get_df_plots(self, marketplace, asin_list):
+            project_id = 'mba-pipeline'
+            bq_client = bigquery.Client(project=project_id)
+            df_shirts_plots = bq_client.query(self.get_sql_plots("de", asin_list)).to_dataframe()
+            return df_shirts_plots 
+
     def make_trend_column(self, df_shirts):
         df_shirts = df_shirts.reset_index()
         x = df_shirts[["time_since_upload"]].values 
@@ -109,22 +124,24 @@ class DataHandler():
             df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
             #df_shirts_detail_daily=pd.read_csv("merchwatch/data/shirts_detail_daily.csv", sep="\t")
         else:
+            # This part should only triggered once a day to update all relevant data
             print("Load shirt data from bigquery")
+            start_time = time.time()
             project_id = 'mba-pipeline'
             bq_client = bigquery.Client(project=project_id)
             df_shirts = bq_client.query(self.get_sql_shirts(marketplace, limit, filter)).to_dataframe().drop_duplicates()
-            df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
+            self.df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
             #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: datetime.datetime.strptime(re.search(r'\d{4}-\d{2}-\d{2}', x["timestamp"]).group(), '%Y-%m-%d').date(), axis=1)
-            df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
-            df_shirts_detail_daily.to_csv("merchwatch/data/shirts_detail_daily.csv", index=None, sep="\t")
+            self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+            self.df_shirts_detail_daily.to_csv("merchwatch/data/shirts_detail_daily.csv", index=None, sep="\t")
             def get_first_and_last_data(asin):
                 # return last_bsr, last_price, first_bsr, first_price
-                occurences = (df_shirts_detail_daily.asin.values == asin)
-                if len(df_shirts_detail_daily[occurences]) == 0:
+                occurences = (self.df_shirts_detail_daily.asin.values == asin)
+                if len(self.df_shirts_detail_daily[occurences]) == 0:
                     return 0,0,0,0
                 else:
-                    last_occ = df_shirts_detail_daily[occurences].iloc[0]
-                first_occ = df_shirts_detail_daily[occurences].iloc[-1]
+                    last_occ = self.df_shirts_detail_daily[occurences].iloc[0]
+                first_occ = self.df_shirts_detail_daily[occurences].iloc[-1]
                 return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"]
 
             #df_shirts2 = df_shirts.copy()
@@ -133,16 +150,32 @@ class DataHandler():
             df_shirts = df_shirts.merge(df_additional_data, 
                 left_index=True, right_index=True)
             df_shirts = self.make_trend_column(df_shirts)
-            df_shirts["plot"] = df_shirts.apply(lambda x: self.create_plot_html(x, df_shirts_detail_daily), axis=1)
+            print("Start to create plots")
+            chunk_size = 500  #chunk row size
+            print("Chunk size: "+ str(chunk_size))
+            df_shirts_plots = df_shirts[["asin"]].copy()
+
+            df_shirts_plots_chunks = [df_shirts_plots[i:i+chunk_size] for i in range(0,df_shirts_plots.shape[0],chunk_size)]
+            for i, df_shirts_plots_chunk in enumerate(df_shirts_plots_chunks):
+                print("Chunk %s of %s" %(i, len(df_shirts_plots_chunks)))
+                if_exists = "append"
+                if i == 0:
+                    if_exists="replace"
+                df_shirts_plots_chunk["plot"] = df_shirts_plots_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
+                df_shirts_plots_chunk.to_gbq("mba_de.plots", project_id="mba-pipeline", if_exists=if_exists)
+            print("Finished to create plots")
+            # save dataframe with shirts in local storage
             df_shirts.to_csv("merchwatch/data/shirts.csv", index=None, sep="\t")
-            print("Loading completed.")
+            # make memory space free
+            self.df_shirts_detail_daily = None
+            print("Loading completed. Elapsed time: %.2f minutes" %((time.time() - start_time) / 60))
             #df_shirts[df_shirts["bsr_mean"] != 0][["trend", "time_since_upload","time_since_upload_norm", "bsr_mean"]].head(10)
         
         return df_shirts
 
-    def create_plot_html(self, df_shirts_row, df_shirts_detail_daily):
+    def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False}#{"staticPlot": True}
-        df_asin_detail_daily = df_shirts_detail_daily[df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
         
         #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
         #                mode='lines', name='plot_' + df_shirts_row["asin"],

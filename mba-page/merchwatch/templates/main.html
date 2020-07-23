@@ -41,7 +41,7 @@
         <div class="flex justify-center items-center">
           <h1 id="titlecolor" >Welcome to merchwatch</h1> 
         </div>
-        <div class="pagination">
+        <div class="pagination", style="color:white;">
           <span class="step-links">
               {% if page_obj.has_previous %}
                   <a href="?{% url_replace request 'page' 1 %}">&laquo; first</a>
@@ -128,7 +128,7 @@
             {% else %}
                 <p>No shirts are available.</p>
             {% endif %}
-            <div class="pagination">
+            <div class="pagination", style="color:white;">
               <span class="step-links">
                   {% if page_obj.has_previous %}
                       <a href="?{% url_replace request 'page' 1 %}">&laquo; first</a>
