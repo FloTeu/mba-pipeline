@@ -158,7 +158,7 @@ class DataHandler():
                 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"])), axis=1)
-                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first"]
+                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "price_change"]
                 df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
                     left_index=True, right_index=True)
                 if i == 0:
@@ -167,6 +167,8 @@ class DataHandler():
                     df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
 
                 print("Start to create plots")
+                df_shirts_asin_chunk = df_shirts_asin_chunk.merge(df_additional_data, 
+                    left_index=True, right_index=True)
                 df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
                 df_shirts_asin_chunk.to_gbq("mba_de.plots", project_id="mba-pipeline", if_exists=if_exists)
                 gc.collect()
@@ -181,20 +183,35 @@ class DataHandler():
         
         return df_shirts
 
+    def get_change(self, current, previous):
+        current = float(current)
+        previous = float(previous)
+        if current == previous:
+            return 0
+        try:
+            return ((current - previous) / previous) * 100.0
+        except ZeroDivisionError:
+            return 0
+
     def get_first_and_last_data(self, asin):
         # return last_bsr, last_price, first_bsr, first_price
         occurences = (self.df_shirts_detail_daily.asin.values == asin)
         if len(self.df_shirts_detail_daily[occurences]) == 0:
-            return 0,0,0,0
+            return 0,0,0,0,0,0
         else:
             last_occ = self.df_shirts_detail_daily[occurences].iloc[0]
         first_occ = self.df_shirts_detail_daily[occurences].iloc[-1]
-        return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"]
+        return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"], self.get_change(last_occ["bsr"], first_occ["bsr"]), self.get_change(last_occ["price"], first_occ["price"])
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False}#{"staticPlot": True}
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
-        
+        marker_color = "black"
+        if df_shirts_row["bsr_change"] < 0:
+            marker_color = "red"
+        elif df_shirts_row["bsr_change"] > 0:
+            marker_color = "green"
+
         #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
         #                mode='lines', name='plot_' + df_shirts_row["asin"],
         #                opacity=0.8, marker_color='green', showlegend=False, yaxis="y"
@@ -204,7 +221,7 @@ class DataHandler():
 
         plot_div = plot({"data": [go.Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
                         mode='lines', name='plot_' + df_shirts_row["asin"],
-                        opacity=0.8, marker_color='green', showlegend=False, yaxis="y")],
+                        opacity=0.8, marker_color=marker_color, showlegend=False, yaxis="y")],
                      "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"),  margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
                 output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
         return plot_div
