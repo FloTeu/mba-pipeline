@@ -65,12 +65,12 @@ def main(request):
 
     if sort_by != None:
         if desc == "desc":
-            if "bsr" in sort_by or "trend" in sort_by: 
+            if True: 
                 df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404) & (~df_shirts["upload_date"].isnull())].sort_values(sort_by, ascending=False)
             else:
                 df_shirts = df_shirts.sort_values(sort_by, ascending=False)
         else:
-            if "bsr" in sort_by or "trend" in sort_by: 
+            if True: 
                 df_shirts = df_shirts[(df_shirts["bsr_max"]!=0) & (df_shirts["bsr_last"]!=404) & (~df_shirts["upload_date"].isnull())].sort_values(sort_by, ascending=True)
             else:
                 df_shirts = df_shirts.sort_values(sort_by, ascending=True)
