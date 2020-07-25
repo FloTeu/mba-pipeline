@@ -87,7 +87,7 @@ def main(request):
         row_max = int(number_shirts / columns)
 
     if rows == None:
-        rows = 5
+        rows = 10
     else:
         rows = int(rows)
     if rows > row_max:
