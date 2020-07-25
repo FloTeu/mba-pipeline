@@ -207,9 +207,9 @@ class DataHandler():
         config = {'displayModeBar': False}#{"staticPlot": True}
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
         marker_color = "black"
-        if df_shirts_row["bsr_change"] < 0:
+        if df_shirts_row["bsr_change"] > 0:
             marker_color = "red"
-        elif df_shirts_row["bsr_change"] > 0:
+        elif df_shirts_row["bsr_change"] < 0:
             marker_color = "green"
 
         #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
