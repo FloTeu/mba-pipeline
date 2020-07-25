@@ -23,8 +23,17 @@ register = template.Library()
 #    return render(request, "main.html")
 
 def about(request):
-    return HttpResponse("about")
+    return render(request, 'about.html')
     
+def impressum(request):
+    return render(request, 'impressum.html')
+
+def contact(request):
+    return render(request, 'contact.html')
+
+def dataprotection(request):
+    return render(request, 'dataprotection.html')
+
 def main(request):
     iterator=itertools.count()
     marketplace = "de"

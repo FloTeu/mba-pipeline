@@ -1,0 +1,41 @@
+<html>
+    <head>
+        <meta charset="utf-8">
+        <title>merchwatch</title>
+        {% load static %}
+        <link rel="stylesheet" href="{% static 'css/styles.css' %}">
+        <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
+        <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+        <!-- Global site tag (gtag.js) - Google Analytics -->
+        <script async src="https://www.googletagmanager.com/gtag/js?id=UA-173227654-1"></script>
+        <script>
+          window.dataLayer = window.dataLayer || [];
+          function gtag(){dataLayer.push(arguments);}
+          gtag('js', new Date());
+
+          gtag('config', 'UA-173227654-1');
+        </script>
+
+    </head>
+    <body>
+<header><p>Hi This is a Header</p></header>
+{% block content %}{% endblock %}
+<footer class='w-full text-center border-t border-grey p-4'>
+    <div class="container">
+        <p><a href="/main">Home</a> | <a href="/dataprotection">Data Protection</a> | <a href="/impressum">Impressum</a> | <a href="/contact">Contact</a> | <a href="/about">About</a></p>
+        <!-- logo image -->
+        <img class="object-scale-down h-48 w-full" src="{% static "img/logo.png" %}" alt="" />
+        <div class="social">
+            <a href="#"><i class="fa fa-facebook"></i></a>
+            <a href="#"><i class="fa fa-twitter"></i></a>
+            <a href="#"><i class="fa fa-dribbble"></i></a>
+            <a href="#"><i class="fa fa-linkedin"></i></a>
+            <a href="#"><i class="fa fa-google-plus"></i></a>
+        </div>
+        <!-- copy right -->
+        <!-- This theme comes under Creative Commons Attribution 4.0 Unported. So don't remove below link back -->
+        <p class="copy-right">Copyright &copy; 2020 <a href="#">merchwatch</a>, All rights reserved. </p>
+    </div>
+</footer>
+    </body>
+</html>

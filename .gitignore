@@ -66,3 +66,4 @@ crawler/mba/data/shirts/*
 crawler/mba/data/*
 /mba-page/merchwatch/merchwatch/data/*
 mba-page/merchwatch/merchwatch/data/*
+mba-page/merchwatch/merchwatch/settings.py
