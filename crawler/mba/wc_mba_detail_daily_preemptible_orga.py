@@ -76,7 +76,7 @@ sudo chmod 777 data/
         f.write(startup_script)
 
 def get_bash_create_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances create {} --preemptible --zone {}  --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances create {} --machine-type=f1-micro --preemptible --zone {}  --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
     return bash_command
 
 def get_bash_start_pre_instance(instance_name, zone):
@@ -187,7 +187,7 @@ def start_instance(marketplace, number_running_instances, number_products,connec
         ip_address = utils.get_extrenal_ip(pre_instance_name, zone)
         # cant find instance in five minutes -> break
         if(time.time()-time_start) > 60*5:
-            finish_script(5,seconds_between_crawl,number_products,30,number_running_instances,marketplace,max_instances_of_zone,region_space,time_start)
+            finish_script(5,seconds_between_crawl,number_products,0,number_running_instances,marketplace,max_instances_of_zone,region_space,time_start, api_key, chat_id)
             print("No ip address left")
             if stop_instance_by_itself:
                 bashCommand = get_bash_stop_instance(instance_name, "us-central1-a")
@@ -204,8 +204,10 @@ def delete_all_instance(number_running_instances, marketplace, max_instances_of_
         stream = os.popen(bashCommand)
         output = stream.read()
 
-def finish_script(puffer_minutes,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start):
-    time_sleep_minutes = (seconds_between_crawl * number_products) / 60 - time_wait_minutes + puffer_minutes
+def finish_script(puffer_minutes,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start, api_key, chat_id):
+    time_sleep_minutes = ((seconds_between_crawl * number_products) / 60) - time_wait_minutes + puffer_minutes
+    telegram_text = "Crawling is finished. Wait %s minutes to make sure that all scripts are finished" % (time_sleep_minutes)
+    utils.send_msg(chat_id, telegram_text, api_key)
     print("Crawling is finished. Wait %s minutes to make sure that all scripts are finished." % time_sleep_minutes)
     time.sleep(time_sleep_minutes*60)
     delete_all_instance(number_running_instances, marketplace, max_instances_of_zone,region_space=region_space)
@@ -274,7 +276,7 @@ def main(argv):
             utils.send_msg(chat_id,"%s of %s" %(len(df_product_detail), count_to_crawl),api_key)
             # if no data to crawl exists delete all preemptible instances
             if len(df_product_detail) == 0:
-                finish_script(5,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start)
+                finish_script(5,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start, api_key, chat_id)
                 break
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
