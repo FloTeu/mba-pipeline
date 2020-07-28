@@ -28,8 +28,9 @@ DEBUG = True
 
 
 #ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123', 'merchwatch.de']
-ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123', '127.0.0.1', 'merchwatch.de']
-
+ALLOWED_HOSTS = ['mba-pipeline.gcp.appspot.com', '104.197.46.123', '127.0.0.1', 'merchwatch.de', '35.186.208.166']
+SECURE_PROXY_SSL_HEADER = ('HTTP_X_FORWARDED_PROTO', 'https')
+SECURE_SSL_REDIRECT = True
 
 # Application definition
 
