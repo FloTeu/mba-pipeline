@@ -190,7 +190,7 @@ def start_instance(marketplace, number_running_instances, number_products,connec
             finish_script(5,seconds_between_crawl,number_products,0,number_running_instances,marketplace,max_instances_of_zone,region_space,time_start, api_key, chat_id)
             print("No ip address left")
             if stop_instance_by_itself:
-                bashCommand = get_bash_stop_instance(instance_name, "us-central1-a")
+                bashCommand = get_bash_stop_instance(instance_name, "us-west1-b")
                 stream = os.popen(bashCommand)
                 output = stream.read()
             assert False, "No ip address left"
@@ -293,7 +293,7 @@ def main(argv):
         is_first_call=False
 
     if stop_instance_by_itself:
-        bashCommand = get_bash_stop_instance(instance_name, "us-central1-a")
+        bashCommand = get_bash_stop_instance(instance_name, "us-west1-b")
         stream = os.popen(bashCommand)
         output = stream.read()
 
