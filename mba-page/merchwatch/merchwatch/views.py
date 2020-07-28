@@ -116,7 +116,10 @@ def main(request):
     print(page, (page-1)*(columns*rows), ((page-1)*(columns*rows) + (columns*rows)))
 
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
-    return render(request, 'main.html', {"shirt_info":shirt_info,'page_obj': page_obj, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info, "sort_by":sort_by})
+    output_dict = {"shirt_info":shirt_info,'page_obj': page_obj, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info}
+    test = {"sort_by": {"trend":1}}
+    output_dict.update(request.GET)
+    return render(request, 'main.html', output_dict)
     #return HttpResponse(template.render(context, request))
 
 #df_shirts = get_shirts("de", limit=None, in_test_mode=False)
