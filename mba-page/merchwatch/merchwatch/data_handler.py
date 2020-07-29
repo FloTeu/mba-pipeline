@@ -107,8 +107,12 @@ class DataHandler():
         min_max_scaler = preprocessing.MinMaxScaler()
         x_scaled = min_max_scaler.fit_transform(x)
         df = pd.DataFrame(x_scaled)
-        df_shirts["time_since_upload_norm"] = df.iloc[:,0]
+        df_shirts["time_since_upload_norm"] = df.iloc[:,0] + 0.001
+        df_shirts.loc[(df_shirts['bsr_last'] == 0.0)]["bsr_last"] = 999999999
+        df_shirts.loc[(df_shirts['bsr_last'] == 404.0)]["bsr_last"] = 999999999
         df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_norm"] * 2
+        df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index()
+        df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
 
     def check_if_shirts_today_exist(self, file_path):
@@ -125,6 +129,7 @@ class DataHandler():
         if self.check_if_shirts_today_exist(file_path):
             print("Data already loaded today")
             df_shirts=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
+            
             #df_shirts_detail_daily=pd.read_csv("merchwatch/data/shirts_detail_daily.csv", sep="\t")
         else:
             # This part should only triggered once a day to update all relevant data
@@ -174,6 +179,11 @@ class DataHandler():
                 gc.collect()
             
             df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
+            try:
+                df_shirts_old=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
+                df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: x["trend_nr"] - df_shirts_old[df_shirts_old["asin"] == x["asin"]].iloc[0]["trend_nr"],axis=1)
+            except:
+                df_shirts_with_more_info["trend_change"] = 0
             # save dataframe with shirts in local storage
             df_shirts_with_more_info.to_csv("merchwatch/data/shirts.csv", index=None, sep="\t")
             # make memory space free

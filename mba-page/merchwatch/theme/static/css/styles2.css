@@ -34,3 +34,39 @@ body {
   .plotdiv{
     width: 200px;
   }
+
+  .img_shirt{
+
+  }
+
+  .container {
+    position: relative;
+    text-align: center;
+    color: green;
+  }
+  
+  /* Bottom left text */
+  .bottom-left {
+    position: absolute;
+    bottom: 8px;
+    left: 66px;
+  }
+
+  /* Centered text */
+.centered {
+  position: absolute;
+  bottom: 8px;
+  left: 50%;
+}
+
+/* Bottom right text */
+.bottom-right {
+  position: absolute;
+  bottom: 8px;
+  right: 66px;
+}
+
+  .center {
+    margin: auto;
+    width: 95%;
+  }

@@ -138,10 +138,12 @@
                             <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
                             {% endif %}
                             <div class = "">
-                              <div class="md:flex-shrink">
+                              <div class="md:flex-shrink container">
                                 <a href={% load index %}{{ amazon_url }} target="_blank">
-                                    <img class="rounded-lg md:w-46" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
-                                </a>   
+                                    <img class="rounded-lg w-full" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
+                                    <div class="bottom-left">Trend: {{ shirt_info.trend_nr|index:counter_total }}</div>
+                                    <div class="bottom-right">Change: {{ shirt_info.trend_nr|index:counter_total }}</div>
+                                  </a>   
                                 </div> 
                                 
                             <div class="h-32"> 
