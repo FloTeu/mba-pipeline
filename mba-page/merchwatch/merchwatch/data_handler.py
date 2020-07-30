@@ -102,18 +102,29 @@ class DataHandler():
             return df_shirts_plots 
 
     def make_trend_column(self, df_shirts):
-        df_shirts = df_shirts.reset_index()
+        df_shirts = df_shirts.reset_index(drop=True)
         x = df_shirts[["time_since_upload"]].values 
         min_max_scaler = preprocessing.MinMaxScaler()
         x_scaled = min_max_scaler.fit_transform(x)
         df = pd.DataFrame(x_scaled)
         df_shirts["time_since_upload_norm"] = df.iloc[:,0] + 0.001
-        df_shirts.loc[(df_shirts['bsr_last'] == 0.0)]["bsr_last"] = 999999999
-        df_shirts.loc[(df_shirts['bsr_last'] == 404.0)]["bsr_last"] = 999999999
+        df_shirts.loc[(df_shirts['bsr_last'] == 0.0), "bsr_last"] = 999999999
+        df_shirts.loc[(df_shirts['bsr_last'] == 404.0), "bsr_last"] = 999999999
         df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_norm"] * 2
-        df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index()
+        df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index(drop=True)
         df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
+
+    def filter_shirts_by_correct_data(self, df_shirts):
+        return df_shirts.loc[(df_shirts['bsr_last'] != 0.0) & (df_shirts['bsr_last'] != 404.0) & (df_shirts['price_last'] != 404.0) & (df_shirts['price_last'] != 0.0)]
+
+    def get_min_max_dict(self, df_shirts):
+        dict_min_max = {}
+        df_shirts = self.filter_shirts_by_correct_data(df_shirts)
+        columns = df_shirts.columns.values
+        for column in columns:
+            dict_min_max[column] = [df_shirts[column].min(),df_shirts[column].max()]
+        return dict_min_max
 
     def check_if_shirts_today_exist(self, file_path):
         try:

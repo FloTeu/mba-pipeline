@@ -42,6 +42,8 @@ def main(request):
     DataHandlerModel = DataHandler()
 
     sort_by = request.GET.get('sort_by')
+    sort_by_min = request.GET.get('sort_by_min')
+    sort_by_max = request.GET.get('sort_by_max')
     desc = request.GET.get('direction')
     info = request.GET.get('info')
     filter = request.GET.get('filter')
@@ -58,6 +60,7 @@ def main(request):
 
     df_shirts = DataHandlerModel.get_shirts(marketplace, limit=None, in_test_mode=True, filter=filter)
     df_shirts = df_shirts.round(2)
+    dict_min_max = {"dict_min_max": DataHandlerModel.get_min_max_dict(df_shirts)}
 
     if key != None:
         df_shirts = df_shirts.dropna()
@@ -100,17 +103,21 @@ def main(request):
         page = int(page)
 
 
-    # pagination 
-    asin_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())-(columns*rows)]
+    # filter dataframe by given min max 
+    if sort_by_min != "" and sort_by_min != None and sort_by_max != "" and sort_by_max != None and sort_by != "" and sort_by != None:
+        df_shirts = df_shirts.loc[(df_shirts[sort_by] >= float(sort_by_min)) & (df_shirts[sort_by] <= float(sort_by_max))]
+
+    # pagination
+    asin_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())]
     paginator = Paginator(asin_list, (columns*rows))
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-
-    df_shirts = df_shirts.iloc[(page-1)*(columns*rows):((page-1)*(columns*rows) + (columns*rows))]
-    #df_shirts["plot"] = df_shirts.apply(lambda x: DataHandlerModel.create_plot_html(x, df_shirts_detail_daily), axis=1)
-    df_shirts_plots = DataHandlerModel.get_df_plots("de", df_shirts["asin"].tolist())
-    df_shirts = df_shirts.join(df_shirts_plots.set_index('asin'), on='asin')
+    if len(df_shirts) > 0:
+        df_shirts = df_shirts.iloc[(page-1)*(columns*rows):((page-1)*(columns*rows) + (columns*rows))]
+        #df_shirts["plot"] = df_shirts.apply(lambda x: DataHandlerModel.create_plot_html(x, df_shirts_detail_daily), axis=1)
+        df_shirts_plots = DataHandlerModel.get_df_plots("de", df_shirts["asin"].tolist())
+        df_shirts = df_shirts.join(df_shirts_plots.set_index('asin'), on='asin')
 
     shirt_info = df_shirts.to_dict(orient='list')
     print(len(df_shirts))
@@ -123,6 +130,8 @@ def main(request):
     HtmlHandlerModel = HtmlHandler(df_shirts)
     shirts_html = HtmlHandlerModel.create_shirts_html()
     output_dict.update({"shirts_html": shirts_html})
+    output_dict.update(dict_min_max)
+
     return render(request, 'main.html', output_dict)
     #return HttpResponse(template.render(context, request))
 
