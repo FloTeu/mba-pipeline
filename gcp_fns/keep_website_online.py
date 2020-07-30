@@ -50,8 +50,6 @@ def main(argv):
 
     while True:
         counter = counter + 1
-        time_start = time.time()
-        time.sleep(interval)
         url = "http://merchwatch.de"
         try:
             response_code = urllib.request.urlopen(url).getcode()
@@ -59,6 +57,7 @@ def main(argv):
         except:
             send_msg(chat_id, "Server is not online anymore. Try to start it again..",api_key)
             print("Error occured website is not online")
+        time.sleep(interval)
 
 if __name__ == '__main__':
     main(sys.argv)
