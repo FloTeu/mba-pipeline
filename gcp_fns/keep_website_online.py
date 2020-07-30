@@ -26,7 +26,7 @@ def send_msg(target, msg, api_key):
         return ""
 
 def start_server():
-    bash_command = 'nohup sudo python3 /home/flo_t_1995/mba-pipeline/mba-page/merchwatch/manage.py runserver 0.0.0.0:80'
+    bash_command = 'cd /home/flo_t_1995/mba-pipeline/mba-page/merchwatch/ && nohup sudo python3 manage.py runserver 0.0.0.0:80'
     process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
     output, error = process.communicate()
 
