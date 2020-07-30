@@ -186,6 +186,7 @@ class DataHandler():
                 df_shirts_with_more_info["trend_change"] = 0
             # save dataframe with shirts in local storage
             df_shirts_with_more_info.to_csv("merchwatch/data/shirts.csv", index=None, sep="\t")
+            df_shirts = df_shirts_with_more_info
             # make memory space free
             self.df_shirts_detail_daily = None
             print("Loading completed. Elapsed time: %.2f minutes" %((time.time() - start_time) / 60))

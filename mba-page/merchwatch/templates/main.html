@@ -103,73 +103,15 @@
       </div>
           <div class="flex content-start flex-wrap bg-gray-200">
           {% if shirt_info.asin %}
-                {% define 0 as innerCounter %}
-                {% with ''|center:rows as range %}
-                {% for i in range %}
-                        {% with ''|center:columns as range %}
-                        {% for j in range %}
-                        {% with forloop.parentloop.counter0 as outerCount %}
-                        {% with forloop.counter0 as innerCounter %}
-                        
-                            {% multiply outerCount columns as outerCount_mull %}
-                            {% with outerCount_mull|add:innerCounter as counter_total %}
-                            {% with shirt_info.asin|index:counter_total as i_asin %}
-                            {% with "http://www.amazon.de/dp/"|add:i_asin as amazon_url %}                              
-                      <div class="w-1/6 p-2">
-                        <div class="text-gray-700 text-center bg-gray-400 p-2">
-                              <div class="tooltip">Titel anzeigen
-                                
-                             
-                              <span class="tooltiptext"><p style="margin:0">Titel: {{shirt_info.title|index:counter_total }} </p> </span></div>
-                            <p style="margin:0">asin: {{ shirt_info.asin|index:counter_total }}</p>
-                            {% if show_detail_info %}
-                            <p style="margin:0">price_mean: {{ shirt_info.price_mean|index:counter_total }}</p>
-                            <p style="margin:0">price_max: {{ shirt_info.price_max|index:counter_total }}</p>
-                            <p style="margin:0">price_min: {{ shirt_info.price_min|index:counter_total }}</p>
-                            <p style="margin:0">bsr_mean: {{ shirt_info.bsr_mean|index:counter_total }}</p>
-                            <p style="margin:0">bsr_max: {{ shirt_info.bsr_max|index:counter_total }}</p>
-                            <p style="margin:0">bsr_min: {{ shirt_info.bsr_min|index:counter_total }}</p>
-                            <p style="margin:0">bsr_last: {{ shirt_info.bsr_last|index:counter_total }}</p>
-                            <p style="margin:0">bsr_first: {{ shirt_info.bsr_first|index:counter_total }}</p>
-                            <p style="margin:0">bsr_count: {{ shirt_info.bsr_count|index:counter_total }}</p>
-                            <p style="margin:0">trend: {{ shirt_info.trend|index:counter_total }}</p>
-                            <p style="margin:0">score_mean: {{ shirt_info.score_mean|index:counter_total }}</p>
-                            <p style="margin:0">score_max: {{ shirt_info.score_max|index:counter_total }}</p>
-                            <p style="margin:0">upload_date: {{ shirt_info.upload_date|index:counter_total }}</p>
-                            {% endif %}
-                            <div class = "">
-                              <div class="md:flex-shrink container">
-                                <a href={% load index %}{{ amazon_url }} target="_blank">
-                                    <img class="rounded-lg w-full" src={% load index %}{{ shirt_info.url|index:counter_total }} alt="Shirt could not be loaded" width=200 height=200>
-                                    <div class="bottom-left">Trend: {{ shirt_info.trend_nr|index:counter_total }}</div>
-                                    <div class="bottom-right">Change: {{ shirt_info.trend_nr|index:counter_total }}</div>
-                                  </a>   
-                                </div> 
-                                
-                            <div class="h-32"> 
-                              {% autoescape off %}
-                              {{ shirt_info.plot|index:counter_total }}
-                              {% endautoescape %}  
-                            </div>    
-                          </div>
-                                                
-                          <div>           
-                                    {% endwith %} 
-                                    {% endwith %}  
-                                    {% endwith %}  
-                          </div>
-                          </div>
-                        </div>
-                        {% endwith %}
-                        {% endwith %}
-                        {% endfor %}
-                        {% endwith %}
-                {% endfor %}
-                {% endwith %}
-              </div>
+
+                {% autoescape off %}
+                {{shirts_html}}
+                {% endautoescape %}
+              
             {% else %}
                 <p>No shirts are available.</p>
             {% endif %}
+          </div>
             <div class="pagination", style="color:white;">
               <span class="step-links">
                   {% if page_obj.has_previous %}

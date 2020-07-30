@@ -11,6 +11,7 @@ from datetime import date
 import datetime 
 import time 
 from .data_handler import DataHandler 
+from .html_handler import HtmlHandler 
 from plotly.offline import plot
 import plotly.graph_objs as go
 from plotly.graph_objs import Scatter
@@ -117,8 +118,11 @@ def main(request):
 
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
     output_dict = {"shirt_info":shirt_info,'page_obj': page_obj, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info}
-    test = {"sort_by": {"trend":1}}
     output_dict.update(request.GET)
+
+    HtmlHandlerModel = HtmlHandler(df_shirts)
+    shirts_html = HtmlHandlerModel.create_shirts_html()
+    output_dict.update({"shirts_html": shirts_html})
     return render(request, 'main.html', output_dict)
     #return HttpResponse(template.render(context, request))
 
