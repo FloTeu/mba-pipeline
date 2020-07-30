@@ -26,9 +26,10 @@ def send_msg(target, msg, api_key):
         return ""
 
 def start_server():
-    bash_command = 'cd /home/flo_t_1995/mba-pipeline/mba-page/merchwatch/ && nohup sudo python3 manage.py runserver 0.0.0.0:80'
-    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE)
+    bash_command = 'nohup sudo python3 manage.py runserver 0.0.0.0:80'
+    process = subprocess.Popen(bash_command.split(), stdout=subprocess.PIPE, cwd='/home/flo_t_1995/mba-pipeline/mba-page/merchwatch/')
     output, error = process.communicate()
+    test = 0
 
 def main(argv):
     parser = argparse.ArgumentParser(description='')
@@ -57,6 +58,7 @@ def main(argv):
         except:
             send_msg(chat_id, "Server is not online anymore. Try to start it again..",api_key)
             print("Error occured website is not online")
+            start_server()
         time.sleep(interval)
 
 if __name__ == '__main__':
