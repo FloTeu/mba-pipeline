@@ -42,8 +42,8 @@ def main(request):
     DataHandlerModel = DataHandler()
 
     sort_by = request.GET.get('sort_by')
-    sort_by_min = request.GET.get('sort_by_min')
-    sort_by_max = request.GET.get('sort_by_max')
+    bsr_min = request.GET.get('bsr_min')
+    bsr_max = request.GET.get('bsr_max')
     desc = request.GET.get('direction')
     info = request.GET.get('info')
     filter = request.GET.get('filter')
@@ -104,12 +104,15 @@ def main(request):
 
 
     # filter dataframe by given min max 
-    if sort_by_min != "" and sort_by_min != None and sort_by_max != "" and sort_by_max != None and sort_by != "" and sort_by != None:
-        df_shirts = df_shirts.loc[(df_shirts[sort_by] >= float(sort_by_min)) & (df_shirts[sort_by] <= float(sort_by_max))]
+    if bsr_min != "" and bsr_min != None and bsr_max != "" and bsr_max != None and sort_by != "" and sort_by != None:
+        df_shirts = df_shirts.loc[(df_shirts["bsr_last"] >= float(bsr_min)) & (df_shirts["bsr_last"] <= float(bsr_max))]
 
     # pagination
     asin_list = df_shirts["asin"].tolist()[0:len(df_shirts["asin"].tolist())]
-    paginator = Paginator(asin_list, (columns*rows))
+    if len(asin_list) == 0:
+        paginator = Paginator(["Empty"], 1)
+    else:
+        paginator = Paginator(asin_list, (columns*rows))
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
@@ -125,7 +128,10 @@ def main(request):
 
     #context = {"asin": ["awdwa","awdwawdd", "2312313"],}
     output_dict = {"shirt_info":shirt_info,'page_obj': page_obj, "iterator":iterator, "columns" : columns, "rows": rows,"show_detail_info":info}
-    output_dict.update(request.GET)
+    request_dict = dict(request.GET)
+    if key != None and key == "":
+        del request_dict["s"]
+    output_dict.update(request_dict)
 
     HtmlHandlerModel = HtmlHandler(df_shirts)
     shirts_html = HtmlHandlerModel.create_shirts_html()
