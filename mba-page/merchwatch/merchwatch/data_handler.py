@@ -116,7 +116,7 @@ class DataHandler():
         return df_shirts
 
     def filter_shirts_by_correct_data(self, df_shirts):
-        return df_shirts.loc[(df_shirts['bsr_last'] != 0.0) & (df_shirts['bsr_last'] != 404.0) & (df_shirts['price_last'] != 404.0) & (df_shirts['price_last'] != 0.0)]
+        return df_shirts.loc[(df_shirts['bsr_last'] != 0.0) & (df_shirts['bsr_last'] != 404.0) & (df_shirts['bsr_last'] != 999999999)  & (df_shirts['price_last'] != 404.0) & (df_shirts['price_last'] != 0.0)]
 
     def get_min_max_dict(self, df_shirts):
         dict_min_max = {}

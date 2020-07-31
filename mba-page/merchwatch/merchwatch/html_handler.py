@@ -23,8 +23,13 @@ class HtmlHandler():
     def get_shirt_html(self, df_shirt):
         detail_info = ""
         plot_html = df_shirt["plot"]
+        text_color_trend_change = "text-black"
+        if int(df_shirt["trend_change"]) > 0:
+            text_color_trend_change = "text-green-600"
+        if int(df_shirt["trend_change"]) < 0:
+            text_color_trend_change = "text-red-600"
+
         html = """
-        
                             <div class="w-1/6 p-2">
                                 <div class="text-gray-700 text-center bg-gray-400 p-2">
                                     <div class="tooltip">Titel anzeigen
@@ -37,8 +42,8 @@ class HtmlHandler():
                                     <div class="md:flex-shrink container">
                                         <a href={3} target="_blank">
                                             <img class="rounded-lg w-full" src={4} alt="Shirt could not be loaded" width=200 height=200>
-                                            <div class="bottom-left">Trend: {5}</div>
-                                            <div class="bottom-right">Change: {6}</div>
+                                            <div class="bottom-left p-1 text-xs rounded-lg bg-white text-black">Trend: {5}</div>
+                                            <div class="bottom-right p-1 text-xs rounded-lg bg-white {8}">Change: {6}</div>
                                         </a>   
                                         </div> 
                                         
@@ -48,7 +53,7 @@ class HtmlHandler():
                                 </div>
                                 </div>
                                 </div>
-                """.format(df_shirt["title"], df_shirt["asin"],detail_info, "http://www.amazon.de/dp/" + df_shirt["asin"], df_shirt["url"],df_shirt["trend_nr"],df_shirt["trend_change"],plot_html)
+                """.format(df_shirt["title"], df_shirt["asin"],detail_info, "http://www.amazon.de/dp/" + df_shirt["asin"], df_shirt["url"],df_shirt["trend_nr"],df_shirt["trend_change"],plot_html, text_color_trend_change)
         return html
         
     def create_shirts_html(self):
