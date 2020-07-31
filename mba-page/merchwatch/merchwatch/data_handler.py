@@ -192,7 +192,7 @@ class DataHandler():
             df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
             try:
                 df_shirts_old=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
-                df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: x["trend_nr"] - df_shirts_old[df_shirts_old["asin"] == x["asin"]].iloc[0]["trend_nr"],axis=1)
+                df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: df_shirts_old[df_shirts_old["asin"] == x["asin"]].iloc[0]["trend_nr"] - x["trend_nr"],axis=1)
             except:
                 df_shirts_with_more_info["trend_change"] = 0
             # save dataframe with shirts in local storage
