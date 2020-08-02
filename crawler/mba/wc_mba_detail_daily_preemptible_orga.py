@@ -221,7 +221,8 @@ def main(argv):
     parser.add_argument('--telegram_api_key',default="", help='API key of mba bot', type=str)
     parser.add_argument('--telegram_chatid', default="", help='Id of channel like private chat or group channel', type=str)
     parser.add_argument('--number_running_instances', default=3, type=int, help='Number of preemptible instances that shoul run parallel. Default is 3.')
-    parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+    parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled per instance. If 0, every shirt that is not already crawled will be crawled.')
+    parser.add_argument('--number_products_total', default=0, type=int, help='Number of products/shirts that shoul be crawled in total. If 0, every shirt that is not already crawled will be crawled.')
     parser.add_argument('--connection_timeout', default=10.0, type=float, help='Time that the request operation has until its breaks up. Default: 10.0 sec')
     parser.add_argument('--time_break_sec', default=240, type=int, help='Time in seconds the script tries to get response of certain product. Default 240 sec')
     parser.add_argument('--seconds_between_crawl', default=20, type=int, help='Time in seconds in which no proxy/ip shoul be used twice for crawling. Important to prevent being blacklisted. Default 20 sec')
@@ -244,6 +245,7 @@ def main(argv):
     chat_id = args.telegram_chatid
     number_running_instances = args.number_running_instances
     number_products = args.number_products
+    number_products_total = args.number_products_total
     connection_timeout = args.connection_timeout
     time_break_sec = args.time_break_sec
     seconds_between_crawl = args.seconds_between_crawl
@@ -256,7 +258,12 @@ def main(argv):
     count_to_crawl = len(get_asin_product_detail_to_crawl(marketplace, daily))
     
     is_first_call = True
-
+    start_size_of_crawling_shirts = len(get_asin_product_detail_to_crawl(marketplace, daily))
+    msg_total_shirts_to_crawl = "all"
+    if number_products_total != 0:
+        msg_total_shirts_to_crawl = str(number_products_total)
+    utils.send_msg(chat_id,"%s total shirts to crawl. Script should crawl %s shirts" %(start_size_of_crawling_shirts, msg_total_shirts_to_crawl),api_key)
+    
     while True:
         time_wait_minutes = 0
         currently_running_instance = get_currently_running_instance(number_running_instances, marketplace, max_instances_of_zone, region_space)
@@ -278,6 +285,12 @@ def main(argv):
             if len(df_product_detail) == 0:
                 finish_script(5,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start, api_key, chat_id)
                 break
+            # if number_products_total is set unequal to zero the script should be stoped 
+            # if total number of shirts to crawl minus current number of shirts to crawlis greater than number_products_total
+            elif number_products_total != 0 and (start_size_of_crawling_shirts - len(df_product_detail)) > number_products_total:
+                finish_script(5,seconds_between_crawl,number_products,time_wait_minutes,number_running_instances,marketplace, max_instances_of_zone,region_space,time_start, api_key, chat_id)
+                break
+
 
             not_running_threat_ids = [x for x in np.arange(1,number_running_instances+1, 1).tolist() if x not in currently_running_ids]
             for id in not_running_threat_ids:
