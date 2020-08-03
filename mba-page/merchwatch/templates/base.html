@@ -3,8 +3,10 @@
         <meta charset="utf-8">
         <title>merchwatch</title>
         {% load static %}
+        {% load define_action %} 
+
         <link rel="stylesheet" href="{% static 'css/styles.css' %}">
-        <link rel="stylesheet" href="{% static 'css/styles2.css' %}">
+        <link rel="stylesheet" href="{% static 'css/styles2.css' %}?v={% random_int 1000000000 %}">
         <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
         <!-- Global site tag (gtag.js) - Google Analytics -->
         <script async src="https://www.googletagmanager.com/gtag/js?id=UA-173227654-1"></script>

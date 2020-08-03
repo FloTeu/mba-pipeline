@@ -47,7 +47,7 @@ body {
   /* Bottom left text */
   .bottom-left {
     position: absolute;
-    bottom: 8%;
+    bottom: 2%;
     left: 6%;
   }
 
@@ -61,7 +61,7 @@ body {
 /* Bottom right text */
 .bottom-right {
   position: absolute;
-  bottom: 8%;
+  bottom: 2%;
   right: 6%;
 }
 

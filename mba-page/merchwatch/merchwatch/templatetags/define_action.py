@@ -1,5 +1,6 @@
 from django import template
 from urllib.parse import urlencode
+import random
 register = template.Library()
 
 @register.simple_tag
@@ -24,3 +25,9 @@ def url_replace(request, field, value):
     dict_[field] = value
 
     return dict_.urlencode()
+
+@register.simple_tag
+def random_int(a, b=None):
+    if b is None:
+        a, b = 0, a
+    return random.randint(a, b)
