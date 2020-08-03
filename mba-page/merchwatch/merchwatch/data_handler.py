@@ -122,8 +122,12 @@ class DataHandler():
         dict_min_max = {}
         df_shirts = self.filter_shirts_by_correct_data(df_shirts)
         columns = df_shirts.columns.values
+        dict_min_max["bsr_last"] = [df_shirts["bsr_last"].min(),df_shirts["bsr_last"].max()]
         for column in columns:
-            dict_min_max[column] = [df_shirts[column].min(),df_shirts[column].max()]
+            try:
+                dict_min_max[column] = [df_shirts[column].min(),df_shirts[column].max()]
+            except:
+                print("could not calculate min max of column " + str(column))
         return dict_min_max
 
     def check_if_shirts_today_exist(self, file_path):
