@@ -194,9 +194,15 @@ class DataHandler():
                 gc.collect()
             
             df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
+            # try to calculate trend change
             try:
                 df_shirts_old=pd.read_csv("merchwatch/data/shirts.csv", sep="\t")
-                df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: df_shirts_old[df_shirts_old["asin"] == x["asin"]].iloc[0]["trend_nr"] - x["trend_nr"],axis=1)
+                df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"]
+                # transform older trend nr (yesterday) in same dimension as new trend nr
+                df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old"]],how='left', on='asin')
+                df_shirts_with_more_info[['trend_nr_old']] = df_shirts_with_more_info[['trend_nr_old']].fillna(value=0)
+                
+                df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else x["trend_nr_old"] - x["trend_nr"],axis=1)
             except:
                 df_shirts_with_more_info["trend_change"] = 0
             # save dataframe with shirts in local storage
