@@ -47,8 +47,8 @@ body {
   /* Bottom left text */
   .bottom-left {
     position: absolute;
-    bottom: 8px;
-    left: 66px;
+    bottom: 8%;
+    left: 6%;
   }
 
   /* Centered text */
@@ -61,8 +61,8 @@ body {
 /* Bottom right text */
 .bottom-right {
   position: absolute;
-  bottom: 8px;
-  right: 66px;
+  bottom: 8%;
+  right: 6%;
 }
 
   .center {
