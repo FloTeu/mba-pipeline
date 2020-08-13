@@ -76,7 +76,7 @@ sudo chmod 777 data/
         f.write(startup_script)
 
 def get_bash_create_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances create {} --machine-type=f1-micro --preemptible --zone {}  --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances create {} --machine-type=f1-micro --preemptible --zone {}  --labels crawler-auto=crawler-auto-instance-pre --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
     return bash_command
 
 def get_bash_start_pre_instance(instance_name, zone):
