@@ -112,7 +112,12 @@ def get_product_information(marketplace, list_product_information):
 
 def get_product_detail_daily_df(soup, asin, url_mba, marketplace, api_key="", chat_id=""):
     product_information = soup.find("div", id="detail-bullets_feature_div")
-    
+    if product_information == None:
+        product_information = soup.find("div", id="dpx-detail-bullets_feature_div")
+    if product_information == None:
+        utils.send_msg(chat_id, "Could not find detail-bullets_feature_div in soup for asin: " + str(asin), api_key)
+        raise ValueError
+
     # get all headline infos 
     try:
         price_str = [soup.find("span", id="priceblock_ourprice").get_text()]
@@ -410,7 +415,6 @@ def main(argv):
         asin = product_row["asin"]
         url_product = product_row["url_product"]
         url_product_asin = product_row["url_product_asin"]
-        asin_list.append(asin)
         if True:
             # try to get reponse with free proxies
             response = get_response(marketplace, url_product_asin, api_key, chat_id, use_proxy=False, connection_timeout=connection_timeout, time_break_sec=time_break_sec, seconds_between_crawl=seconds_between_crawl)
@@ -439,6 +443,7 @@ def main(argv):
                 #except:
                 #    stop_instance(pre_instance_name, zone)
                 
+                asin_list.append(asin)
                 bsr_list.append(df_product_details.loc[0,"bsr"])
                 price_list.append(df_product_details.loc[0,"price_str"])
                 #update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, "404", "404", pre_instance_name, zone)
@@ -458,6 +463,7 @@ def main(argv):
         except:
             utils.send_msg(chat_id, "Error while trying to get information for asin: " + str(asin), api_key)
             continue
+        asin_list.append(asin)
         bsr_list.append(df_product_details.loc[0,"bsr"])
         price_list.append(df_product_details.loc[0,"price_str"])
         # save product information string locally
