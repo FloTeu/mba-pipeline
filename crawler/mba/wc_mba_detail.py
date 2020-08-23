@@ -311,7 +311,7 @@ def get_response(marketplace, url_product_asin, use_proxy=True, connection_timeo
     # return None if no response could be crawled
     return None
 
-def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, pre_instance_name, zone):
+def update_reservation_logs(marketplace, asin, status, preemptible_code, ip_address, pre_instance_name, zone, api_key, chat_id):
     global df_successfull_proxies
     error_str = ""
     if type(df_successfull_proxies) != type(None):
@@ -408,7 +408,7 @@ def main(argv):
         
             if response == None:
                 # update reservation logs with blacklist of ip 
-                update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, pre_instance_name, zone)
+                update_reservation_logs(marketplace, "blacklist", "blacklist", preemptible_code, ip_address, pre_instance_name, zone, api_key, chat_id)
                 # if script is called by preemptible instance it should be deleted by itself
                 if pre_instance_name != "":
                     utils.stop_instance(pre_instance_name, zone, msg="Response is none because of time break condition", api_key=api_key, chat_id=chat_id)
@@ -422,7 +422,7 @@ def main(argv):
                 df_product_details['timestamp'] = df_product_details['timestamp'].astype('datetime64')
                 df_product_details['upload_date'] = df_product_details['upload_date'].astype('datetime64')
                 df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, pre_instance_name, zone)
+                update_reservation_logs(marketplace, asin, "404", preemptible_code, ip_address, pre_instance_name, zone, api_key, chat_id)
                 print("No Match: Got 404: %s | %s of %s" % (asin, j+1, number_products))
                 continue 
 
@@ -448,8 +448,8 @@ def main(argv):
         try:
             df_product_details.to_gbq("mba_" + marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
         except:
-            update_reservation_logs(marketplace, asin, "failure", preemptible_code, ip_address, pre_instance_name, zone)
-        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, pre_instance_name, zone)
+            update_reservation_logs(marketplace, asin, "failure", preemptible_code, ip_address, pre_instance_name, zone, api_key, chat_id)
+        update_reservation_logs(marketplace, asin, "success", preemptible_code, ip_address, pre_instance_name, zone, api_key, chat_id)
         print("Match: Successfully crawled product: %s | %s of %s" % (asin, j+1, number_products))
 
     global df_successfull_proxies
