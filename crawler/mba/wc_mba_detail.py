@@ -104,9 +104,23 @@ def get_product_information(marketplace, list_product_information):
 
 def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=""):
     product_feature = soup.find("div", id="feature-bullets")
+    if product_feature == None:
+        product_feature = soup.find("div", id="dpx-feature-bullets")
+    if product_feature == None:
+        utils.send_msg(chat_id, "Could not find detail-bullets_feature_div in soup for asin: " + str(asin), api_key)
+        raise ValueError
     product_description = soup.find("div", id="productDescription_feature_div")
+    if product_description == None:
+        product_description = soup.find("div", id="dpx-productDescription_feature_div")
+    if product_description == None:
+        utils.send_msg(chat_id, "Could not find detail-bullets_feature_div in soup for asin: " + str(asin), api_key)
+        raise ValueError
     product_information = soup.find("div", id="detail-bullets_feature_div")
-    
+    if product_information == None:
+        product_information = soup.find("div", id="dpx-detail-bullets_feature_div")
+    if product_information == None:
+        utils.send_msg(chat_id, "Could not find detail-bullets_feature_div in soup for asin: " + str(asin), api_key)
+        raise ValueError
     # get all headline infos 
     title = [soup.find("span", id="productTitle").get_text().replace("\n","").replace("                                                                                                                                                        ","").replace("                                                                                                                        ", "")]
     brand = [soup.find("a", id="bylineInfo").get_text()]
