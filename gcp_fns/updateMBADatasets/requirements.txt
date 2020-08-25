@@ -1,0 +1,10 @@
+pandas==1.0.5
+pandas-gbq==0.13.2
+google-cloud-bigquery==1.25.0 
+google-cloud-storage==1.29.0 
+scikit-learn==0.23.1
+plotly==4.9.0
+requests==2.24.0 
+Django==3.0.9 
+tqdm==4.48.2
+google-api-python-client==1.10.0
