@@ -220,7 +220,7 @@ class DataHandler():
             df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old"]],how='left', on='asin')
             df_shirts_with_more_info[['trend_nr_old']] = df_shirts_with_more_info[['trend_nr_old']].fillna(value=0)
             
-            df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else x["trend_nr_old"] - x["trend_nr"],axis=1)
+            df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else int(x["trend_nr_old"] - x["trend_nr"]),axis=1)
         except:
             df_shirts_with_more_info["trend_change"] = 0
         # save dataframe with shirts in local storage
