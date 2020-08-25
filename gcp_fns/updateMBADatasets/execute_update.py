@@ -1,6 +1,7 @@
 from data_handler import DataHandler
 import requests
 import argparse
+import time
 
 
 def get_args(argv=None):
@@ -47,14 +48,18 @@ def send_msg(target, msg, api_key):
 
 def main(args):
     marketplace = args.marketplace
+    time_start = time.time()
 
-    send_msg("869595848", "Cron Job start for marketplace " + str(marketplace),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+    send_msg("869595848", "Cron Job start for marketplace " + marketplace,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+    elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
     try:
         DataHandlerModel = DataHandler()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size)
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
-    send_msg("869595848", "Cron Job finished for marketplace " + str(marketplace),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+
+    elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
+    send_msg("869595848", "Cron Job finished for marketplace {} | elapsed time: {} minutes".format(marketplace, elapsed_time),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
 
 if __name__ == "__main__":
     # execute only if run as a script
