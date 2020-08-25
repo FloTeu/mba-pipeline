@@ -162,16 +162,12 @@ class DataHandler():
 
 
     def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None):
-        logger = logging.getLogger('pandas_gbq')
-        logger.setLevel(logging.DEBUG)
-        logger.addHandler(logging.StreamHandler())
         # This part should only triggered once a day to update all relevant data
         print("Load shirt data from bigquery")
         start_time = time.time()
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
         df_shirts = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates()
-        df_shirts_2 = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates()
         #df_shirts = bq_client.query(self.get_sql_shirts(marketplace, None, None)).to_dataframe().drop_duplicates()
         # This dataframe is expanded with additional information with every chunk 
         df_shirts_with_more_info = df_shirts.copy()
@@ -189,10 +185,7 @@ class DataHandler():
                 if_exists="replace"
             print("Start to get chunk from bigquery")
             try:
-                self.df_shirts_detail_daily = self.get_bq_dataset(self.get_sql_shirts(marketplace, None, None)).drop_duplicates()
-                print("Start to get chunk from bigquery")
-                self.df_shirts_detail_daily = self.get_bq_dataset(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit)).drop_duplicates()
-                #self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit), project_id="mba-pipeline", verbose=True).drop_duplicates()
+                self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 #self.df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit)).to_dataframe().drop_duplicates()
             #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: datetime.datetime.strptime(re.search(r'\d{4}-\d{2}-\d{2}', x["timestamp"]).group(), '%Y-%m-%d').date(), axis=1)
             except Exception as e:

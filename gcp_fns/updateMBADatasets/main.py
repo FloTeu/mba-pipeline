@@ -46,9 +46,34 @@ def create_instance(marketplace, instance_name, zone, chunk_size):
     machine_type = "zones/%s/machineTypes/n1-standard-1" % zone
     startup_script = generate_startup(marketplace, instance_name, zone, chunk_size)
 
+    image_response = compute.images().get(image='cron-image', project='mba-pipeline').execute()
+    source_disk_image = image_response['selfLink']
+
+
     config = {
         'name': instance_name,  # client_guid[:5],
         'machineType': machine_type,
+
+        # Specify the boot disk and the image to use    as a source.
+        'disks': [
+            {
+                'boot': True,
+                'autoDelete': True,
+                'initializeParams': {
+                    'sourceImage': source_disk_image,
+                }
+            }
+        ],
+
+
+        # Specify a network interface with NAT to access the public
+        # internet.
+        'networkInterfaces': [{
+            'network': 'global/networks/default',
+            'accessConfigs': [
+                {'type': 'ONE_TO_ONE_NAT', 'name': 'External NAT'}
+            ]
+        }],
 
 
         # Allow the instance to access cloud storage and logging.
@@ -93,4 +118,3 @@ def updateBqShirtTables(event, context):
     marketplace = "de"
 
     create_instance(marketplace, "cron-daily", "us-west1-b", 500)
-    
