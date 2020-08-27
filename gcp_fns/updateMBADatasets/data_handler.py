@@ -22,11 +22,6 @@ class DataHandler():
         self.filePath = None
         self.df_shirts_detail_daily = None
 
-    def set_df_shirts_detail_daily(self):
-        self.df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit)).to_dataframe().drop_duplicates()
-        self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
-        
-
     def get_sql_shirts(self, marketplace, limit=None, filter=None):
         if limit == None:
             SQL_LIMIT = ""
@@ -47,7 +42,7 @@ class DataHandler():
 
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
-    SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
+    SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
@@ -60,7 +55,7 @@ class DataHandler():
 
         union all 
         
-        SELECT t0.*, t2.title, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
+        SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
@@ -95,20 +90,6 @@ class DataHandler():
         """.format(marketplace, SQL_WHERE_IN, SQL_LIMIT)
         return SQL_STATEMENT
 
-    def get_sql_plots(self, marketplace, asin_list):
-            SQL_WHERE_IN = "('" + "','".join(asin_list) + "')"
-            SQL_STATEMENT = """
-            SELECT asin, plot FROM `mba-pipeline.mba_{0}.plots`
-            where asin in {1}
-            """.format(marketplace, SQL_WHERE_IN)
-            return SQL_STATEMENT
-
-    def get_df_plots(self, marketplace, asin_list):
-            project_id = 'mba-pipeline'
-            bq_client = bigquery.Client(project=project_id)
-            df_shirts_plots = bq_client.query(self.get_sql_plots("de", asin_list)).to_dataframe()
-            return df_shirts_plots 
-
     def make_trend_column(self, df_shirts):
         df_shirts = df_shirts.reset_index(drop=True)
         x = df_shirts[["time_since_upload"]].values 
@@ -122,44 +103,6 @@ class DataHandler():
         df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index(drop=True)
         df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
-
-    def filter_shirts_by_correct_data(self, df_shirts):
-        return df_shirts.loc[(df_shirts['bsr_last'] != 0.0) & (df_shirts['bsr_last'] != 404.0) & (df_shirts['bsr_last'] != 999999999)  & (df_shirts['price_last'] != 404.0) & (df_shirts['price_last'] != 0.0)]
-
-    def get_min_max_dict(self, df_shirts):
-        dict_min_max = {}
-        df_shirts = self.filter_shirts_by_correct_data(df_shirts)
-        columns = df_shirts.columns.values
-        dict_min_max["bsr_last"] = [df_shirts["bsr_last"].min(),df_shirts["bsr_last"].max()]
-        for column in columns:
-            try:
-                dict_min_max[column] = [df_shirts[column].min(),df_shirts[column].max()]
-            except:
-                print("could not calculate min max of column " + str(column))
-        return dict_min_max
-
-    def get_last_updated_gcs_file(self, bucket, blob_name):
-        storage_client = storage.Client()
-        bucket = storage_client.bucket(bucket)
-        blob = bucket.get_blob(blob_name)
-        return blob.updated
-
-    def check_if_shirts_today_exist(self, bucket, blob_name):
-        try:
-            #date_creation = time.ctime(os.path.getctime(file_path))
-            update_date = self.get_last_updated_gcs_file(bucket, blob_name)
-            #date_creation = time.ctime(os.path.getctime(creation_date))
-            return date.today() == update_date.date()
-        except:
-            return False
-        
-    def get_bq_dataset(self, query):
-        project_id = 'mba-pipeline'
-        bq_client = bigquery.Client(project=project_id)
-        result = bq_client.query(query)
-        print("Start transform to dataframe")
-        return result.to_dataframe()
-
 
     def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None):
         # This part should only triggered once a day to update all relevant data
@@ -229,33 +172,6 @@ class DataHandler():
         self.df_shirts_detail_daily = None
         print("Loading completed. Elapsed time: %.2f minutes" %((time.time() - start_time) / 60))
 
-
-    def get_shirts(self, marketplace, limit=None, filter=None):
-        print(os.getcwd())
-        file_path = "gs://" + join(settings.DATA_BUCKET, settings.DATA_BLOB, marketplace, "shirts.csv")
-        bucket = settings.DATA_BUCKET
-        blob_name = join(settings.DATA_BLOB, marketplace, "shirts.csv")
-        # If data already loaded today return it
-        start_time = time.time()
-        does_file_today_exists = self.check_if_shirts_today_exist(bucket, blob_name)
-        print("Check if dataset today exists. elapsed time: %.2f sec" %((time.time() - start_time)))
-        if does_file_today_exists:
-            print("Data already loaded today")
-            start_time = time.time()
-            df_shirts=pd.read_csv(file_path, sep="\t")
-            print("Loading csv took elapsed time: %.2f sec" %((time.time() - start_time)))
-            
-            #df_shirts_detail_daily=pd.read_csv("watch/data/shirts_detail_daily.csv", sep="\t")
-        else:
-            # This part should only triggered once a day to update all relevant data
-            print("Load shirt data from bigquery")
-            start_time = time.time()
-            df_shirts=pd.read_gbq("SELECT * FROM mba_" + str(marketplace) +".merchwatch_shirts", project_id="mba-pipeline")
-            print("Loading bq took elapsed time: %.2f sec" %((time.time() - start_time)))
-            df_shirts.to_csv(file_path, index=None, sep="\t")
-        
-        return df_shirts
-
     def get_change(self, current, previous):
         current = float(current)
         previous = float(previous)
@@ -299,69 +215,3 @@ class DataHandler():
                 output_type='div', include_plotlyjs=False, show_link=False, link_text="", config=config)
         return plot_div
 
-    def get_plots_html_of_df(self, df_shirts):
-        self.set_df_shirts_detail_daily()
-        plots = []
-        for i, df_shirts_row in df_shirts.iterrows():
-            plot_shirt = self.create_plot_html(df_shirts_row)
-            plots.append(plot_shirt)
-        return plots
-
-    def get_shirt_dataset_sql(self, marketplace, sort_by, shirt_count, bsr_min=None, bsr_max=None, key=None, page=1, with_limit=True):
-        WHERE_STATEMENT = "WHERE t0.bsr_mean != 0 and t0.bsr_last != 404 and t0.upload_date IS NOT NULL "
-        if bsr_min != None and bsr_max != None:
-            WHERE_STATEMENT += "and bsr_last > bsr_min and bsr_last < bsr_max "
- 
-        LIMIT_STATEMENT = ""
-        if with_limit:
-            start_row = int(shirt_count)*(int(page)-1)
-            LIMIT_STATEMENT = "WHERE row_number > {} and row_number < {}".format(start_row, start_row + int(shirt_count))
-
-        SQL_STATEMENT = """
-        SELECT t_fin.* FROM (
-            SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
-                SELECT  t0.*, t1.plot FROM `mba_{0}.merchwatch_shirts` t0
-            left join `mba-pipeline.mba_de.plots` t1 on t0.asin = t1.asin 
-            {2}
-
-            order by {1}
-            ) t_tmp
-        ) t_fin
-
-        {3}
-        
-        """.format(marketplace, sort_by, WHERE_STATEMENT, LIMIT_STATEMENT) 
-
-        return SQL_STATEMENT
-
-    def get_count_shirt_dataset(self, marketplace, sort_by, shirt_count, bsr_min=None, bsr_max=None, key=None, page=1):
-        shirt_sql = self.get_shirt_dataset_sql(marketplace, sort_by, shirt_count, bsr_min=bsr_min, bsr_max=bsr_max, key=key, page=page, with_limit=False)
-        client = bigquery.Client()
-        job = client.query(shirt_sql)
-        result = job.result()
-        return result.total_rows
-
-    def get_shirt_dataset(self, marketplace, sort_by, shirt_count, bsr_min=None, bsr_max=None, key=None, page=1):
-        shirt_sql = self.get_shirt_dataset_sql(marketplace, sort_by, shirt_count, bsr_min=bsr_min, bsr_max=bsr_max, key=key, page=page)
-        df_shirts=pd.read_gbq(shirt_sql, project_id="mba-pipeline")
-
-        return df_shirts
-
-'''
-dataHandleModel = DataHandler()
-#dataHandleModel.get_sql_shirts("de", None)
-project_id = 'mba-pipeline'
-bq_client = bigquery.Client(project=project_id)
-marketplace = "de"
-limit = None
-filter=None
-#df_shirts_detail_daily = bq_client.query(dataHandleModel.get_sql_shirts_detail_daily(marketplace, limit)).to_dataframe().drop_duplicates()
-df_shirts = dataHandleModel.get_shirts(marketplace, limit=limit)
-df_shirts2 = df_shirts.iloc[0:10].copy()
-#df_shirts2["plot"] = df_shirts2.apply(lambda x: dataHandleModel.create_plot_html(x,df_shirts_detail_daily), axis=1)
-
-
-#df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
-#df_shirts2["bsr_last"], df_shirts2["price_last"], df_shirts2["bsr_first"], df_shirts2["price_first"] = df_shirts2.apply(lambda x: get_first_and_last_data(x["asin"]), axis=1)
-'''
-test = 0
