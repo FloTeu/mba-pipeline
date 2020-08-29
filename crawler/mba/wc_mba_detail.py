@@ -158,12 +158,22 @@ def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=
         product_description = [""]
 
     # get all product information
-    list_product_information = product_information.find("ul").find_all("li")
+    #list_product_information = product_information.find("ul").find_all("li")
     try:
-        weight, upload_date_str, customer_recession_score, customer_recession_count, mba_bsr_str, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+        weight = utils.get_weight_infos(product_information)
+        upload_date_str = utils.get_upload_date_infos(product_information)
+    except:
+        utils.send_msg(chat_id, "Could not get weight or upload info of product: " + str(asin), api_key)
+        raise ValueError
+    try:
+        mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = utils.get_bsr_infos(product_information)
     except:
         utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
-        raise ValueError
+    try:
+        customer_recession_score_mean, customer_recession_score, customer_recession_count = utils.get_customer_review_infos(product_information)
+    except:
+        utils.send_msg(chat_id, "Could not get get_customer_review_infos of product: " + str(asin), api_key)
+
 
     # try to get real upload date
     upload_date = [dateparser.parse(upload_date_str[0].split(":")[1]).strftime('%Y-%m-%d')]

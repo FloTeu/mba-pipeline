@@ -307,3 +307,67 @@ def send_msg(target, msg, api_key):
     except:
         print("Telegram massage could not be sended.")
         return ""
+
+def get_bsr_infos(soup_tag):
+    soup_bsr = soup_tag.find(id="SalesRank")
+    mba_bsr_str = [""]
+    mba_bsr = [0]
+    array_mba_bsr = []
+    array_mba_bsr_categorie = []
+    try:
+        mba_bsr_str = [soup_bsr.get_text().replace("\n", "")]
+        bsr_iterator = mba_bsr_str[0].split("Nr. ")
+        bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
+        for bsr_str in bsr_iterator:
+            bsr = int(bsr_str.split("in")[0].replace(".", ""))
+            array_mba_bsr.append(bsr)
+            bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
+            array_mba_bsr_categorie.append(bsr_categorie)
+        mba_bsr = [int(bsr_iterator[0].split("in")[0].replace(".", ""))]
+    except:
+        raise ValueError
+        pass
+
+    return mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie
+
+def get_customer_review_infos(soup_tag):
+    soup_review = soup_tag.find(id="detailBullets_averageCustomerReviews")
+    customer_recession_score_mean = [0.0]
+    customer_recession_score = [""]
+    customer_recession_count = [0]
+    try:
+        try:
+            customer_recession_score = [soup_review.find("span", class_="a-declarative").find("a").find("i").get_text()]
+        except:
+            customer_recession_score = [""]
+        try:
+            customer_recession_count = [int(soup_review.find("a", id="acrCustomerReviewLink").get_text().split(" ")[0])]
+        except:
+            customer_recession_count = [0]
+        try:
+            customer_recession_score_mean = [float(customer_recession_score[0].split(" von")[0].replace(",","."))]
+        except:
+            customer_recession_score_mean = [0.0]
+    except:
+        pass
+
+    return customer_recession_score_mean, customer_recession_score, customer_recession_count
+
+def get_weight_infos(soup_tag):
+    weight = ["Not found"]
+    li_list = soup_tag.find_all("li")
+    for li in li_list:
+        info_text = li.get_text().lower()
+        if "gewicht" in info_text or "weight" in info_text or "abmessung" in info_text:
+            weight = [li.get_text()]
+    return weight
+
+
+def get_upload_date_infos(soup_tag):
+    upload_date = ["Not found"]
+    li_list = soup_tag.find_all("li")
+    for li in li_list:
+        info_text = li.get_text().lower()
+        if "seit" in info_text or "available" in info_text:
+            upload_date = [li.get_text()]
+    return upload_date

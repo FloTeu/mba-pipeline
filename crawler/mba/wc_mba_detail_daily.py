@@ -129,12 +129,16 @@ def get_product_detail_daily_df(soup, asin, url_mba, marketplace, api_key="", ch
     except:
         price = 0.0
     # get all product information
-    list_product_information = product_information.find("ul").find_all("li")
+    #list_product_information = product_information.find("ul").find_all("li")
     try:
-        customer_recession_score_mean, customer_recession_score, customer_recession_count, mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = get_product_information(marketplace, list_product_information)
+        mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = utils.get_bsr_infos(product_information)
     except:
         utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
         raise ValueError
+    try:
+        customer_recession_score_mean, customer_recession_score, customer_recession_count = utils.get_customer_review_infos(product_information)
+    except:
+        utils.send_msg(chat_id, "Could not get get_customer_review_infos of product: " + str(asin), api_key)
 
     crawlingdate = [datetime.datetime.now()]
 
