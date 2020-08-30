@@ -195,6 +195,8 @@ class DataHandler():
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        # remove bsr with 0 
+        df_asin_detail_daily = df_asin_detail_daily[df_asin_detail_daily["bsr"]!=0]
         marker_color = "black"
         if df_shirts_row["bsr_change"] > 0:
             marker_color = "red"
