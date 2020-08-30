@@ -354,20 +354,34 @@ def get_customer_review_infos(soup_tag):
     return customer_recession_score_mean, customer_recession_score, customer_recession_count
 
 def get_weight_infos(soup_tag):
-    weight = ["Not found"]
+    not_found = "Not found"
+    weight = [not_found]
     li_list = soup_tag.find_all("li")
-    for li in li_list:
-        info_text = li.get_text().lower()
-        if "gewicht" in info_text or "weight" in info_text or "abmessung" in info_text:
-            weight = [li.get_text()]
+    try:
+        for li in li_list:
+            info_text = li.get_text().lower()
+            if "gewicht" in info_text or "weight" in info_text or "abmessung" in info_text:
+                weight = [li.get_text()]
+    except:
+        raise ValueError
+    if weight[0] == not_found:
+        raise ValueError
+
     return weight
 
 
 def get_upload_date_infos(soup_tag):
-    upload_date = ["Not found"]
+    not_found = "Not found"
+    upload_date = [not_found]
     li_list = soup_tag.find_all("li")
-    for li in li_list:
-        info_text = li.get_text().lower()
-        if "seit" in info_text or "available" in info_text:
-            upload_date = [li.get_text()]
+    try:
+        for li in li_list:
+            info_text = li.get_text().lower()
+            if "seit" in info_text or "available" in info_text:
+                upload_date = [li.get_text()]
+    except:
+        raise ValueError
+    if upload_date[0] == not_found:
+        raise ValueError
+
     return upload_date
