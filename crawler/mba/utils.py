@@ -314,19 +314,19 @@ def get_bsr_infos(soup_tag):
     mba_bsr = [0]
     array_mba_bsr = []
     array_mba_bsr_categorie = []
-    try:
-        mba_bsr_str = [soup_bsr.get_text().replace("\n", "")]
-        bsr_iterator = mba_bsr_str[0].split("Nr. ")
-        bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
-        for bsr_str in bsr_iterator:
-            bsr = int(bsr_str.split("in")[0].replace(".", ""))
-            array_mba_bsr.append(bsr)
-            bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
-            array_mba_bsr_categorie.append(bsr_categorie)
-        mba_bsr = [int(bsr_iterator[0].split("in")[0].replace(".", ""))]
-    except:
-        raise ValueError
-        pass
+    if soup_bsr != None:
+        try:
+            mba_bsr_str = [soup_bsr.get_text().replace("\n", "")]
+            bsr_iterator = mba_bsr_str[0].split("Nr. ")
+            bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
+            for bsr_str in bsr_iterator:
+                bsr = int(bsr_str.split("in")[0].replace(".", ""))
+                array_mba_bsr.append(bsr)
+                bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
+                array_mba_bsr_categorie.append(bsr_categorie)
+            mba_bsr = [int(bsr_iterator[0].split("in")[0].replace(".", ""))]
+        except:
+            raise ValueError
 
     return mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie
 
@@ -335,21 +335,22 @@ def get_customer_review_infos(soup_tag):
     customer_recession_score_mean = [0.0]
     customer_recession_score = [""]
     customer_recession_count = [0]
-    try:
+    if soup_review != None:
         try:
-            customer_recession_score = [soup_review.find("span", class_="a-declarative").find("a").find("i").get_text()]
+            try:
+                customer_recession_score = [soup_review.find("span", class_="a-declarative").find("a").find("i").get_text()]
+            except:
+                customer_recession_score = [""]
+            try:
+                customer_recession_count = [int(soup_review.find("a", id="acrCustomerReviewLink").get_text().split(" ")[0])]
+            except:
+                customer_recession_count = [0]
+            try:
+                customer_recession_score_mean = [float(customer_recession_score[0].split(" von")[0].replace(",","."))]
+            except:
+                customer_recession_score_mean = [0.0]
         except:
-            customer_recession_score = [""]
-        try:
-            customer_recession_count = [int(soup_review.find("a", id="acrCustomerReviewLink").get_text().split(" ")[0])]
-        except:
-            customer_recession_count = [0]
-        try:
-            customer_recession_score_mean = [float(customer_recession_score[0].split(" von")[0].replace(",","."))]
-        except:
-            customer_recession_score_mean = [0.0]
-    except:
-        pass
+            pass
 
     return customer_recession_score_mean, customer_recession_score, customer_recession_count
 

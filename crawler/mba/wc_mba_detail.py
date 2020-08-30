@@ -137,7 +137,6 @@ def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=
     else:
         array_fit_types.append(soup.find("div", id="variation_fit_type").find("span").get_text())
 
-
     array_color_names = []
     span_color_names = soup.find("div", id="variation_color_name").find_all("span", class_="a-declarative")
     if len(span_color_names) > 0:
@@ -168,7 +167,7 @@ def get_product_detail_df(soup, asin, url_mba, marketplace, chat_id="", api_key=
     try:
         mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = utils.get_bsr_infos(product_information)
     except:
-        utils.send_msg(chat_id, "Could not get get_product_information of product: " + str(asin), api_key)
+        utils.send_msg(chat_id, "Could not get get_bsr_infos of product: " + str(asin), api_key)
     try:
         customer_recession_score_mean, customer_recession_score, customer_recession_count = utils.get_customer_review_infos(product_information)
     except:
