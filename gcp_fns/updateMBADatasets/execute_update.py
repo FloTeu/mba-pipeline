@@ -16,6 +16,12 @@ def get_args(argv=None):
         type=int,
         default=500,
         help='MBA marketplace')
+    parser.add_argument(
+        '--dev',
+        type=str2bool, nargs='?',
+        const=True,
+        default="False",
+        help='Wheter development or productive')
 
     if argv != None:
         args, pipeline_args = parser.parse_known_args(argv)
@@ -23,6 +29,16 @@ def get_args(argv=None):
     else:
         args, pipeline_args = parser.parse_known_args()
     return args, pipeline_args
+
+def str2bool(v):
+    if isinstance(v, bool):
+       return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
 
 
 def send_msg(target, msg, api_key):
@@ -54,7 +70,8 @@ def main(args):
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
     try:
         DataHandlerModel = DataHandler()
-        DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size)
+        DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
+        DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev)
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
 

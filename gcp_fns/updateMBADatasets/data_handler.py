@@ -1,6 +1,7 @@
 import pandas as pd
 from google.cloud import bigquery
 from google.cloud import storage
+from google.cloud import datastore
 import itertools
 from sklearn import preprocessing
 import os 
@@ -104,7 +105,7 @@ class DataHandler():
         df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
 
-    def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None):
+    def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None,dev=False):
         # This part should only triggered once a day to update all relevant data
         print("Load shirt data from bigquery")
         start_time = time.time()
@@ -118,6 +119,11 @@ class DataHandler():
         chunk_size = chunk_size  #chunk row size
         print("Chunk size: "+ str(chunk_size))
         df_shirts_asin = df_shirts[["asin"]].copy()
+
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
 
         df_shirts_asin_chunks = [df_shirts_asin[i:i+chunk_size] for i in range(0,df_shirts_asin.shape[0],chunk_size)]
         for i, df_shirts_asin_chunk in enumerate(df_shirts_asin_chunks):
@@ -136,10 +142,21 @@ class DataHandler():
                 raise ValueError
             print("Got bigquery chunk")
             self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+
+            # get plot data
+            print("Start to get plot data of shirts")
+            plot_data = df_shirts_asin_chunk.apply(lambda x: self.create_plot_data(x), axis=1)
+            plot_x=[]
+            plot_y=[]
+            for plot_data_i in plot_data:
+                plot_x.append(plot_data_i[0])
+                plot_y.append(plot_data_i[1])
          
             print("Start to get first and last bsr of shirts")
             df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"])), axis=1)
             df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "price_change"]
+            df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
+
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
                 left_index=True, right_index=True)
             if i == 0:
@@ -147,17 +164,19 @@ class DataHandler():
             else:
                 df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
 
-            print("Start to create plots")
+            '''
+            print("Start to create plot html")
             df_shirts_asin_chunk = df_shirts_asin_chunk.merge(df_additional_data, 
                 left_index=True, right_index=True)
             df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
-            df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots", project_id="mba-pipeline", if_exists=if_exists)
+            df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
+            '''
             gc.collect()
         
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
         # try to calculate trend change
         try:
-            df_shirts_old=pd.read_gbq("SELECT * FROM mba_" + str(marketplace) +".merchwatch_shirts", project_id="mba-pipeline")
+            df_shirts_old=pd.read_gbq("SELECT DISTINCT * FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
             df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"]
             # transform older trend nr (yesterday) in same dimension as new trend nr
             df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old"]],how='left', on='asin')
@@ -167,7 +186,7 @@ class DataHandler():
         except:
             df_shirts_with_more_info["trend_change"] = 0
         # save dataframe with shirts in local storage
-        df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts", project_id="mba-pipeline", if_exists="replace")
+        df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline", if_exists="replace")
         # make memory space free
         self.df_shirts_detail_daily = None
         print("Loading completed. Elapsed time: %.2f minutes" %((time.time() - start_time) / 60))
@@ -188,7 +207,17 @@ class DataHandler():
         if len(self.df_shirts_detail_daily[occurences]) == 0:
             return 0,0,0,0,0,0
         else:
-            last_occ = self.df_shirts_detail_daily[occurences].iloc[0]
+            i = 0
+            # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
+            while True:
+                try:
+                    last_occ = self.df_shirts_detail_daily[occurences].iloc[i]
+                except:
+                    last_occ = self.df_shirts_detail_daily[occurences].iloc[0]
+                    break
+                if int(last_occ["bsr"]) != 0:
+                    break
+                i += 1
         first_occ = self.df_shirts_detail_daily[occurences].iloc[-1]
         return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"], self.get_change(last_occ["bsr"], first_occ["bsr"]), self.get_change(last_occ["price"], first_occ["price"])
 
@@ -217,3 +246,93 @@ class DataHandler():
                 output_type='div', include_plotlyjs=False, show_link=False, link_text="", config=config)
         return plot_div
 
+    def create_plot_data(self, df_shirts_row):
+        config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
+        df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        # remove bsr with 0 
+        df_asin_detail_daily = df_asin_detail_daily[df_asin_detail_daily["bsr"]!=0]
+        x=",".join(x.strftime("%d/%m/%Y") for x in df_asin_detail_daily["date"].tolist())
+        y=",".join(str(y) for y in df_asin_detail_daily["bsr"].tolist())
+        return x, y
+
+    def insert_df_to_datastore(self, df, kind):
+        dclient = datastore.Client()
+        # The kind for the new entity
+        columns = df.columns.values
+        row_count = len(df)
+        for i, row in df.iterrows():
+            if i % 1000 == 0:
+                print("row {} of {}".format(i, row_count))
+            
+            if i % 500 != 0:
+                # The Cloud Datastore key for the new entity
+                task_key = dclient.key(kind, row["asin"])
+                # Prepares the new entity
+                entity = datastore.Entity(key=task_key)
+
+                for column in columns:
+                    if column != "plot":
+                        entity[column] = row[column]
+                entities.append(entity)
+            else:
+                # Saves the entity
+                try:
+                    if i != 0 and len(entities) > 0: 
+                        dclient.put_multi(entities)
+                except Exception as e:
+                    print(str(e))
+                    raise e
+                entities = []
+
+
+    def get_shirt_dataset_sql(self, marketplace, dev=False):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        ORDERBY_STATEMENT = "order by trend_nr"
+
+        SQL_STATEMENT = """
+        SELECT t_fin.* FROM (
+            SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
+                SELECT t0.*,t2.url_affiliate,t2.img_affiliate FROM 
+                -- remove duplicates by choosing only the first entry of asin
+                (
+                SELECT ARRAY_AGG(t LIMIT 1)[OFFSET(0)] t0
+                    FROM `mba-pipeline.mba_{0}.merchwatch_shirts{2}` t
+                    GROUP BY asin
+                    )   
+            left join 
+            (
+            -- remove duplicates by choosing only the first entry of asin
+            SELECT ARRAY_AGG(t_aff LIMIT 1)[OFFSET(0)] t2
+                FROM `mba-pipeline.mba_{0}.products_affiliate_urls` t_aff
+                GROUP BY asin
+                )  on t0.asin = t2.asin 
+     
+             {1}
+            ) t_tmp
+        ) t_fin
+        
+        """.format(marketplace, ORDERBY_STATEMENT, dev_str)
+
+        return SQL_STATEMENT
+
+    def get_shirt_dataset(self, marketplace, dev=False):
+        shirt_sql = self.get_shirt_dataset_sql(marketplace, dev=dev)
+        try:
+            df_shirts=pd.read_gbq(shirt_sql, project_id="mba-pipeline")
+        except Exception as e:
+            print(str(e))
+            raise e
+        return df_shirts
+
+    def update_datastore(self, marketplace, kind, dev=False):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        df = self.get_shirt_dataset(marketplace, dev=dev)
+        self.insert_df_to_datastore(df, kind + dev_str)
