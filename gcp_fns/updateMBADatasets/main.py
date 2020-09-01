@@ -83,6 +83,7 @@ def create_instance(marketplace, instance_name, zone, chunk_size):
                 'https://www.googleapis.com/auth/devstorage.read_write',
                 'https://www.googleapis.com/auth/logging.write',
                 'https://www.googleapis.com/auth/bigquery',
+                'https://www.googleapis.com/auth/datastore',
                 'https://www.googleapis.com/auth/cloud-platform',
                 'https://www.googleapis.com/auth/compute',
                 # 'https://www.googleapis.com/auth/compute.readonly',

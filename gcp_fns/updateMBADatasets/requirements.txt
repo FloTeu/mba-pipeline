@@ -2,6 +2,8 @@ pandas==1.0.5
 pandas-gbq==0.13.2
 google-cloud-bigquery==1.25.0 
 google-cloud-storage==1.29.0 
+google-cloud-datastore==1.15.0
+grpcio==1.31.0
 scikit-learn==0.23.1
 plotly==4.9.0
 requests==2.24.0 
