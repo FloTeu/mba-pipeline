@@ -296,7 +296,7 @@ class DataHandler():
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
             SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
-                SELECT t0.*,t2.url_affiliate,t2.img_affiliate FROM 
+                SELECT t0.*,t2.url_affiliate,t2.img_affiliate, CASE WHEN t2.img_affiliate IS NOT NULL THEN true ELSE false END as affiliate_exists FROM 
                 -- remove duplicates by choosing only the first entry of asin
                 (
                 SELECT ARRAY_AGG(t LIMIT 1)[OFFSET(0)] t0
