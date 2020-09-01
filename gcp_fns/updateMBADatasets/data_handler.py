@@ -310,7 +310,8 @@ class DataHandler():
                 FROM `mba-pipeline.mba_{0}.products_affiliate_urls` t_aff
                 GROUP BY asin
                 )  on t0.asin = t2.asin 
-     
+                
+            WHERE t0.bsr_mean != 0 and t0.bsr_last != 404 and t0.upload_date IS NOT NULL
              {1}
             ) t_tmp
         ) t_fin
