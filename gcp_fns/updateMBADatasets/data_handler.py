@@ -105,6 +105,46 @@ class DataHandler():
         df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
 
+        
+    def upload_blob(self, bucket_name, source_file_name, destination_blob_name):
+        """Uploads a file to the bucket."""
+        # bucket_name = "your-bucket-name"
+        # source_file_name = "local/path/to/file"
+        # destination_blob_name = "storage-object-name"
+
+        storage_client = storage.Client(project='mba-pipeline')
+        bucket = storage_client.bucket(bucket_name)
+        blob = bucket.blob(destination_blob_name)
+
+        blob.upload_from_filename(source_file_name)
+
+        '''
+        print(
+            "File {} uploaded to {}.".format(
+                source_file_name, destination_blob_name
+            )
+        )
+        '''
+
+    def create_folder_if_not_exists(self, folder_path):
+        if not os.path.exists(folder_path):
+            os.makedirs(folder_path)
+
+    def upload_plot_data(self,df,marketplace,dev):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        self.create_folder_if_not_exists("data")
+        for i, df_row in df.iterrows():
+            asin = df_row["asin"]
+            # save product information string locally
+            with open(join("data",asin+".html"), "w") as f:
+                f.write(df_row["plot"])
+            # store plots in storage
+            self.upload_blob("merchwatch-de-media", join("data",asin+".html"), join("plots" + dev_str,marketplace, asin + ".html"))
+
     def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None,dev=False):
         # This part should only triggered once a day to update all relevant data
         print("Load shirt data from bigquery")
@@ -145,14 +185,17 @@ class DataHandler():
 
             # get plot data
             print("Start to get plot data of shirts")
+            start_time = time.time()
             plot_data = df_shirts_asin_chunk.apply(lambda x: self.create_plot_data(x), axis=1)
             plot_x=[]
             plot_y=[]
             for plot_data_i in plot_data:
                 plot_x.append(plot_data_i[0])
                 plot_y.append(plot_data_i[1])
-         
+            print("elapsed time: %.2f min" %((time.time() - start_time) / 60))
+ 
             print("Start to get first and last bsr of shirts")
+            start_time = time.time()
             df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"])), axis=1)
             df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "price_change"]
             df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
@@ -163,14 +206,19 @@ class DataHandler():
                 df_shirts_with_more_info = df_shirts_with_more_info_append
             else:
                 df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
+            print("elapsed time: %.2f sec" %((time.time() - start_time)))
 
-            '''
+            #'''
             print("Start to create plot html")
+            start_time = time.time()
             df_shirts_asin_chunk = df_shirts_asin_chunk.merge(df_additional_data, 
                 left_index=True, right_index=True)
             df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
-            df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
-            '''
+            self.upload_plot_data(df_shirts_asin_chunk,marketplace,dev)
+            print("elapsed time: %.2f sec" %((time.time() - start_time)))
+
+            #df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
+            #'''
             gc.collect()
         
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
