@@ -192,7 +192,7 @@ class DataHandler():
             for plot_data_i in plot_data:
                 plot_x.append(plot_data_i[0])
                 plot_y.append(plot_data_i[1])
-            print("elapsed time: %.2f min" %((time.time() - start_time) / 60))
+            print("elapsed time: %.2f sec" %((time.time() - start_time)))
  
             print("Start to get first and last bsr of shirts")
             start_time = time.time()
@@ -215,7 +215,7 @@ class DataHandler():
                 left_index=True, right_index=True)
             df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
             self.upload_plot_data(df_shirts_asin_chunk,marketplace,dev)
-            print("elapsed time: %.2f sec" %((time.time() - start_time)))
+            print("elapsed time: %.2f min" %((time.time() - start_time)/60))
 
             #df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
             #'''
