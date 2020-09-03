@@ -208,7 +208,7 @@ class DataHandler():
                 df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
             print("elapsed time: %.2f sec" %((time.time() - start_time)))
 
-            #'''
+            '''
             print("Start to create plot html")
             start_time = time.time()
             df_shirts_asin_chunk = df_shirts_asin_chunk.merge(df_additional_data, 
@@ -216,9 +216,8 @@ class DataHandler():
             df_shirts_asin_chunk["plot"] = df_shirts_asin_chunk.apply(lambda x: self.create_plot_html(x), axis=1)
             self.upload_plot_data(df_shirts_asin_chunk,marketplace,dev)
             print("elapsed time: %.2f min" %((time.time() - start_time)/60))
-
             #df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
-            #'''
+            '''
             gc.collect()
         
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
