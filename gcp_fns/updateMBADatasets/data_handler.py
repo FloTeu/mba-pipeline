@@ -99,6 +99,7 @@ class DataHandler():
         df = pd.DataFrame(x_scaled)
         df_shirts["time_since_upload_norm"] = df.iloc[:,0] + 0.001
         df_shirts.loc[(df_shirts['bsr_last'] == 0.0), "bsr_last"] = 999999999
+        df_shirts.loc[(df_shirts['bsr_mean'] == 0.0), "bsr_mean"] = 999999999
         df_shirts.loc[(df_shirts['bsr_last'] == 404.0), "bsr_last"] = 999999999
         df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_norm"] * 2
         df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index(drop=True)
@@ -358,7 +359,7 @@ class DataHandler():
                 GROUP BY asin
                 )  on t0.asin = t2.asin 
                 
-            WHERE t0.bsr_mean != 0 and t0.bsr_last != 404 and t0.upload_date IS NOT NULL
+            WHERE t0.bsr_mean != 0 and t0.price_last != 404 and t0.upload_date IS NOT NULL
              {1}
             ) t_tmp
         ) t_fin
@@ -384,3 +385,49 @@ class DataHandler():
 
         df = self.get_shirt_dataset(marketplace, dev=dev)
         self.insert_df_to_datastore(df, kind + dev_str)
+        df = self.get_shirt_dataset_404(marketplace, dev=dev)
+        self.delete_list_asin_from_datastore(marketplace, df["asin"].drop_duplicates().tolist(), dev=dev)
+
+    def get_shirt_dataset_404_sql(self, marketplace, dev=False):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        SQL_STATEMENT = """
+        SELECT DISTINCT asin FROM `mba-pipeline.mba_{0}.merchwatch_shirts{1}` where price_last = 404
+        
+        """.format(marketplace, dev_str)
+
+        return SQL_STATEMENT
+
+    def get_shirt_dataset_404(self, marketplace, dev=False):
+        shirt_sql = self.get_shirt_dataset_404_sql(marketplace, dev=dev)
+        try:
+            df_shirts=pd.read_gbq(shirt_sql, project_id="mba-pipeline")
+        except Exception as e:
+            print(str(e))
+            raise e
+        return df_shirts
+
+    def delete_list_asin_from_datastore(self, marketplace, list_asin, dev=False):
+        """
+            Remove all given asins from datastore
+        """
+        dclient = datastore.Client()
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+        kind = marketplace + "_shirts" + dev_str
+        list_keys = []
+        list_keys_i = []
+        for i, asin in enumerate(list_asin):
+            if (i+1) % 500 == 0:
+                list_keys.append(list_keys_i)
+                list_keys_i = []
+            list_keys_i.append(datastore.key.Key(kind, asin, project="mba-pipeline"))
+            print("Delete key with asin: " + str(asin))
+        list_keys.append(list_keys_i)
+        for list_keys_i in list_keys:
+            dclient.delete_multi(list_keys_i)
