@@ -6,9 +6,8 @@ import itertools
 from sklearn import preprocessing
 import os 
 from os.path import join
-from datetime import date
+from datetime import date, datetime, timedelta
 import re
-import datetime 
 import time
 from plotly.offline import plot
 import plotly.graph_objs as go
@@ -198,7 +197,7 @@ class DataHandler():
             print("Start to get first and last bsr of shirts")
             start_time = time.time()
             df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"])), axis=1)
-            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "price_change"]
+            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last"]
             df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
 
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
@@ -248,26 +247,67 @@ class DataHandler():
             return ((current - previous) / previous) * 100.0
         except ZeroDivisionError:
             return 0
+    
+    def get_change_total(self, current, previous):
+        current = float(current)
+        previous = float(previous)
+        if current == previous:
+            return 0
+        try:
+            return current - previous
+        except ZeroDivisionError:
+            return 0
 
     def get_first_and_last_data(self, asin):
         # return last_bsr, last_price, first_bsr, first_price
         occurences = (self.df_shirts_detail_daily.asin.values == asin)
-        if len(self.df_shirts_detail_daily[occurences]) == 0:
-            return 0,0,0,0,0,0
+        df_occ = self.df_shirts_detail_daily[occurences]
+        if len(df_occ) == 0:
+            return 0,0,0,0,0,0,0,0
         else:
             i = 0
             # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
             while True:
                 try:
-                    last_occ = self.df_shirts_detail_daily[occurences].iloc[i]
+                    last_occ = df_occ.iloc[i]
                 except:
-                    last_occ = self.df_shirts_detail_daily[occurences].iloc[0]
+                    last_occ = df_occ.iloc[0]
                     break
                 if int(last_occ["bsr"]) != 0:
                     break
                 i += 1
-        first_occ = self.df_shirts_detail_daily[occurences].iloc[-1]
-        return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"], self.get_change(last_occ["bsr"], first_occ["bsr"]), self.get_change(last_occ["price"], first_occ["price"])
+            i = 1
+            # try to get first bsr which is unequal to zero. If only zero bsr exists return first occurence
+            while True:
+                try:
+                    first_occ_ue_zero = df_occ.iloc[-i]
+                except:
+                    first_occ_ue_zero = df_occ.iloc[-1]
+                    break
+                if int(first_occ_ue_zero["bsr"]) != 0:
+                    break
+                i += 1
+        # get first occurence of data
+        first_occ = df_occ.iloc[-1]
+
+        # try to first occurence 4 weeks in the past 
+        # if not possible use the first occurence of bsr un equal to zero
+        last_n_weeks = 4
+        days = 30
+        date_N_weeks_ago = datetime.now() - timedelta(days=days)
+        try:
+            occ_4w = df_occ[df_occ['date'] <= date_N_weeks_ago.date()]
+            if len(occ_4w) == 0:
+                occ_4w = first_occ_ue_zero
+            # make sure that occ_4w contains an value unequal to zero if existent
+            elif occ_4w.iloc[0]["bsr"] == 0:
+                occ_4w = first_occ_ue_zero
+            else:
+                occ_4w = occ_4w.iloc[0]
+        except:
+            occ_4w = first_occ_ue_zero
+
+        return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
