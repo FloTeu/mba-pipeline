@@ -347,12 +347,13 @@ class DataHandler():
         dclient = datastore.Client()
         # The kind for the new entity
         columns = df.columns.values
+        entities = []
         row_count = len(df)
         for i, row in df.iterrows():
             if i % 1000 == 0:
                 print("row {} of {}".format(i, row_count))
-            
-            if i % 500 != 0:
+            modulo = ((i+1) % 500)
+            if modulo != 0:
                 # The Cloud Datastore key for the new entity
                 task_key = dclient.key(kind, row["asin"])
                 # Prepares the new entity
