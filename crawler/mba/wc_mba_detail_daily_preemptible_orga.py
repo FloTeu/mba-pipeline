@@ -64,7 +64,8 @@ def create_startup_script(marketplace, number_products, connection_timeout, time
         py_script = "wc_mba_detail.py"
     startup_script = '''#!/bin/sh
 cd home/
-git clone https://github.com/Flo95x/mba-pipeline.git
+sudo rm -rf mba-pipeline
+sudo git clone https://github.com/Flo95x/mba-pipeline.git
 pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt 
 cd mba-pipeline/crawler/mba/
 sudo mkdir data
@@ -76,7 +77,7 @@ sudo chmod 777 data/
         f.write(startup_script)
 
 def get_bash_create_pre_instance(instance_name, zone):
-    bash_command = 'gcloud compute instances create {} --machine-type=f1-micro --preemptible --zone {}  --labels crawler-auto=crawler-auto-instance-pre --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image wc-mba-de-image --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
+    bash_command = 'gcloud compute instances create {} --machine-type=f1-micro --preemptible --zone {}  --labels crawler-auto=crawler-auto-instance-pre --service-account mba-admin@mba-pipeline.iam.gserviceaccount.com --image-project mba-pipeline --image crawler-amazon-us --metadata-from-file startup-script=pre_startup_script.sh --scopes storage-full,cloud-platform,bigquery'.format(instance_name, zone)
     return bash_command
 
 def get_bash_start_pre_instance(instance_name, zone):
