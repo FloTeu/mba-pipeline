@@ -140,14 +140,17 @@ class AmazonSpider(scrapy.Spider):
             price_str, price = self.get_price(response)
         except Exception as e:
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            raise e
         try:
             mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
         except Exception as e:
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            raise e
         try:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
         except Exception as e:
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            raise e
         
         crawlingdate = datetime.datetime.now()
         df = pd.DataFrame(data={"asin":[asin],"price":[price],"price_str":[price_str],"bsr":[mba_bsr],"bsr_str":[mba_bsr_str], "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":[customer_review_score_mean],"customer_review_score": [customer_review_score],"customer_review_count": [customer_review_count], "timestamp":[crawlingdate]})
