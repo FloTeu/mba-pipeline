@@ -7,3 +7,5 @@ google-cloud-storage
 google-cloud-bigquery
 proxy_requests
 dateparser
+scrapy
+scrapy-rotating-proxies
