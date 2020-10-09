@@ -20,7 +20,6 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
 
-
 ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)

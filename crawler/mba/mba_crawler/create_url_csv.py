@@ -91,7 +91,7 @@ def main(argv):
     if number_products == 0:
         number_products = len(df_product_details_tocrawl)
 
-    df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("urls.csv",index=False)
+    df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/urls.csv",index=False)
 
 if __name__ == '__main__':
     main(sys.argv)
