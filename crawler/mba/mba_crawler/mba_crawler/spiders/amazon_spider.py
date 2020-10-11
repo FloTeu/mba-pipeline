@@ -71,6 +71,17 @@ class AmazonSpider(scrapy.Spider):
             send_msg(self.target, "TimeoutError on url: {}".format(request.url), self.api_key)
             self.logger.error('TimeoutError on %s', request.url)
 
+    def save_content(self, response, asin):
+        filename = "data/" + self.name + "/content/%s.html" % asin
+        with open(filename, 'wb') as f:
+            f.write(response.body)
+        self.log('Saved file %s' % filename)
+
+    def store_df(self):
+        filename = "data/" + self.name + "/%s.csv" % datetime.datetime.now().date()
+        self.df_products_details.to_csv(filename, index=False)
+        self.log('Saved file %s' % filename)
+
     def get_price(self, response):
         price_div = response.css('div#price')
         price_str = price_div.css('span#priceblock_ourprice::text').get()
@@ -139,16 +150,19 @@ class AmazonSpider(scrapy.Spider):
         try:
             price_str, price = self.get_price(response)
         except Exception as e:
+            self.save_content(response, asin)
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
             raise e
         try:
             mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
         except Exception as e:
+            self.save_content(response, asin)
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
             raise e
         try:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
         except Exception as e:
+            self.save_content(response, asin)
             send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
             raise e
         
@@ -178,4 +192,4 @@ class AmazonSpider(scrapy.Spider):
             try:
                 self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
             except:
-                pass
+                self.store_df()
