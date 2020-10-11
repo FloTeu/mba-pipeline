@@ -177,12 +177,17 @@ class AmazonSpider(scrapy.Spider):
         div_fit_types = response.css('div#variation_fit_type span.a-size-base')
         if div_fit_types != None and len(div_fit_types) > 0:
             for fit_type in div_fit_types:
-                array_fit_types.append(fit_type.css("::text").get())
+                array_fit_types.append(fit_type.css("::text").get().strip())
             return array_fit_types
         else:
-            raise ValueError("Could not get fit types for crawler " + self.name)
+            try:
+                fit_type = response.css('div#variation_fit_type span::text').get().strip()
+                array_fit_types.append(fit_type)
+                return array_fit_types
+            except:
+                raise ValueError("Could not get fit types for crawler " + self.name)
 
-    def get_color_names(self, response):
+    def get_color_infos(self, response):
         array_color_names = []
         span_color_names = response.css('div#variation_color_name span.a-declarative')
         if span_color_names != None and len(span_color_names) > 0:
@@ -190,7 +195,12 @@ class AmazonSpider(scrapy.Spider):
                 array_color_names.append(color_name.css("img::attr(alt)").get())
             return array_color_names, len(array_color_names)
         else:
-            raise ValueError("Could not get color names for crawler " + self.name)
+            try:
+                color = response.css('div#variation_color_name span.selection::text').get().strip()
+                array_color_names.append(color)
+                return array_color_names, len(array_color_names)
+            except:
+                raise ValueError("Could not get color names for crawler " + self.name)
 
     def get_product_features(self, response):
         product_feature = response.css('div#feature-bullets')
@@ -300,9 +310,10 @@ class AmazonSpider(scrapy.Spider):
         try:
             description = self.get_description(response)
         except Exception as e:
-            self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
-            raise e
+            #self.save_content(response, asin)
+            #send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            #raise e
+            description = ""
         try:
             weight = self.get_weight(response)
         except Exception as e:
@@ -337,17 +348,16 @@ class AmazonSpider(scrapy.Spider):
         send_msg(self.target, "Finished scraper {} with {} products".format(self.name, len(self.df_products_details)), self.api_key)
         self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64')
         self.df_products_details['upload_date'] = self.df_products_details['upload_date'].astype('datetime64')
-        self.df_products_details['bsr'] = self.df_products_details['bsr'].astype('int')
+        self.df_products_details['mba_bsr'] = self.df_products_details['mba_bsr'].astype('int')
         self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
         # update data in bigquery if batch is finished
         #'''
         try:
-             self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_general",project_id="mba-pipeline", if_exists="append")
-         except:
-             time.sleep(10)
-             try:
-                 self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_generaö",project_id="mba-pipeline", if_exists="append")
-             except:
-                 self.store_df()
-                 pass
+            self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_general",project_id="mba-pipeline", if_exists="append")
+        except:
+            time.sleep(10)
+            try:
+                self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_generaö",project_id="mba-pipeline", if_exists="append")
+            except:
+                self.store_df()
         #'''
