@@ -8,8 +8,8 @@ from re import findall
 from bs4 import BeautifulSoup
 import sys
 sys.path.append("...")
-import os
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
+#import os
+#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
 from proxy.utils import get_random_headers, send_msg
 from urllib.parse import urlparse
 import dateparser
@@ -22,7 +22,7 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError
 
 
-class AmazonSpider(scrapy.Spider):
+class MBASpider(scrapy.Spider):
     name = "mba_general_de"
     marketplace = "de"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
@@ -32,8 +32,8 @@ class AmazonSpider(scrapy.Spider):
     ip_addresses = []
 
     def start_requests(self):
-        urls = pd.read_csv("mba_crawler/urls_small.csv")["url"].tolist()
-        asins = pd.read_csv("mba_crawler/urls_small.csv")["asin"].tolist()
+        urls = pd.read_csv("mba_crawler/url_data/urls_small.csv")["url"].tolist()[0:2]
+        asins = pd.read_csv("mba_crawler/url_data/urls_small.csv")["asin"].tolist()[0:2]
         send_msg(self.target, "Start scraper {} with {} products".format(self.name, len(urls)), self.api_key)
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
@@ -256,56 +256,62 @@ class AmazonSpider(scrapy.Spider):
         else:
             raise ValueError("Could not get upload date for crawler " + self.name)
 
+    def is_captcha_required(self, response):
+        return "captcha" in response.body.decode("utf-8") .lower()
+
     def parse(self, response):
         self.ip_addresses.append(response.ip_address.compressed)
         asin = response.meta["asin"]
+        if self.is_captcha_required(response):
+            send_msg(self.target, "Captcha required" + " | asin: " + asin, self.api_key)
+            raise Exception("Captcha required")
         try:
             price_str, price = self.get_price(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             title = self.get_title(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             brand, url_brand = self.get_brand_infos(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             fit_types = self.get_fit_types(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             array_color_names, color_count = self.get_color_infos(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             array_product_feature = self.get_product_features(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             description = self.get_description(response)
@@ -319,12 +325,12 @@ class AmazonSpider(scrapy.Spider):
         except Exception as e:
             weight = "not found"
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
         try:
             upload_date_str, upload_date = self.get_upload_date(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         
         crawlingdate = datetime.datetime.now()
@@ -332,7 +338,7 @@ class AmazonSpider(scrapy.Spider):
         df = pd.DataFrame(data={"asin": [asin], "title": [title], "brand": [brand], "url_brand": [url_brand], "price": [price_str], "fit_types": [fit_types],
                   "color_names": [array_color_names], "color_count": [color_count], "product_features": [array_product_feature], "description": [description], "weight": [weight],
                   "upload_date_str": [upload_date_str], "upload_date": [upload_date], "customer_review_score": [customer_review_score], "customer_review_count": [customer_review_count],
-                  "mba_bsr_str": [mba_bsr_str], "mba_bsr": [mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp": [crawlingdate]})
+                  "mba_bsr_str": [mba_bsr_str], "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp": [crawlingdate]})
         self.df_products_details = self.df_products_details.append(df)
 
     def closed(self, reason):
@@ -346,18 +352,18 @@ class AmazonSpider(scrapy.Spider):
         except:
             pass
         send_msg(self.target, "Finished scraper {} with {} products".format(self.name, len(self.df_products_details)), self.api_key)
+        self.df_products_details['color_count'] = self.df_products_details['color_count'].astype('int')
         self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64')
         self.df_products_details['upload_date'] = self.df_products_details['upload_date'].astype('datetime64')
-        self.df_products_details['mba_bsr'] = self.df_products_details['mba_bsr'].astype('int')
         self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
         # update data in bigquery if batch is finished
         #'''
         try:
-            self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_general",project_id="mba-pipeline", if_exists="append")
+            self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
         except:
             time.sleep(10)
             try:
-                self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_generaö",project_id="mba-pipeline", if_exists="append")
+                self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
         #'''

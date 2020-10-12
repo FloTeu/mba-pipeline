@@ -66,7 +66,7 @@ crawler/mba/data/shirts/*
 crawler/mba/data/*
 /crawler/mba/mba_crawler/proxy/*
 /crawler/mba/mba_crawler/data/*
-/crawler/mba/mba_crawler/mba_crawler/urls.csv
+/crawler/mba/mba_crawler/mba_crawler/url_data/*
 /mba-page/merchwatch/merchwatch/data/*
 mba-page/merchwatch/merchwatch/data/*
 mba-page/merchwatch/merchwatch/settings.py

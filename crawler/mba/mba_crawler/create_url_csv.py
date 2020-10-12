@@ -107,8 +107,6 @@ def main(argv):
     daily = args.daily
     number_products = args.number_products
 
-    # get all arguments
-    args = parser.parse_args()
     filename = "urls"
     if daily:
         # get asins which are not already crawled
@@ -124,13 +122,13 @@ def main(argv):
         filename = "urls_mba_general_" + marketplace
 
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
-    df_product_details_tocrawl["url"] =  df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
+    df_product_details_tocrawl["url"] = df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
     
     # if number_images is equal to -1, every image should be crawled
     if number_products == -1:
         number_products = len(df_product_details_tocrawl)
 
-    df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/" + filename + ".csv",index=False)
+    df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)
 
 if __name__ == '__main__':
     main(sys.argv)

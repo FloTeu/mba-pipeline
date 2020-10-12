@@ -16,8 +16,8 @@ from scrapy.spidermiddlewares.httperror import HttpError
 from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError
 
-class AmazonSpider(scrapy.Spider):
-    name = "amazon_daily_de"
+class MBASpider(scrapy.Spider):
+    name = "mba_daily_de"
     marketplace = "de"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products_details = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
@@ -26,8 +26,8 @@ class AmazonSpider(scrapy.Spider):
     ip_addresses = []
 
     def start_requests(self):
-        urls = pd.read_csv("mba_crawler/urls.csv")["url"].tolist()
-        asins = pd.read_csv("mba_crawler/urls.csv")["asin"].tolist()
+        urls = pd.read_csv("mba_crawler/url_data/urls_mba_daily_de.csv")["url"].tolist()
+        asins = pd.read_csv("mba_crawler/url_data/urls_mba_daily_de.csv")["asin"].tolist()
         send_msg(self.target, "Start scraper {} with {} products".format(self.name, len(urls)), self.api_key)
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
@@ -144,26 +144,33 @@ class AmazonSpider(scrapy.Spider):
 
         return customer_review_score_mean, customer_review_score, customer_review_count
 
+    def is_captcha_required(self, response):
+        return "captcha" in response.body.decode("utf-8") .lower()
+
     def parse(self, response):
         self.ip_addresses.append(response.ip_address.compressed)
         asin = response.meta["asin"]
+        if self.is_captcha_required(response):
+            send_msg(self.target, "Captcha required" + " | asin: " + asin, self.api_key)
+            raise Exception("Captcha required")
+
         try:
             price_str, price = self.get_price(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         try:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
         except Exception as e:
             self.save_content(response, asin)
-            send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+            send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
             raise e
         
         crawlingdate = datetime.datetime.now()
@@ -185,6 +192,7 @@ class AmazonSpider(scrapy.Spider):
         self.df_products_details['bsr'] = self.df_products_details['bsr'].astype('int')
         self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
         # update data in bigquery if batch is finished
+        #'''
         try:
             self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
         except:
@@ -193,3 +201,4 @@ class AmazonSpider(scrapy.Spider):
                 self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
+        #'''
