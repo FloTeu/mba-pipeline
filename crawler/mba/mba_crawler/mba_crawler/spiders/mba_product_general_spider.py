@@ -32,8 +32,8 @@ class MBASpider(scrapy.Spider):
     ip_addresses = []
 
     def start_requests(self):
-        urls = pd.read_csv("mba_crawler/url_data/urls_small.csv")["url"].tolist()[0:2]
-        asins = pd.read_csv("mba_crawler/url_data/urls_small.csv")["asin"].tolist()[0:2]
+        urls = pd.read_csv("mba_crawler/url_data/urls_small.csv")["url"].tolist()
+        asins = pd.read_csv("mba_crawler/url_data/urls_small.csv")["asin"].tolist()
         send_msg(self.target, "Start scraper {} with {} products".format(self.name, len(urls)), self.api_key)
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
