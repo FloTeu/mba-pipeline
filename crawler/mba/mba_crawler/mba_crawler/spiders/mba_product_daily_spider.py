@@ -10,6 +10,7 @@ import sys
 sys.path.append("...")
 from proxy.utils import get_random_headers, send_msg
 import time
+from scrapy.exceptions import CloseSpider
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 from scrapy.spidermiddlewares.httperror import HttpError
@@ -24,6 +25,7 @@ class MBASpider(scrapy.Spider):
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
+    captcha_count = 0
 
     def start_requests(self):
         urls = pd.read_csv("mba_crawler/url_data/urls_mba_daily_de.csv")["url"].tolist()
@@ -50,8 +52,9 @@ class MBASpider(scrapy.Spider):
                 # if 404 update big query
                 if response.status == 404:
                     crawlingdate = datetime.datetime.now()
-                    df = pd.DataFrame(data={"asin":[response.meta["asin"]],"price":[404.0],"price_str":["404"],"bsr":[404],"bsr_str":["404"], "array_bsr": [["404"]], "array_bsr_categorie": [["404"]],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":crawlingdate})
+                    df = pd.DataFrame(data={"asin":[response.meta["asin"]],"price":[404.0],"price_str":["404"],"bsr":[404],"bsr_str":["404"], "array_bsr": [["404"]], "array_bsr_categorie": [["404"]],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":[crawlingdate]})
                     self.df_products_details = self.df_products_details.append(df)
+                    print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
                 else:
                     send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
             except:
@@ -152,6 +155,11 @@ class MBASpider(scrapy.Spider):
         asin = response.meta["asin"]
         if self.is_captcha_required(response):
             send_msg(self.target, "Captcha required" + " | asin: " + asin, self.api_key)
+            self.captcha_count = self.captcha_count + 1
+            # add download dely if captcha happens
+            self.settings.attributes["DOWNLOAD_DELAY"].value = self.settings.attributes["DOWNLOAD_DELAY"].value + 3
+            if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
+                raise CloseSpider(reason='To many catchas received')
             raise Exception("Captcha required")
 
         try:
@@ -177,6 +185,10 @@ class MBASpider(scrapy.Spider):
         df = pd.DataFrame(data={"asin":[asin],"price":[price],"price_str":[price_str],"bsr":[mba_bsr],"bsr_str":[mba_bsr_str], "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":[customer_review_score_mean],"customer_review_score": [customer_review_score],"customer_review_count": [customer_review_count], "timestamp":[crawlingdate]})
         self.df_products_details = self.df_products_details.append(df)
 
+        
+        if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
+            raise CloseSpider(reason='To many catchas received')
+
     def closed(self, reason):
         try:
             ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
@@ -187,7 +199,7 @@ class MBASpider(scrapy.Spider):
             send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
         except:
             pass
-        send_msg(self.target, "Finished scraper {} with {} products".format(self.name, len(self.df_products_details)), self.api_key)
+        send_msg(self.target, "Finished scraper {} with {} products and reason: {}".format(self.name, len(self.df_products_details), reason), self.api_key)
         self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64')
         self.df_products_details['bsr'] = self.df_products_details['bsr'].astype('int')
         self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')

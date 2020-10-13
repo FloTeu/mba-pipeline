@@ -9,3 +9,4 @@ proxy_requests
 dateparser
 scrapy
 scrapy-rotating-proxies
+selenium
