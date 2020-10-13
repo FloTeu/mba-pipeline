@@ -123,8 +123,11 @@ def main(argv):
         filename = "urls_mba_general_" + marketplace
 
     #df_product_details = pd.DataFrame(data={"asin": ["B07RVNJHZL"], "url_product": ["adwwadwad"]})
-    df_product_details_tocrawl["url"] = df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
-    
+    try:
+        df_product_details_tocrawl["url"] = df_product_details_tocrawl.apply(lambda x: "https://www.amazon."+marketplace+"/dp/"+x["asin"], axis=1)
+    except:
+        df_product_details_tocrawl["url"] = []
+
     # if number_images is equal to -1, every image should be crawled
     if number_products == -1:
         number_products = len(df_product_details_tocrawl)
