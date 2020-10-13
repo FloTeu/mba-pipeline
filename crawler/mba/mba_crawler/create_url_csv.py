@@ -7,6 +7,7 @@ import sys
 import random
 from google.cloud import bigquery
 import datetime
+from pathlib import Path
 
 
 def str2bool(v):
@@ -128,6 +129,7 @@ def main(argv):
     if number_products == -1:
         number_products = len(df_product_details_tocrawl)
 
+    Path("mba_crawler/url_data/").mkdir(parents=True, exist_ok=True)
     df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)
 
 if __name__ == '__main__':

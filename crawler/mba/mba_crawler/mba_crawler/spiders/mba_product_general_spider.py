@@ -56,7 +56,7 @@ class MBASpider(scrapy.Spider):
                 # if 404 update big query
                 if response.status == 404:
                     crawlingdate = datetime.datetime.now()
-                    df = pd.DataFrame(data={"asin":[response.meta["asin"]],"price":[404.0],"price_str":["404"],"bsr":[404],"bsr_str":["404"], "array_bsr": [["404"]], "array_bsr_categorie": [["404"]],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":crawlingdate})
+                    df = pd.DataFrame(data={"asin":[response.meta["asin"]],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":crawlingdate})
                     self.df_products_details = self.df_products_details.append(df)
                 else:
                     send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
