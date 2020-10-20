@@ -37,11 +37,11 @@ def get_asin_product_detail_crawled(marketplace):
     reservation_table_id = dataset_id + "." + table_id
     bq_client = bigquery.Client(project=project_id)
     df_product_details = bq_client.query(
-        "SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+        "SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(["asin"])
     if does_table_exist(project_id, dataset_id, table_id):
         # get reservation logs
         df_reservation = bq_client.query(
-            "SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
+            "SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates(["asin"])
         df_reservation_status = df_reservation.drop_duplicates("asin")
         # get list of asins that are currently blocked by preemptible instances
         asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
@@ -77,11 +77,11 @@ def get_asin_product_detail_daily_crawled(marketplace):
         order by t2.bsr_count
     '''.format(marketplace, reservationdate.year, reservationdate.month, reservationdate.day)
     #df_product_details = bq_client.query("SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN (SELECT * FROM mba_" + marketplace + ".products_details_daily WHERE DATE(timestamp) = '%s-%s-%s' or price_str = '404') t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp" %(reservationdate.year, reservationdate.month, reservationdate.day)).to_dataframe().drop_duplicates()
-    df_product_details = bq_client.query(SQL_STATEMENT).to_dataframe().drop_duplicates()
+    df_product_details = bq_client.query(SQL_STATEMENT).to_dataframe().drop_duplicates(["asin"])
 
     if does_table_exist(project_id, dataset_id, table_id):
         # get reservation logs
-        df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates()
+        df_reservation = bq_client.query("SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates(["asin"])
         df_reservation_status = df_reservation.drop_duplicates("asin")
         # get list of asins that are currently blocked by preemptible instances
         asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
@@ -97,6 +97,7 @@ def main(argv):
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('daily', type=str2bool, nargs='?', const=True, help='Should the webcrawler for daily crawling be used or the normal one time detail crawler?')
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+    parser.add_argument('--proportion_priority_low_bsr_count', default=0.5, type=float, help='50% is the default proportion what means 50% should be design which were crawled least often')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -107,14 +108,16 @@ def main(argv):
     marketplace = args.marketplace
     daily = args.daily
     number_products = args.number_products
+    proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
 
     filename = "urls"
     if daily:
         # get asins which are not already crawled
         df_product_details_tocrawl_total = get_asin_product_detail_daily_crawled(marketplace)
-        df_product_details_tocrawl = df_product_details_tocrawl_total[0:int(number_products/2)].reset_index(drop=True)
-        # remove asins that are in priority order
+        df_product_details_tocrawl = df_product_details_tocrawl_total[0:int(number_products*proportion_priority_low_bsr_count)].reset_index(drop=True)
+        # remove asins that are in priority order (df_product_details_tocrawl)
         df_product_details_tocrawl_total = df_product_details_tocrawl_total[~df_product_details_tocrawl_total.asin.isin(df_product_details_tocrawl["asin"].tolist())]
+        # insert random variables
         df_product_details_tocrawl = df_product_details_tocrawl.append(df_product_details_tocrawl_total.sample(frac=1).reset_index(drop=True))
         filename = "urls_mba_daily_" + marketplace
     else:

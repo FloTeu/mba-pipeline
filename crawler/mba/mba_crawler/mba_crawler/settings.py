@@ -20,7 +20,8 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
 
-ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
+ROTATING_PROXY_LIST = proxy_handler.get_private_http_proxy_list()
+ROTATING_PROXY_BAN_POLICY = 'mba_crawler.policy.MyBanPolicy'
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 #CONCURRENT_REQUESTS = 32
@@ -28,7 +29,7 @@ ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 30
+DOWNLOAD_DELAY = 10
 
 MAX_CAPTCHA_NUMBER = 10
 # The download delay setting will honor only one of:

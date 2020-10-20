@@ -28,6 +28,7 @@ class MBASpider(scrapy.Spider):
     marketplace = "de"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products_details = pd.DataFrame(data={"asin":[],"title":[],"brand":[],"url_brand":[],"price":[], "fit_types": [], "color_names": [],"color_count":[],"product_features": [],"description":[],"weight": [],"upload_date_str": [],"upload_date": [],"customer_review_score": [],"customer_review_count": [],"mba_bsr_str": [],"mba_bsr": [],"mba_bsr_categorie": [],"timestamp": []})
+    df_products_details_daily = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
@@ -37,7 +38,7 @@ class MBASpider(scrapy.Spider):
         urls = pd.read_csv("mba_crawler/url_data/urls_mba_general_de.csv")["url"].tolist()
         asins = pd.read_csv("mba_crawler/url_data/urls_mba_general_de.csv")["asin"].tolist()
         send_msg(self.target, "Start scraper {} with {} products".format(self.name, len(urls)), self.api_key)
-        for i, url in enumerate(urls):
+        for i, url in enumerate(urls[0:3]):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
             asin = asins[i]
@@ -260,7 +261,7 @@ class MBASpider(scrapy.Spider):
             raise ValueError("Could not get upload date for crawler " + self.name)
 
     def is_captcha_required(self, response):
-        return "captcha" in response.body.decode("utf-8") .lower()
+        return "captcha" in response.body.decode("utf-8").lower()
 
     def parse(self, response):
         self.ip_addresses.append(response.ip_address.compressed)
@@ -342,12 +343,16 @@ class MBASpider(scrapy.Spider):
             raise e
         
         crawlingdate = datetime.datetime.now()
-
+        # append to general crawler
         df = pd.DataFrame(data={"asin": [asin], "title": [title], "brand": [brand], "url_brand": [url_brand], "price": [price_str], "fit_types": [fit_types],
                   "color_names": [array_color_names], "color_count": [color_count], "product_features": [array_product_feature], "description": [description], "weight": [weight],
                   "upload_date_str": [upload_date_str], "upload_date": [upload_date], "customer_review_score": [customer_review_score], "customer_review_count": [customer_review_count],
                   "mba_bsr_str": [mba_bsr_str], "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp": [crawlingdate]})
         self.df_products_details = self.df_products_details.append(df)
+
+        # append to daily crawler
+        df = pd.DataFrame(data={"asin":[asin],"price":[price],"price_str":[price_str],"bsr":[mba_bsr],"bsr_str":[mba_bsr_str], "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":[customer_review_score_mean],"customer_review_score": [customer_review_score],"customer_review_count": [customer_review_count], "timestamp":[crawlingdate]})
+        self.df_products_details_daily = self.df_products_details_daily.append(df)
 
         if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
             raise CloseSpider(reason='To many catchas received')
@@ -363,10 +368,18 @@ class MBASpider(scrapy.Spider):
         except:
             pass
         send_msg(self.target, "Finished scraper {} with {} products and reason: {}".format(self.name, len(self.df_products_details), reason), self.api_key)
+        # change types to fit with big query datatypes
         self.df_products_details['color_count'] = self.df_products_details['color_count'].astype('int')
         self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64')
         self.df_products_details['upload_date'] = self.df_products_details['upload_date'].astype('datetime64')
         self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
+
+
+        # change types of daily dataframe
+        self.df_products_details_daily['timestamp'] = self.df_products_details_daily['timestamp'].astype('datetime64')
+        self.df_products_details_daily['bsr'] = self.df_products_details_daily['bsr'].astype('int')
+        self.df_products_details_daily['customer_review_count'] = self.df_products_details_daily['customer_review_count'].astype('int')
+
         # update data in bigquery if batch is finished
         #'''
         try:
@@ -377,4 +390,14 @@ class MBASpider(scrapy.Spider):
                 self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
+
+        try:
+            self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+        except:
+            time.sleep(10)
+            try:
+                self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
+            except:
+                self.store_df()
+
         #'''
