@@ -24,11 +24,12 @@ from google.cloud import bigquery
 import os
 import time 
 from proxy_requests import ProxyRequests
-
+import multiprocessing
+import dask.dataframe as ddf
 
 def get_images_urls_not_crawled(marketplace):
     bq_client = bigquery.Client(project='mba-pipeline')
-    df_images = bq_client.query("SELECT t0.asin, t0.url_image_hq, t0.url_image_lowq FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_images t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates()
+    df_images = bq_client.query("SELECT t0.asin, t0.url_image_hq, t0.url_image_lowq FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_images t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(["asin"])
     return df_images
 
 def save_img(response, file_name):
@@ -48,6 +49,7 @@ def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('--number_images', default=10, type=int, help='Number of images that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+    parser.add_argument('--chunk_size', default=10, type=int, help='Chunk of images to batch upload to bigquery.')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -57,6 +59,7 @@ def main(argv):
     args = parser.parse_args(argv)
     marketplace = args.marketplace
     number_images = args.number_images
+    chunk_size = args.chunk_size
     
     # get all arguments
     args = parser.parse_args()
@@ -69,17 +72,13 @@ def main(argv):
     # if number_images is equal to 0, evry image should be crawled
     if number_images == 0:
         number_images = len(df_images)
+    
+    pool = multiprocessing.Pool(4)
 
-    for j, image_row in df_images.iloc[0:number_images].iterrows():
+    def crawl_img(image_row):
         asin = image_row["asin"]
         url_image_hq = image_row["url_image_hq"]
-        url_image_lowq = image_row["url_image_lowq"]
-
-        #headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
-        #proxy_list = get_proxies("de", True)
-        #proxy = next(iter(proxy_list))
-        #proxies={"http": proxy, "https": proxy}
-
+        print(asin)
         r = ProxyRequests(url_image_hq)
         r.get()
         print("Proxy used: " + str(r.get_proxy_used()))
@@ -88,16 +87,53 @@ def main(argv):
             # save image locally
             with open("data/shirts/shirt.jpg", 'wb') as f:
                 f.write(r.get_raw())
-
-            utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
-            df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
-            df_img['timestamp'] = df_img['timestamp'].astype('datetime64')
-            df_img.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
-            print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_images))
+            
+            #df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
+            #df_imgs = df_imgs.append(df_img)
+            #utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
+            
+            print("Successfully crawled image: %s" % (asin))
         else:
-            print("Could not crawl image: %s | %s of %s" (asin, j+1, number_images))
+            print("Could not crawl image: %s" (asin))
         
-        #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
+
+    df_images_chunks = [df_images[i:i+chunk_size] for i in range(0,df_images.shape[0],chunk_size)]
+
+    for df_images in df_images_chunks:
+        df_imgs = pd.DataFrame(data={"asin":[],"url":[],"url_gs":[],"url_mba_lowq":[],"url_mba_hq":[], "timestamp":[]}, dtype=np.object)
+        #df_dask = ddf.from_pandas(df_images, npartitions=chunk_size)   # where the number of partitions is the number of cores you want to use
+        #df_dask.apply(lambda x: crawl_img(x), meta=('str'), axis=1).compute(scheduler='multiprocessing')
+        for j, image_row in df_images.iloc[0:number_images].iterrows():
+            asin = image_row["asin"]
+            url_image_hq = image_row["url_image_hq"]
+            url_image_lowq = image_row["url_image_lowq"]
+
+            #headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+            #proxy_list = get_proxies("de", True)
+            #proxy = next(iter(proxy_list))
+            #proxies={"http": proxy, "https": proxy}
+
+            r = ProxyRequests(url_image_hq)
+            r.get()
+            print("Proxy used: " + str(r.get_proxy_used()))
+            if 200 == r.get_status_code():
+                print(r.get_status_code())
+                # save image locally
+                with open("data/shirts/shirt.jpg", 'wb') as f:
+                    f.write(r.get_raw())
+                
+                df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
+                df_imgs = df_imgs.append(df_img)
+                utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
+                
+                print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_images))
+            else:
+                print("Could not crawl image: %s | %s of %s" (asin, j+1, number_images))
+            
+            #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
+            test = 0
+        df_imgs['timestamp'] = df_imgs['timestamp'].astype('datetime64')
+        df_imgs.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
         test = 0
 
     bucket_name = "5c0ae2727a254b608a4ee55a15a05fb7"
