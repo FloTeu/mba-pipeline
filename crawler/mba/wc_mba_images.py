@@ -25,7 +25,6 @@ import os
 import time 
 from proxy_requests import ProxyRequests
 import multiprocessing
-import dask.dataframe as ddf
 
 def get_images_urls_not_crawled(marketplace):
     bq_client = bigquery.Client(project='mba-pipeline')
