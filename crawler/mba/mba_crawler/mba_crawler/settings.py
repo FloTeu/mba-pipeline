@@ -19,12 +19,20 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = True
+use_public_proxies = False
+use_private_proxies = False
 
-ROTATING_PROXY_LIST = proxy_handler.get_private_http_proxy_list()
+if use_public_proxies:
+    ROTATING_PROXY_LIST = proxy_handler.get_public_http_proxy_list()
+elif use_private_proxies:
+    ROTATING_PROXY_LIST = proxy_handler.get_private_http_proxy_list()
+else:
+    ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
+
 ROTATING_PROXY_BAN_POLICY = 'mba_crawler.policy.MyBanPolicy'
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-#CONCURRENT_REQUESTS = 32
+CONCURRENT_REQUESTS = 30
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
@@ -79,11 +87,15 @@ DOWNLOADER_MIDDLEWARES = {
 AUTOTHROTTLE_ENABLED = True
 # The initial download delay
 AUTOTHROTTLE_START_DELAY = 5
-# The maximum download delay to be set in case of high latencies
-AUTOTHROTTLE_MAX_DELAY = 60
+if use_public_proxies or (not use_public_proxies and not use_private_proxies):
+    # The maximum download delay to be set in case of high latencies
+    AUTOTHROTTLE_MAX_DELAY = 30
+else:
+    # The maximum download delay to be set in case of high latencies
+    AUTOTHROTTLE_MAX_DELAY = 60
 # The average number of requests Scrapy should be sending in parallel to
 # each remote server
-AUTOTHROTTLE_TARGET_CONCURRENCY = 1.0
+AUTOTHROTTLE_TARGET_CONCURRENCY = 10
 # Enable showing throttling stats for every response received:
 AUTOTHROTTLE_DEBUG = False
 

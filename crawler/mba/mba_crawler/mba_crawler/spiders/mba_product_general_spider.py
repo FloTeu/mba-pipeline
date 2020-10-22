@@ -22,6 +22,15 @@ from scrapy.spidermiddlewares.httperror import HttpError
 from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError
 
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise ValueError("Provided argument is not a bool")
 
 class MBASpider(scrapy.Spider):
     name = "mba_general_de"
@@ -36,10 +45,19 @@ class MBASpider(scrapy.Spider):
     captcha_count = 0
     was_banned = {}
 
+    def __init__(self, daily=True, **kwargs):
+        self.daily = str2bool(daily)
+        if self.daily:
+            self.url_data_path = "mba_crawler/url_data/urls_mba_daily_de.csv"
+        else:
+            self.url_data_path = "mba_crawler/url_data/urls_mba_general_de.csv"
+
+        super().__init__(**kwargs)  # python3
+
     def start_requests(self):
-        urls = pd.read_csv("mba_crawler/url_data/urls_mba_general_de.csv")["url"].tolist()[3000:3200]
-        asins = pd.read_csv("mba_crawler/url_data/urls_mba_general_de.csv")["asin"].tolist()
-        send_msg(self.target, "Start scraper {} with {} products".format(self.name, len(urls)), self.api_key)
+        urls = pd.read_csv(self.url_data_path)["url"].tolist()[0:1000]
+        asins = pd.read_csv(self.url_data_path)["asin"].tolist()
+        send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
@@ -76,22 +94,22 @@ class MBASpider(scrapy.Spider):
         elif failure.check(DNSLookupError):
             # this is the original request
             request = failure.request
-            send_msg(self.target, "DNSLookupError on url: {}".format(request.url), self.api_key)
             proxy = self.get_proxy(request)
+            send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
             self.update_ban_count(proxy)
             self.logger.error('DNSLookupError on %s', request.url)
 
         #elif isinstance(failure.value, TimeoutError):
         elif failure.check(TimeoutError):
             request = failure.request
-            send_msg(self.target, "TimeoutError on url: {}".format(request.url), self.api_key)
             proxy = self.get_proxy(request)
+            send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
             self.update_ban_count(proxy)
             self.logger.error('TimeoutError on %s', request.url)
     
     def status_update(self):
-        if len(self.df_products_details) % 10 == 0:
-            send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details)), self.api_key)
+        if len(self.df_products_details_daily) % 10 == 0:
+            send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
 
     def get_ban_count(self, proxy):
         ban_count = 0
@@ -369,63 +387,66 @@ class MBASpider(scrapy.Spider):
                 self.save_content(response, asin)
                 send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 raise e
-            try:
-                title = self.get_title(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            try:
-                brand, url_brand = self.get_brand_infos(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            try:
-                fit_types = self.get_fit_types(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            try:
-                array_color_names, color_count = self.get_color_infos(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            try:
-                array_product_feature = self.get_product_features(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            try:
-                description = self.get_description(response)
-            except Exception as e:
-                #self.save_content(response, asin)
-                #send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
-                #raise e
-                description = ""
-            try:
-                weight = self.get_weight(response)
-            except Exception as e:
-                weight = "not found"
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-            try:
-                upload_date_str, upload_date = self.get_upload_date(response)
-            except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
-            
+            # if not daily crawler not everything of website need to be crawled
+            if not self.daily:
+                try:
+                    title = self.get_title(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                try:
+                    brand, url_brand = self.get_brand_infos(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                try:
+                    fit_types = self.get_fit_types(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                try:
+                    array_color_names, color_count = self.get_color_infos(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                try:
+                    array_product_feature = self.get_product_features(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                try:
+                    description = self.get_description(response)
+                except Exception as e:
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
+                    #raise e
+                    description = ""
+                try:
+                    weight = self.get_weight(response)
+                except Exception as e:
+                    weight = "not found"
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                try:
+                    upload_date_str, upload_date = self.get_upload_date(response)
+                except Exception as e:
+                    self.save_content(response, asin)
+                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    raise e
+                
             crawlingdate = datetime.datetime.now()
-            # append to general crawler
-            df = pd.DataFrame(data={"asin": [asin], "title": [title], "brand": [brand], "url_brand": [url_brand], "price": [price_str], "fit_types": [fit_types],
-                    "color_names": [array_color_names], "color_count": [color_count], "product_features": [array_product_feature], "description": [description], "weight": [weight],
-                    "upload_date_str": [upload_date_str], "upload_date": [upload_date], "customer_review_score": [customer_review_score], "customer_review_count": [customer_review_count],
-                    "mba_bsr_str": [mba_bsr_str], "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp": [crawlingdate]})
-            self.df_products_details = self.df_products_details.append(df)
+            if not self.daily:
+                # append to general crawler
+                df = pd.DataFrame(data={"asin": [asin], "title": [title], "brand": [brand], "url_brand": [url_brand], "price": [price_str], "fit_types": [fit_types],
+                        "color_names": [array_color_names], "color_count": [color_count], "product_features": [array_product_feature], "description": [description], "weight": [weight],
+                        "upload_date_str": [upload_date_str], "upload_date": [upload_date], "customer_review_score": [customer_review_score], "customer_review_count": [customer_review_count],
+                        "mba_bsr_str": [mba_bsr_str], "mba_bsr": [array_mba_bsr], "mba_bsr_categorie": [array_mba_bsr_categorie], "timestamp": [crawlingdate]})
+                self.df_products_details = self.df_products_details.append(df)
 
             # append to daily crawler
             df = pd.DataFrame(data={"asin":[asin],"price":[price],"price_str":[price_str],"bsr":[mba_bsr],"bsr_str":[mba_bsr_str], "array_bsr": [array_mba_bsr], "array_bsr_categorie": [array_mba_bsr_categorie],"customer_review_score_mean":[customer_review_score_mean],"customer_review_score": [customer_review_score],"customer_review_count": [customer_review_count], "timestamp":[crawlingdate]})
@@ -434,7 +455,7 @@ class MBASpider(scrapy.Spider):
             self.status_update()
 
             if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
-                raise CloseSpider(reason='To many catchas received')
+                raise CloseSpider(reason='To many captchas received')
 
     def closed(self, reason):
         try:
@@ -450,12 +471,14 @@ class MBASpider(scrapy.Spider):
             send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
         except:
             pass
-        send_msg(self.target, "Finished scraper {} with {} products and reason: {}".format(self.name, len(self.df_products_details), reason), self.api_key)
-        # change types to fit with big query datatypes
-        self.df_products_details['color_count'] = self.df_products_details['color_count'].astype('int')
-        self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64[ns]')
-        self.df_products_details['upload_date'] = self.df_products_details['upload_date'].astype('datetime64[ns]')
-        self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
+        send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
+        
+        if not self.daily:
+            # change types to fit with big query datatypes
+            self.df_products_details['color_count'] = self.df_products_details['color_count'].astype('int')
+            self.df_products_details['timestamp'] = self.df_products_details['timestamp'].astype('datetime64[ns]')
+            self.df_products_details['upload_date'] = self.df_products_details['upload_date'].astype('datetime64[ns]')
+            self.df_products_details['customer_review_count'] = self.df_products_details['customer_review_count'].astype('int')
 
 
         # change types of daily dataframe
@@ -464,15 +487,15 @@ class MBASpider(scrapy.Spider):
         self.df_products_details_daily['customer_review_count'] = self.df_products_details_daily['customer_review_count'].astype('int')
 
         # update data in bigquery if batch is finished
-        #'''
-        try:
-            self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
-        except:
-            time.sleep(10)
+        if not self.daily:
             try:
                 self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
             except:
-                self.store_df()
+                time.sleep(10)
+                try:
+                    self.df_products_details.to_gbq("mba_" + self.marketplace + ".products_details",project_id="mba-pipeline", if_exists="append")
+                except:
+                    self.store_df()
 
         try:
             self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
@@ -482,5 +505,3 @@ class MBASpider(scrapy.Spider):
                 self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
-
-        #'''
