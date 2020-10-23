@@ -348,7 +348,7 @@ class MBASpider(scrapy.Spider):
         proxy = self.get_proxy(response)
 
         url = response.url
-        send_msg(self.target, "Response catched: {} with proxy {}".format(url,proxy), self.api_key)
+        #send_msg(self.target, "Response catched: {} with proxy {}".format(url,proxy), self.api_key)
         if self.is_captcha_required(response):
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
@@ -358,7 +358,7 @@ class MBASpider(scrapy.Spider):
             print("Captcha required for proxy: " + proxy)
             self.captcha_count = self.captcha_count + 1
             self.update_ban_count(proxy)
-            send_msg(self.target, "Captcha: " + url, self.api_key)
+            #send_msg(self.target, "Captcha: " + url, self.api_key)
             yield request
             '''
             raise Exception("Captcha required")
