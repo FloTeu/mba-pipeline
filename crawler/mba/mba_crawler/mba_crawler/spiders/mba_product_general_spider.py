@@ -55,7 +55,7 @@ class MBASpider(scrapy.Spider):
         super().__init__(**kwargs)  # python3
 
     def start_requests(self):
-        urls = pd.read_csv(self.url_data_path)["url"].tolist()[0:1000]
+        urls = pd.read_csv(self.url_data_path)["url"].tolist()
         asins = pd.read_csv(self.url_data_path)["asin"].tolist()
         send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
         for i, url in enumerate(urls):
@@ -83,7 +83,7 @@ class MBASpider(scrapy.Spider):
                     self.df_products_details = self.df_products_details.append(df)
                     print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
                 else:
-                    send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
+                    #send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
                     proxy = self.get_proxy(response)
                     self.update_ban_count(proxy)
             except:
@@ -95,7 +95,7 @@ class MBASpider(scrapy.Spider):
             # this is the original request
             request = failure.request
             proxy = self.get_proxy(request)
-            send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
+            #send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
             self.update_ban_count(proxy)
             self.logger.error('DNSLookupError on %s', request.url)
 
@@ -103,7 +103,7 @@ class MBASpider(scrapy.Spider):
         elif failure.check(TimeoutError):
             request = failure.request
             proxy = self.get_proxy(request)
-            send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
+            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
             self.update_ban_count(proxy)
             self.logger.error('TimeoutError on %s', request.url)
     
@@ -348,15 +348,18 @@ class MBASpider(scrapy.Spider):
         proxy = self.get_proxy(response)
 
         url = response.url
+        send_msg(self.target, "Response catched: {} with proxy {}".format(url,proxy), self.api_key)
         if self.is_captcha_required(response):
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
-            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=99999, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"proxy": proxy, "asin": asin, "_ban": True})
+            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                    errback=self.errback_httpbin, meta={"asin": asin})
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
+            self.captcha_count = self.captcha_count + 1
             self.update_ban_count(proxy)
-
+            send_msg(self.target, "Captcha: " + url, self.api_key)
+            yield request
             '''
             raise Exception("Captcha required")
             send_msg(self.target, "Captcha required" + " | asin: " + asin, self.api_key)
@@ -469,6 +472,7 @@ class MBASpider(scrapy.Spider):
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
             send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
             send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
+            send_msg(self.target, "Cpatcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
         send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
