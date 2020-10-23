@@ -14,6 +14,7 @@ from urllib.parse import urlencode
 from urllib.parse import urljoin
 import mba_url_creator as url_creator
 import utils
+import shutil
 import random 
 from lxml.html import fromstring
 from itertools import cycle
@@ -25,6 +26,8 @@ import os
 import time 
 from proxy_requests import ProxyRequests
 import multiprocessing
+from mba_crawler.proxy import proxy_handler
+
 
 def get_images_urls_not_crawled(marketplace):
     bq_client = bigquery.Client(project='mba-pipeline')
@@ -107,19 +110,22 @@ def main(argv):
             url_image_hq = image_row["url_image_hq"]
             url_image_lowq = image_row["url_image_lowq"]
 
-            #headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
+            headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
             #proxy_list = get_proxies("de", True)
             #proxy = next(iter(proxy_list))
-            #proxies={"http": proxy, "https": proxy}
+            proxies=proxy_handler.get_random_proxy_url_dict(path_proxy_json='mba_crawler/proxy/proxies.json')
+            r = requests.get(url_image_hq,proxies=proxies,headers=headers, stream=True)
+            #print("Proxy used: " + str(r.meta))
 
-            r = ProxyRequests(url_image_hq)
-            r.get()
-            print("Proxy used: " + str(r.get_proxy_used()))
-            if 200 == r.get_status_code():
-                print(r.get_status_code())
+            #r = ProxyRequests(url_image_hq)
+            #r.get()
+            #print("Proxy used: " + str(r.get_proxy_used()))
+            if 200 == r.status_code:
+                print(r.status_code)
                 # save image locally
                 with open("data/shirts/shirt.jpg", 'wb') as f:
-                    f.write(r.get_raw())
+                    r.raw.decode_content = True
+                    shutil.copyfileobj(r.raw, f) 
                 
                 df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
                 df_imgs = df_imgs.append(df_img)
