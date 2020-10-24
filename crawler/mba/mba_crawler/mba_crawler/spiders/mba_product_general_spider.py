@@ -20,7 +20,9 @@ import time
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 from scrapy.spidermiddlewares.httperror import HttpError
 from twisted.internet.error import DNSLookupError
-from twisted.internet.error import TimeoutError
+from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
+from twisted.web._newclient import ResponseNeverReceived
+from scrapy.core.downloader.handlers.http11 import TunnelError
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -63,7 +65,7 @@ class MBASpider(scrapy.Spider):
             headers = get_random_headers(self.marketplace)
             asin = asins[i]
             yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=1,
-                                    errback=self.errback_httpbin, meta={"asin": asin}) # "proxy": proxies["http"], 
+                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20}) # "proxy": proxies["http"], 
 
     def errback_httpbin(self, failure):
         # log all errback failures,
@@ -84,8 +86,10 @@ class MBASpider(scrapy.Spider):
                     print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
                 else:
                     #send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
+                    print( "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
                     proxy = self.get_proxy(response)
                     self.update_ban_count(proxy)
+                    #self.send_request_again(response.url, response.meta["asin"])
             except:
                 pass
             self.logger.error('HttpError on %s', response.url)
@@ -96,19 +100,40 @@ class MBASpider(scrapy.Spider):
             request = failure.request
             proxy = self.get_proxy(request)
             #send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            self.update_ban_count(proxy)
+            #self.update_ban_count(proxy)
             self.logger.error('DNSLookupError on %s', request.url)
+            #self.send_request_again(request.url, request.meta["asin"])
 
         #elif isinstance(failure.value, TimeoutError):
         elif failure.check(TimeoutError):
             request = failure.request
             proxy = self.get_proxy(request)
             #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            self.update_ban_count(proxy)
+            #self.update_ban_count(proxy)
             self.logger.error('TimeoutError on %s', request.url)
+            #self.send_request_again(request.url, request.meta["asin"])
     
+        #elif isinstance(failure.value, TimeoutError):
+        elif failure.check(TCPTimedOutError):
+            request = failure.request
+            proxy = self.get_proxy(request)
+            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
+            #self.update_ban_count(proxy)
+            self.logger.error('TCPTimeoutError on %s', request.url)
+            #self.send_request_again(request.url, request.meta["asin"])
+    
+        #elif isinstance(failure.value, TimeoutError):
+        elif failure.check(TunnelError):
+            request = failure.request
+            proxy = self.get_proxy(request)
+            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
+            #self.update_ban_count(proxy)
+            self.logger.error('TunnelError on %s', request.url)
+            #self.send_request_again(request.url, request.meta["asin"])
+
+
     def status_update(self):
-        if len(self.df_products_details_daily) % 10 == 0:
+        if len(self.df_products_details_daily) % 100 == 0:
             send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
 
     def get_ban_count(self, proxy):
@@ -153,7 +178,10 @@ class MBASpider(scrapy.Spider):
         return should_be_banned
 
     def exception_is_ban(self, request, exception):
-        return None
+        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError, ConnectionLost, ResponseNeverReceived]:
+            return True
+        else:
+            return None
 
     def save_content(self, response, asin):
         filename = "data/" + self.name + "/content/%s.html" % asin
@@ -343,6 +371,13 @@ class MBASpider(scrapy.Spider):
             proxy = response.meta["proxy"]
         return proxy
 
+    def send_request_again(self, url, asin):
+        headers = get_random_headers(self.marketplace)
+        # send new request with high priority
+        request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                errback=self.errback_httpbin, meta={"asin": asin})
+        yield request
+
     def parse(self, response):
         asin = response.meta["asin"]
         proxy = self.get_proxy(response)
@@ -350,15 +385,16 @@ class MBASpider(scrapy.Spider):
         url = response.url
         #send_msg(self.target, "Response catched: {} with proxy {}".format(url,proxy), self.api_key)
         if self.is_captcha_required(response):
-            headers = get_random_headers(self.marketplace)
-            # send new request with high priority
-            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"asin": asin})
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
             self.captcha_count = self.captcha_count + 1
             self.update_ban_count(proxy)
             #send_msg(self.target, "Captcha: " + url, self.api_key)
+            
+            headers = get_random_headers(self.marketplace)
+            # send new request with high priority
+            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                    errback=self.errback_httpbin, meta={"asin": asin})
             yield request
             '''
             raise Exception("Captcha required")
@@ -457,8 +493,8 @@ class MBASpider(scrapy.Spider):
 
             self.status_update()
 
-            if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
-                raise CloseSpider(reason='To many captchas received')
+            #if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
+            #    raise CloseSpider(reason='To many captchas received')
 
     def closed(self, reason):
         try:

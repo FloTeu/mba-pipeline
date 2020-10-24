@@ -50,7 +50,7 @@ def get_asin_images_crawled(table_id):
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
-    parser.add_argument('--number_images', default=10, type=int, help='Number of images that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
+    parser.add_argument('--number_chunks', default=1, type=int, help='Number of images that shoul be crawled. If 0, every image that is not already crawled will be crawled.')
     parser.add_argument('--chunk_size', default=10, type=int, help='Chunk of images to batch upload to bigquery.')
 
     # if python file path is in argv remove it 
@@ -60,7 +60,7 @@ def main(argv):
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
-    number_images = args.number_images
+    number_chunks = args.number_chunks
     chunk_size = args.chunk_size
     
     # get all arguments
@@ -71,9 +71,6 @@ def main(argv):
 
     df_images = get_images_urls_not_crawled(marketplace)
 
-    # if number_images is equal to 0, evry image should be crawled
-    if number_images == 0:
-        number_images = len(df_images)
     
     pool = multiprocessing.Pool(4)
 
@@ -101,11 +98,16 @@ def main(argv):
 
     df_images_chunks = [df_images[i:i+chunk_size] for i in range(0,df_images.shape[0],chunk_size)]
 
-    for df_images in df_images_chunks:
+    # if number_images is equal to 0, evry image should be crawled
+    if number_chunks == 0:
+        number_chunks = len(df_images_chunks)
+
+
+    for j, df_images in enumerate(df_images_chunks[0:number_chunks]):
         df_imgs = pd.DataFrame(data={"asin":[],"url":[],"url_gs":[],"url_mba_lowq":[],"url_mba_hq":[], "timestamp":[]}, dtype=np.object)
         #df_dask = ddf.from_pandas(df_images, npartitions=chunk_size)   # where the number of partitions is the number of cores you want to use
         #df_dask.apply(lambda x: crawl_img(x), meta=('str'), axis=1).compute(scheduler='multiprocessing')
-        for j, image_row in df_images.iloc[0:number_images].iterrows():
+        for i, image_row in df_images.iterrows():
             asin = image_row["asin"]
             url_image_hq = image_row["url_image_hq"]
             url_image_lowq = image_row["url_image_lowq"]
@@ -131,9 +133,9 @@ def main(argv):
                 df_imgs = df_imgs.append(df_img)
                 utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
                 
-                print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_images))
+                print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_chunks*chunk_size))
             else:
-                print("Could not crawl image: %s | %s of %s" (asin, j+1, number_images))
+                print("Could not crawl image: %s | %s of %s" (asin, j+1, number_chunks*chunk_size))
             
             #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
             test = 0

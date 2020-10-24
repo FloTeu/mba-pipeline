@@ -30,6 +30,8 @@ else:
     ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
 
 ROTATING_PROXY_BAN_POLICY = 'mba_crawler.policy.MyBanPolicy'
+ROTATING_PROXY_CLOSE_SPIDER = True
+ROTATING_PROXY_PAGE_RETRY_TIMES = 20 
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
 CONCURRENT_REQUESTS = 30
@@ -38,6 +40,8 @@ CONCURRENT_REQUESTS = 30
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
 DOWNLOAD_DELAY = 10
+
+DOWNLOAD_TIMEOUT = 40
 
 MAX_CAPTCHA_NUMBER = 10
 # The download delay setting will honor only one of:

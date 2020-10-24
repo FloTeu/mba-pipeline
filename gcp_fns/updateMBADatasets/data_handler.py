@@ -233,6 +233,7 @@ class DataHandler():
         except:
             df_shirts_with_more_info["trend_change"] = 0
         # save dataframe with shirts in local storage
+        print("Length of dataframe", len(df_shirts_with_more_info),dev_str)
         df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline", if_exists="replace")
         # make memory space free
         self.df_shirts_detail_daily = None
