@@ -110,6 +110,8 @@ def main(argv):
     number_products = args.number_products
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
 
+    exclude_asins = ["B00N3THBE8", "B001EAQB12", "B00OLG9GOK", "B07VPQHZHZ"]
+
     filename = "urls"
     if daily:
         # get asins which are not already crawled
@@ -135,6 +137,7 @@ def main(argv):
     if number_products == -1:
         number_products = len(df_product_details_tocrawl)
 
+    df_product_details_tocrawl = df_product_details_tocrawl[~df_product_details_tocrawl['asin'].isin(exclude_asins)]
     Path("mba_crawler/url_data/").mkdir(parents=True, exist_ok=True)
     df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)
 
