@@ -155,7 +155,7 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products):
     df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
 
     pd_list = [df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_ranking[["asin"]]] 
-    df_total = pd.concat(pd_list)
+    df_total = pd.concat(pd_list).drop_duplicates(["asin"])
     return df_total.sample(len(df_total))
 
 
@@ -216,7 +216,7 @@ def main(argv):
     number_products = args.number_products
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
 
-    exclude_asins = ["B00N3THBE8", "B076LTLG1Q", "B001EAQB12", "B001EAQB12", "B00OLG9GOK", "B07VPQHZHZ", "B076LX1H2V", "B0097B9SKQ", "B001EAQBH6", "B084X5Z1RX", "B07VPQHZHZ", "B07N4CHR77", "B002LBVRJO", "B00O1QQNGE", "B084ZRCLBD", "B084JBK66T", "B07VRY4WL3", "B078KR341N", "B00MP1PPHK"]
+    exclude_asins = ["B00N3THBE8", "B076LTLG1Q", "B001EAQB12", "B001EAQB12", "B00OLG9GOK", "B07VPQHZHZ", "B076LX1H2V", "B0097B9SKQ", "B001EAQBH6", "B084X5Z1RX", "B07VPQHZHZ", "B07N4CHR77", "B002LBVRJO", "B00O1QQNGE", "B084ZRCLBD", "B084JBK66T", "B07VRY4WL3", "B078KR341N", "B00MP1PPHK", "B000YEVF4C"]
 
     filename = "urls"
     if daily:
