@@ -508,7 +508,7 @@ class MBASpider(scrapy.Spider):
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
             send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
             send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
-            send_msg(self.target, "Cpatcha response count: {}".format(self.captcha_count), self.api_key)
+            send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
         send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)

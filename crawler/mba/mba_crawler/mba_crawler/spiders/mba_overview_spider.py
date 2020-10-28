@@ -80,9 +80,8 @@ class MBASpider(scrapy.Spider):
             until_page = self.start_page + self.pages
         for page_number in np.arange(self.start_page, until_page, 1):
             if page_number <= 400:
-                url_mba_page = url_mba + "&page="+str(page_number)+"&ref=sr_pg_"+str(page_number)
+                url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
                 urls_mba.append(url_mba_page)
-
         headers = get_random_headers(self.marketplace)
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
@@ -389,9 +388,8 @@ class MBASpider(scrapy.Spider):
                 self.df_products = self.df_products.append(df_products)
                 self.df_mba_images = self.df_mba_images.append(df_mba_images)
                 self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
-                self.page_count = self.page_count + 1
-
-
+            
+            self.page_count = self.page_count + 1
             self.status_update()
             #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
             
@@ -423,7 +421,7 @@ class MBASpider(scrapy.Spider):
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
             send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
             send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
-            send_msg(self.target, "Cpatcha response count: {}".format(self.captcha_count), self.api_key)
+            send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
 
