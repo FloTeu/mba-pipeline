@@ -72,7 +72,7 @@ class MBASpider(scrapy.Spider):
 
     def start_requests(self):
         url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
-        send_msg(self.target, "Start scraper {} marketplace {} with {} pages".format(self.name, self.marketplace, self.pages), self.api_key)
+        send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
         # if start_page is other than one, crawler should start from differnt page
         urls_mba = []
         until_page = 401
