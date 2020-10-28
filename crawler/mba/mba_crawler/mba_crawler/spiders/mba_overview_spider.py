@@ -4,6 +4,7 @@ import datetime
 from pathlib import Path
 from proxy import proxy_handler
 import pandas as pd
+import numpy as np
 from google.cloud import bigquery
 from re import findall
 import re
@@ -14,6 +15,7 @@ sys.path.append("..")
 #import os
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
 from proxy.utils import get_random_headers, send_msg
+from proxy import proxy_handler
 from urllib.parse import urlparse
 import dateparser
 from scrapy.exceptions import CloseSpider
@@ -49,8 +51,12 @@ class MBASpider(scrapy.Spider):
     ip_addresses = []
     captcha_count = 0
     was_banned = {}
-    current_page = 1
+    page_count = 0
     shirts_per_page = 48
+
+    custom_settings = {
+        "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list()
+    }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, **kwargs):
         self.marketplace = marketplace
@@ -68,12 +74,20 @@ class MBASpider(scrapy.Spider):
         url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
         send_msg(self.target, "Start scraper {} marketplace {} with {} pages".format(self.name, self.marketplace, self.pages), self.api_key)
         # if start_page is other than one, crawler should start from differnt page
-        if self.start_page != 1:
-            url_mba = url_mba + "&page="+str(self.start_page)+"&ref=sr_pg_"+str(self.start_page)
+        urls_mba = []
+        until_page = 401
+        if self.pages != 0:
+            until_page = self.start_page + self.pages
+        for page_number in np.arange(self.start_page, until_page, 1):
+            if page_number <= 400:
+                url_mba_page = url_mba + "&page="+str(page_number)+"&ref=sr_pg_"+str(page_number)
+                urls_mba.append(url_mba_page)
 
         headers = get_random_headers(self.marketplace)
-        yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=1,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30})
+        for i, url_mba in enumerate(urls_mba):
+            page = i + self.start_page
+            yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
+                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page})
 
     def errback_httpbin(self, failure):
         # log all errback failures,
@@ -141,8 +155,8 @@ class MBASpider(scrapy.Spider):
 
 
     def status_update(self):
-        if self.current_page % 10 == 0:
-            send_msg(self.target, "Crawled {} pages".format(int(self.current_page)), self.api_key)
+        if self.page_count % 10 == 0:
+            send_msg(self.target, "Crawled {} pages".format(int(self.page_count)), self.api_key)
 
     def get_ban_count(self, proxy):
         ban_count = 0
@@ -302,6 +316,7 @@ class MBASpider(scrapy.Spider):
     def parse(self, response):
         proxy = self.get_proxy(response)
         url = response.url
+        page = response.meta["page"]
 
         if self.is_captcha_required(response):
             #self.response_is_ban(request, response, is_ban=True)
@@ -311,7 +326,7 @@ class MBASpider(scrapy.Spider):
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
             request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30})
+                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
             yield request
         else:
             self.ip_addresses.append(response.ip_address.compressed)
@@ -368,24 +383,27 @@ class MBASpider(scrapy.Spider):
                 # append to general crawler
                 df_products = pd.DataFrame(data={"title":[title],"brand":[brand],"url_product":[url_product],"url_image_lowq":[url_image_lowq],"url_image_hq":[url_image_hq],"price":[price],"asin":[asin],"uuid":[uuid], "timestamp":[crawlingdate]})
                 df_mba_images = pd.DataFrame(data={"asin":[asin],"url_image_lowq":[url_image_lowq],"url_image_q2":[url_image_q2], "url_image_q3":[url_image_q3], "url_image_q4":[url_image_q4],"url_image_hq":[url_image_hq], "timestamp":[crawlingdate]})
-                shirt_number = int(shirt_number_page + ((int(self.current_page)-1)*self.shirts_per_page))
+                shirt_number = int(shirt_number_page + ((int(page)-1)*self.shirts_per_page))
                 df_mba_relevance = pd.DataFrame(data={"asin":[asin],"sort":[self.sort],"number":[shirt_number],"timestamp":[crawlingdate]})
 
                 self.df_products = self.df_products.append(df_products)
                 self.df_mba_images = self.df_mba_images.append(df_mba_images)
                 self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
+                self.page_count = self.page_count + 1
 
 
             self.status_update()
-            url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
+            #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
             
-            if int(self.pages) != 0 and int(self.pages) == self.current_page:
+            '''
+            if int(self.pages) != 0 and int(self.pages) == self.page_count:
                 raise CloseSpider(reason='Max number of Pages achieved')
             else:
-                self.current_page = self.current_page + 1
+                self.page_count = self.page_count + 1
                 headers = get_random_headers(self.marketplace)
-                yield scrapy.Request(url=url_next, callback=self.parse, headers=headers, priority=self.current_page,
+                yield scrapy.Request(url=url_next, callback=self.parse, headers=headers, priority=self.page_count,
                                             errback=self.errback_httpbin, meta={"max_proxies_to_try": 30}) 
+            '''
             #if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
             #    raise CloseSpider(reason='To many captchas received')
 
@@ -411,7 +429,7 @@ class MBASpider(scrapy.Spider):
 
         self.drop_asins_already_crawled()
 
-        send_msg(self.target, "Finished scraper {} with {} new products {} pages and reason: {}".format(self.name, len(self.df_products), self.current_page, reason), self.api_key)
+        send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
         
         # change types to fit with big query datatypes
         self.df_products['timestamp'] = self.df_products['timestamp'].astype('datetime64[ns]')
