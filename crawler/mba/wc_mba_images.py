@@ -135,7 +135,7 @@ def main(argv):
             
             #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
             test = 0
-        print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_chunks*chunk_size))
+        print("Successfully crawled image: %s | %s of %s chunks" % (asin, j+1, number_chunks))
         df_imgs['timestamp'] = df_imgs['timestamp'].astype('datetime64')
         df_imgs.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
         test = 0
