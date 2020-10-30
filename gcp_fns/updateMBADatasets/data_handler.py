@@ -42,7 +42,7 @@ class DataHandler():
 
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
-    SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
+    SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
@@ -50,22 +50,24 @@ class DataHandler():
         where bsr != 0 and bsr != 404
         group by asin
         ) t0
-        left join `mba-pipeline.mba_de.products_images` t1 on t0.asin = t1.asin
-        left join `mba-pipeline.mba_de.products_details` t2 on t0.asin = t2.asin
+        left join `mba-pipeline.mba_{0}.products_images` t1 on t0.asin = t1.asin
+        left join `mba-pipeline.mba_{0}.products_details` t2 on t0.asin = t2.asin
+        left join `mba-pipeline.mba_{0}.products_mba_images` t3 on t0.asin = t3.asin
 
         union all 
         
-        SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq FROM (
+        SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
                 FROM `mba-pipeline.mba_{0}.products_details_daily`
         where bsr = 0 and bsr != 404
-        and asin NOT IN (SELECT asin FROM `mba-pipeline.mba_de.products_details_daily` WHERE bsr != 0 and bsr != 404 group by asin)
+        and asin NOT IN (SELECT asin FROM `mba-pipeline.mba_{0}.products_details_daily` WHERE bsr != 0 and bsr != 404 group by asin)
         group by asin
         ) t0
-        left join `mba-pipeline.mba_de.products_images` t1 on t0.asin = t1.asin
-        left join `mba-pipeline.mba_de.products_details` t2 on t0.asin = t2.asin
+        left join `mba-pipeline.mba_{0}.products_images` t1 on t0.asin = t1.asin
+        left join `mba-pipeline.mba_{0}.products_details` t2 on t0.asin = t2.asin
+        left join `mba-pipeline.mba_{0}.products_mba_images` t3 on t0.asin = t3.asin
         
         ) t_fin
         order by t_fin.bsr_mean
@@ -151,7 +153,7 @@ class DataHandler():
         start_time = time.time()
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
-        df_shirts = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates()
+        df_shirts = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates(["asin"])
         #df_shirts = bq_client.query(self.get_sql_shirts(marketplace, None, None)).to_dataframe().drop_duplicates()
         # This dataframe is expanded with additional information with every chunk 
         df_shirts_with_more_info = df_shirts.copy()

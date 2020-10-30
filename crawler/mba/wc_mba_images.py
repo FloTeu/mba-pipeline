@@ -93,15 +93,13 @@ def main(argv):
             
             print("Successfully crawled image: %s" % (asin))
         else:
-            print("Could not crawl image: %s" (asin))
-        
+            print("Could not crawl image: %s" % (asin))
 
     df_images_chunks = [df_images[i:i+chunk_size] for i in range(0,df_images.shape[0],chunk_size)]
 
     # if number_images is equal to 0, evry image should be crawled
     if number_chunks == 0:
         number_chunks = len(df_images_chunks)
-
 
     for j, df_images in enumerate(df_images_chunks[0:number_chunks]):
         df_imgs = pd.DataFrame(data={"asin":[],"url":[],"url_gs":[],"url_mba_lowq":[],"url_mba_hq":[], "timestamp":[]}, dtype=np.object)
@@ -132,13 +130,12 @@ def main(argv):
                 df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
                 df_imgs = df_imgs.append(df_img)
                 utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
-                
-                print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_chunks*chunk_size))
             else:
-                print("Could not crawl image: %s | %s of %s" (asin, j+1, number_chunks*chunk_size))
+                print("Could not crawl image: %s" % (asin))
             
             #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
             test = 0
+        print("Successfully crawled image: %s | %s of %s" % (asin, j+1, number_chunks*chunk_size))
         df_imgs['timestamp'] = df_imgs['timestamp'].astype('datetime64')
         df_imgs.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
         test = 0
