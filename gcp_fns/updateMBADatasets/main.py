@@ -38,16 +38,17 @@ yes Y | gcloud compute instances delete {1} --zone={2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
 
-def generate_startup_sql_update():
+def generate_startup_sql_update(instance_name, instance_zone):
     startup_script = '''#!/bin/sh
-    cd home/
-    cd merchwatch/merchwatch
-    sleep 15m
-    ./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
-    python3 manage.py runserver &
-    wget "127.0.0.1:8000/cron/daily"
-    sleep 1h
-    yes Y | gcloud compute instances stop crawler-mba-auto-daily --zone us-west1-b'''
+cd home/
+cd merchwatch/merchwatch
+sleep 30m
+./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
+sudo python3 manage.py runserver &
+sleep 1m
+sudo wget "127.0.0.1:8000/cron/daily"
+sleep 45m
+yes Y | gcloud compute instances stop {0} --zone {1}'''.format(instance_name, instance_zone)
 
     return startup_script
 
@@ -133,12 +134,12 @@ def start_cron_daily():
     project = 'mba-pipeline' 
 
     # The name of the zone for this request.
-    zone = 'us-west1-b' 
+    zone = 'europe-west3-c' 
 
     # Name of the instance resource to start.
-    instance = 'crawler-mba-auto-daily' 
+    instance = 'cron-daily-de' 
 
-    startup_script = generate_startup_sql_update()
+    startup_script = generate_startup_sql_update(instance, zone)
 
     request = service.instances().get(project=project, zone=zone, instance=instance)
     response = request.execute()
