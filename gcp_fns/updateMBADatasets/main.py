@@ -38,6 +38,18 @@ yes Y | gcloud compute instances delete {1} --zone={2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
 
+def generate_startup_sql_update():
+    startup_script = '''#!/bin/sh
+    cd home/
+    cd merchwatch/merchwatch
+    sleep 15m
+    ./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
+    python3 manage.py runserver &
+    wget "127.0.0.1:8000/cron/daily"
+    sleep 1h
+    yes Y | gcloud compute instances stop crawler-mba-auto-daily --zone us-west1-b'''
+
+    return startup_script
 
 def create_instance(marketplace, instance_name, zone, chunk_size):  
 
@@ -109,6 +121,44 @@ def create_instance(marketplace, instance_name, zone, chunk_size):
         zone=zone,
         body=config).execute()
 
+def start_cron_daily():
+    from pprint import pprint
+    from googleapiclient import discovery
+    from oauth2client.client import GoogleCredentials
+
+    credentials = GoogleCredentials.get_application_default()
+    service = discovery.build('compute', 'v1', credentials=credentials)
+
+    # Project ID for this request.
+    project = 'mba-pipeline' 
+
+    # The name of the zone for this request.
+    zone = 'us-west1-b' 
+
+    # Name of the instance resource to start.
+    instance = 'crawler-mba-auto-daily' 
+
+    startup_script = generate_startup_sql_update()
+
+    request = service.instances().get(project=project, zone=zone, instance=instance)
+    response = request.execute()
+    fingerprint = response["metadata"]["fingerprint"]
+    
+    metadata_body = {
+        "fingerprint": fingerprint,
+  "items": [
+    {
+      "key": "startup-script",
+      "value": startup_script
+    }
+  ]
+    }
+
+    request = service.instances().setMetadata(project=project, zone=zone, instance=instance, body=metadata_body)
+    response = request.execute()
+    request = service.instances().start(project=project, zone=zone, instance=instance)
+    response = request.execute()
+
 
 def updateBqShirtTables(event, context):
     
@@ -119,3 +169,5 @@ def updateBqShirtTables(event, context):
     marketplace = "de"
 
     create_instance(marketplace, "cron-daily", "us-west1-b", 500)
+    start_cron_daily()
+test = 0

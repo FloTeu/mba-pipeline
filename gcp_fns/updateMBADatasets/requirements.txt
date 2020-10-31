@@ -13,3 +13,4 @@ tqdm==4.48.2
 google-api-python-client==1.10.0
 scrapy
 scrapy-rotating-proxies
+oauth2client
