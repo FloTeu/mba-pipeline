@@ -121,7 +121,6 @@ def main(argv):
             #r.get()
             #print("Proxy used: " + str(r.get_proxy_used()))
             if 200 == r.status_code:
-                print(r.status_code)
                 # save image locally
                 with open("data/shirts/shirt.jpg", 'wb') as f:
                     r.raw.decode_content = True
@@ -129,13 +128,13 @@ def main(argv):
                 
                 df_img = pd.DataFrame(data={"asin":[asin],"url":["https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_gs":["gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/"+marketplace+"/"+asin+".jpg"],"url_mba_lowq":[url_image_lowq],"url_mba_hq":[url_image_hq], "timestamp":[datetime.datetime.now()]}, dtype=np.object)
                 df_imgs = df_imgs.append(df_img)
-                utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg")
+                utils.upload_blob("5c0ae2727a254b608a4ee55a15a05fb7", "data/shirts/shirt.jpg", "mba-shirts/"+marketplace+"/" + asin + ".jpg", verbose=False)
             else:
                 print("Could not crawl image: %s" % (asin))
             
             #response = requests.get(quote_plus(url_image_hq),proxies=proxies,headers=headers, stream=True)
             test = 0
-        print("Successfully crawled image: %s | %s of %s chunks" % (asin, j+1, number_chunks))
+        print("%s of %s chunks" % (asin, j+1, number_chunks))
         df_imgs['timestamp'] = df_imgs['timestamp'].astype('datetime64')
         df_imgs.to_gbq("mba_" + marketplace + ".products_images",project_id="mba-pipeline", if_exists="append")
         test = 0
