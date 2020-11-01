@@ -193,6 +193,9 @@ class MBASpider(scrapy.Spider):
             is_ban = True 
         proxy = self.get_proxy(request)
         is_ban = self.was_already_banned(proxy)
+        if response.status in [503, 403, 407, 406]:
+            self.update_ban_count(proxy)
+            is_ban = True
         if is_ban:
             print("Ban proxy: " + proxy)
         should_be_banned = b'banned' in response.body or is_ban

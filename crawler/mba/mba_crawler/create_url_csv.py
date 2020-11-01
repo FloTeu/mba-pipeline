@@ -104,13 +104,13 @@ def get_sql_top_categories(marketplace, top_n=10):
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
 
-def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products):
+def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=60):
     '''
         Logic of daily crawling:
         70% random pick of best sellers (Last crawled date in table products_mba_relevance)
         20% lowest bsr count
         10% random 
-        40 top 10 best_seller + trend + bsr_change + bsr_last
+        4 * top n best_seller + trend + bsr_change + bsr_last
     '''
     project_id = 'mba-pipeline'
     # get asins which should be excluded
@@ -149,7 +149,7 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products):
 
     # get 40 top 10 best_seller + trend + bsr_change + bsr_last
     try:
-        df_ranking = pd.read_gbq(get_sql_top_categories(marketplace), project_id=project_id)
+        df_ranking = pd.read_gbq(get_sql_top_categories(marketplace, top_n=top_n), project_id=project_id)
     except:
         df_ranking = df_random.iloc[0:2]
     df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
