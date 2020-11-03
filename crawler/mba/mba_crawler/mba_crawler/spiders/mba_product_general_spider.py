@@ -157,8 +157,12 @@ class MBASpider(scrapy.Spider):
     def was_already_banned(self, proxy):
         was_already_banned = False
         # should be banned if captcha was found and it was found in the last 30 minutes
-        if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*30)):
-            was_already_banned = True
+        if "perfect-privacy" in proxy:
+            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*2)):
+                was_already_banned = True
+        else:
+            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*15)):
+                was_already_banned = True
         return was_already_banned
 
         #if self.get_ban_timestamp(proxy) == None:
