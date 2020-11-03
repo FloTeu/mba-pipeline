@@ -42,7 +42,7 @@ def generate_startup_sql_update(instance_name, instance_zone):
     startup_script = '''#!/bin/sh
 cd home/
 cd merchwatch/merchwatch
-sleep 30m
+sleep 50m
 ./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
 sudo python3 manage.py runserver &
 sleep 1m
