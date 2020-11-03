@@ -34,12 +34,12 @@ ROTATING_PROXY_CLOSE_SPIDER = True
 ROTATING_PROXY_PAGE_RETRY_TIMES = 20 
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 30
+CONCURRENT_REQUESTS = 50
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 10
+DOWNLOAD_DELAY = 5
 
 DOWNLOAD_TIMEOUT = 40
 
@@ -99,7 +99,7 @@ else:
     AUTOTHROTTLE_MAX_DELAY = 60
 # The average number of requests Scrapy should be sending in parallel to
 # each remote server
-AUTOTHROTTLE_TARGET_CONCURRENCY = 10
+AUTOTHROTTLE_TARGET_CONCURRENCY = 20
 # Enable showing throttling stats for every response received:
 AUTOTHROTTLE_DEBUG = False
 
