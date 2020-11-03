@@ -161,7 +161,7 @@ class MBASpider(scrapy.Spider):
             if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*2)):
                 was_already_banned = True
         else:
-            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*15)):
+            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*5)):
                 was_already_banned = True
         return was_already_banned
 
