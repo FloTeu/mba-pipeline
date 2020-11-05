@@ -223,17 +223,28 @@ class DataHandler():
             gc.collect()
         
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
+
         # try to calculate trend change
+        df_shirts_old=pd.read_gbq("SELECT DISTINCT asin, trend_nr, bsr_last FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
+        df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"]
+        df_shirts_old["bsr_last_old"] = df_shirts_old["bsr_last"]
+        # transform older trend nr (yesterday) in same dimension as new trend nr
+        df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old", "bsr_last_old"]],how='left', on='asin')
         try:
-            df_shirts_old=pd.read_gbq("SELECT DISTINCT * FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
-            df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"]
-            # transform older trend nr (yesterday) in same dimension as new trend nr
-            df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old"]],how='left', on='asin')
-            df_shirts_with_more_info[['trend_nr_old']] = df_shirts_with_more_info[['trend_nr_old']].fillna(value=0)
+
+            df_shirts_with_more_info['trend_nr_old'] = df_shirts_with_more_info['trend_nr_old'].fillna(value=0)
             
             df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else int(x["trend_nr_old"] - x["trend_nr"]),axis=1)
-        except:
+        except Exception as e:
             df_shirts_with_more_info["trend_change"] = 0
+        # try to create has_bsr_last_changed column
+        try:
+            df_shirts_with_more_info['bsr_last_old'] = df_shirts_with_more_info['bsr_last_old'].fillna(value=0)
+            df_shirts_with_more_info['bsr_last_change'] = df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]
+            df_shirts_with_more_info['has_bsr_last_changed'] = df_shirts_with_more_info['bsr_last_change'] != 0.0
+        except Exception as e:
+            df_shirts_with_more_info["has_bsr_last_changed"] = True
+
         # save dataframe with shirts in local storage
         print("Length of dataframe", len(df_shirts_with_more_info),dev_str)
         df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline", if_exists="replace")
@@ -406,7 +417,7 @@ class DataHandler():
             WHERE t0.bsr_mean != 0 and t0.price_last != 404 and t0.upload_date IS NOT NULL
              {1}
             ) t_tmp
-        ) t_fin
+        ) t_fin where t_fin.has_bsr_last_changed
         
         """.format(marketplace, ORDERBY_STATEMENT, dev_str)
 
