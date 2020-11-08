@@ -226,22 +226,28 @@ class DataHandler():
 
         # try to calculate trend change
         df_shirts_old=pd.read_gbq("SELECT DISTINCT asin, trend_nr, bsr_last FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
-        df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"]
-        df_shirts_old["bsr_last_old"] = df_shirts_old["bsr_last"]
+        df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"].astype(int)
+        df_shirts_old["bsr_last_old"] = df_shirts_old["bsr_last"].astype(int)
         # transform older trend nr (yesterday) in same dimension as new trend nr
         df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old", "bsr_last_old"]],how='left', on='asin')
         try:
 
-            df_shirts_with_more_info['trend_nr_old'] = df_shirts_with_more_info['trend_nr_old'].fillna(value=0)
+            df_shirts_with_more_info['trend_nr_old'] = df_shirts_with_more_info['trend_nr_old'].fillna(value=0).astype(int)
             
             df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else int(x["trend_nr_old"] - x["trend_nr"]),axis=1)
         except Exception as e:
             df_shirts_with_more_info["trend_change"] = 0
         # try to create has_bsr_last_changed column
         try:
-            df_shirts_with_more_info['bsr_last_old'] = df_shirts_with_more_info['bsr_last_old'].fillna(value=0)
-            df_shirts_with_more_info['bsr_last_change'] = df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]
-            df_shirts_with_more_info['has_bsr_last_changed'] = df_shirts_with_more_info['bsr_last_change'] != 0.0
+            df_shirts_with_more_info['bsr_last_old'] = df_shirts_with_more_info['bsr_last_old'].fillna(value=0).astype(int)
+            df_shirts_with_more_info['bsr_last_change'] = (df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]).astype(int)
+            # get the date one week ago
+            date_one_week_ago = (datetime.now() - timedelta(days = 7)).date()
+            # filter df which should always be updated (update newer than 7 days + bsr_count equals 1 or 2 or trend_nr lower or equal to 2000) 
+            df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000)]
+            # change bsr_last_change to 1 for those how should be updated independent of bsr_last
+            df_shirts_with_more_info.loc[df_should_update.index, "bsr_last_change"] = 1
+            df_shirts_with_more_info['has_bsr_last_changed'] = df_shirts_with_more_info['bsr_last_change'] != 0
         except Exception as e:
             df_shirts_with_more_info["has_bsr_last_changed"] = True
 
