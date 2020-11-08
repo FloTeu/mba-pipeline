@@ -14,3 +14,4 @@ google-api-python-client==1.10.0
 scrapy
 scrapy-rotating-proxies
 oauth2client
+firebase-admin

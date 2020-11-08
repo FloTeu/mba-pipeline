@@ -1,4 +1,5 @@
 from data_handler import DataHandler
+from firestore_handler import Firestore
 import requests
 import argparse
 import time
@@ -72,6 +73,9 @@ def main(args):
         DataHandlerModel = DataHandler()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev)
+        #DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev)
+
+
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
 

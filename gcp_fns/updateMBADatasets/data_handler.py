@@ -16,6 +16,7 @@ from plotly.graph_objs import Layout
 import gc
 from django.conf import settings
 import logging
+from firestore_handler import Firestore
 
 class DataHandler():
     def __init__(self):
@@ -394,14 +395,16 @@ class DataHandler():
                 entities = []
 
 
-    def get_shirt_dataset_sql(self, marketplace, dev=False):
+    def get_shirt_dataset_sql(self, marketplace, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
         if dev:
             dev_str = "_dev"
 
         ORDERBY_STATEMENT = "order by trend_nr"
-
+        WHERE_STATEMENT = ""
+        if not update_all:
+            WHERE_STATEMENT = "where t_fin.has_bsr_last_changed"
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
             SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
@@ -423,14 +426,14 @@ class DataHandler():
             WHERE t0.bsr_mean != 0 and t0.price_last != 404 and t0.upload_date IS NOT NULL
              {1}
             ) t_tmp
-        ) t_fin where t_fin.has_bsr_last_changed
+        ) t_fin {3}
         
-        """.format(marketplace, ORDERBY_STATEMENT, dev_str)
+        """.format(marketplace, ORDERBY_STATEMENT, dev_str, WHERE_STATEMENT)
 
         return SQL_STATEMENT
 
-    def get_shirt_dataset(self, marketplace, dev=False):
-        shirt_sql = self.get_shirt_dataset_sql(marketplace, dev=dev)
+    def get_shirt_dataset(self, marketplace, dev=False, update_all=False):
+        shirt_sql = self.get_shirt_dataset_sql(marketplace, dev=dev, update_all=update_all)
         try:
             df_shirts=pd.read_gbq(shirt_sql, project_id="mba-pipeline")
         except Exception as e:
@@ -492,3 +495,14 @@ class DataHandler():
         list_keys.append(list_keys_i)
         for list_keys_i in list_keys:
             dclient.delete_multi(list_keys_i)
+
+    def update_firestore(self, marketplace, collection, dev=False):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=True)
+        firestore = Firestore(collection)
+        firestore.update_by_df(df, "asin")
+
