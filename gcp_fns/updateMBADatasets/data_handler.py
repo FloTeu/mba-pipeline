@@ -503,6 +503,30 @@ class DataHandler():
             dev_str = "_dev"
 
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=False)
+
+        def create_keywords(df_row):
+            asin = df_row["asin"].lower()
+            brand_list = df_row["brand"].lower().split(" ")
+            title_list = df_row["title"].lower().split(" ")
+            # get only first two feature bullets (listings)
+            product_features_list = [feature.strip().replace("'","") for feature in df_row["product_features"].strip("[]").split("',")][0:2]
+            product_features_keywords_list = []
+            for product_features in product_features_list:
+                words = re.findall(r'\w+', product_features) 
+                product_features_keywords_list.extend([v.lower() for v in words])
+
+
+            keywords = [asin] + brand_list + title_list + product_features_keywords_list
+            keywords_2word = []
+            for i in range(len(keywords)):
+                keywords_2word.append(" ".join(keywords[i:i+2]))
+            keywords_3word = []
+            for i in range(len(keywords)):
+                keywords_3word.append(" ".join(keywords[i:i+3]))
+
+            return keywords + keywords_2word[0:-1] + keywords_3word[0:-2]
+
+        df["keywords"] = df.apply(lambda x: create_keywords(x), axis=1)
         firestore = Firestore(collection + dev_str)
         firestore.update_by_df(df, "asin")
 
