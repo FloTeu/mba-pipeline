@@ -187,6 +187,10 @@ class MBASpider(scrapy.Spider):
     def exception_is_ban(self, request, exception):
         if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError, ConnectionLost, ResponseNeverReceived]:
             return True
+        elif type(exception) == CloseSpider:
+            print("Spider should be closed. Sleep 3 minutes")
+            time.sleep(60*3)
+            return None
         else:
             return None
 
