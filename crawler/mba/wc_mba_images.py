@@ -113,8 +113,14 @@ def main(argv):
             headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/81.0.4044.138 Safari/537.36'}
             #proxy_list = get_proxies("de", True)
             #proxy = next(iter(proxy_list))
-            proxies=proxy_handler.get_random_proxy_url_dict(path_proxy_json='mba_crawler/proxy/proxies.json')
-            r = requests.get(url_image_hq,proxies=proxies,headers=headers, stream=True)
+            while True:
+                try:
+                    proxies=proxy_handler.get_random_proxy_url_dict(path_proxy_json='mba_crawler/proxy/proxies.json', only_working=True)
+                    r = requests.get(url_image_hq,proxies=proxies,headers=headers, stream=True)
+                    break
+                except Exception as e:
+                    print(str(e), proxies)
+                    continue
             #print("Proxy used: " + str(r.meta))
 
             #r = ProxyRequests(url_image_hq)
