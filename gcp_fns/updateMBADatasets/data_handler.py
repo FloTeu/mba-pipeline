@@ -502,7 +502,7 @@ class DataHandler():
         if dev:
             dev_str = "_dev"
 
-        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=True)
-        firestore = Firestore(collection)
+        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=False)
+        firestore = Firestore(collection + dev_str)
         firestore.update_by_df(df, "asin")
 

@@ -73,7 +73,7 @@ def main(args):
         DataHandlerModel = DataHandler()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev)
-        #DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev)
+        DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev)
 
 
     except Exception as e:
