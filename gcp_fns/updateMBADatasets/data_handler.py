@@ -441,13 +441,13 @@ class DataHandler():
             raise e
         return df_shirts
 
-    def update_datastore(self, marketplace, kind, dev=False):
+    def update_datastore(self, marketplace, kind, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
         if dev:
             dev_str = "_dev"
 
-        df = self.get_shirt_dataset(marketplace, dev=dev)
+        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         self.insert_df_to_datastore(df, kind + dev_str)
         df = self.get_shirt_dataset_404(marketplace, dev=dev)
         self.delete_list_asin_from_datastore(marketplace, df["asin"].drop_duplicates().tolist(), dev=dev)
@@ -496,13 +496,13 @@ class DataHandler():
         for list_keys_i in list_keys:
             dclient.delete_multi(list_keys_i)
 
-    def update_firestore(self, marketplace, collection, dev=False):
+    def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
         if dev:
             dev_str = "_dev"
 
-        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=False)
+        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
 
         def create_keywords(df_row):
             asin = df_row["asin"].lower()
@@ -528,5 +528,5 @@ class DataHandler():
 
         df["keywords"] = df.apply(lambda x: create_keywords(x), axis=1)
         firestore = Firestore(collection + dev_str)
-        firestore.update_by_df(df, "asin")
+        firestore.update_by_df_batch(df, "asin")
 

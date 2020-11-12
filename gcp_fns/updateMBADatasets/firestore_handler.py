@@ -3,6 +3,7 @@ import datetime
 from firebase_admin import credentials
 from firebase_admin import firestore
 from os.path import join
+import numpy as np
 
 # Use the application default credentials
 cred = credentials.ApplicationDefault()
@@ -25,6 +26,31 @@ class Firestore():
                 df_dict["plot_y"] = df_dict["plot_y"].split(",") 
             document_id = df_dict[product_id_column]
             self.add_or_update_content(df_dict, document_id)
+
+    def update_by_df_batch(self, df, product_id_column, batch_size=500):
+        for k,df_batch in df.groupby(np.arange(len(df))//batch_size):
+            batch = self.db.batch()
+            for i, df_row in df_batch.iterrows():
+                df_dict = df_row.to_dict()
+                if "plot_x" in df_dict:
+                    df_dict["plot_x"] = df_dict["plot_x"].split(",")
+                if "plot_y" in df_dict:
+                    df_dict["plot_y"] = df_dict["plot_y"].split(",") 
+                document_id = df_dict[product_id_column]
+                
+                df_dict.update({'timestamp': datetime.datetime.now()})
+
+                doc_ref = self.db.collection(self.collection_name).document(document_id)
+                doc = doc_ref.get()
+
+                if doc.exists:
+                    # add content data
+                    batch.update(doc_ref, df_dict)
+                else:
+                    # create new document with content data
+                    batch.set(doc_ref, df_dict)
+            print("Batch: " + str(k + 1))
+            batch.commit()
 
     def add_or_update_content(self, df_row_dict, document_id):
         # update lists in dict to firestore ArrayUnion

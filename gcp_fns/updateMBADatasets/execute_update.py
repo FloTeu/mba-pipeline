@@ -23,6 +23,12 @@ def get_args(argv=None):
         const=True,
         default="False",
         help='Wheter development or productive')
+    parser.add_argument(
+        '--update_all',
+        type=str2bool, nargs='?',
+        const=True,
+        default="False",
+        help='Wheter firestore and datastore should be completly updated')
 
     if argv != None:
         args, pipeline_args = parser.parse_known_args(argv)
@@ -72,8 +78,8 @@ def main(args):
     try:
         DataHandlerModel = DataHandler()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
-        DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev)
-        DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev)
+        DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
+        DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
 
 
     except Exception as e:
