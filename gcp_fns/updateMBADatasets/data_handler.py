@@ -297,6 +297,17 @@ class DataHandler():
                 if int(last_occ["bsr"]) != 0:
                     break
                 i += 1
+            i = 0
+            # try to get last price which is unequal to zero. If only zero bsr exists return last occurence
+            while True:
+                try:
+                    last_occ_price = df_occ.iloc[i]
+                except:
+                    last_occ_price = df_occ.iloc[0]
+                    break
+                if int(last_occ_price["price"]) != 0.0:
+                    break
+                i += 1
             i = 1
             # try to get first bsr which is unequal to zero. If only zero bsr exists return first occurence
             while True:
@@ -306,6 +317,17 @@ class DataHandler():
                     first_occ_ue_zero = df_occ.iloc[-1]
                     break
                 if int(first_occ_ue_zero["bsr"]) != 0:
+                    break
+                i += 1
+            i = 1
+            # try to get first price which is unequal to zero. If only zero bsr exists return first occurence
+            while True:
+                try:
+                    first_occ_price_ue_zero = df_occ.iloc[-i]
+                except:
+                    first_occ_price_ue_zero = df_occ.iloc[-1]
+                    break
+                if int(first_occ_price_ue_zero["price"]) != 0.0:
                     break
                 i += 1
         # get first occurence of data
@@ -328,7 +350,7 @@ class DataHandler():
         except:
             occ_4w = first_occ_ue_zero
 
-        return last_occ["bsr"], last_occ["price"], first_occ["bsr"], first_occ["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
+        return last_occ["bsr"], last_occ_price["price"], first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
