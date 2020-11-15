@@ -28,28 +28,32 @@ class Firestore():
             self.add_or_update_content(df_dict, document_id)
 
     def update_by_df_batch(self, df, product_id_column, batch_size=500):
+        print("Start update firestore by batches")
         batch_count = int(len(df)/batch_size)
         for k,df_batch in df.groupby(np.arange(len(df))//batch_size):
             batch = self.db.batch()
             for i, df_row in df_batch.iterrows():
-                df_dict = df_row.to_dict()
-                if "plot_x" in df_dict and df_dict["plot_x"] != None:
-                    df_dict["plot_x"] = df_dict["plot_x"].split(",")
-                if "plot_y" in df_dict and df_dict["plot_y"] != None:
-                    df_dict["plot_y"] = df_dict["plot_y"].split(",") 
-                document_id = df_dict[product_id_column]
-                
-                df_dict.update({'timestamp': datetime.datetime.now()})
+                try:
+                    df_dict = df_row.to_dict()
+                    if "plot_x" in df_dict and df_dict["plot_x"] != None:
+                        df_dict["plot_x"] = df_dict["plot_x"].split(",")
+                    if "plot_y" in df_dict and df_dict["plot_y"] != None:
+                        df_dict["plot_y"] = df_dict["plot_y"].split(",") 
+                    document_id = df_dict[product_id_column]
+                    
+                    df_dict.update({'timestamp': datetime.datetime.now()})
 
-                doc_ref = self.db.collection(self.collection_name).document(document_id)
-                doc = doc_ref.get()
+                    doc_ref = self.db.collection(self.collection_name).document(document_id)
+                    doc = doc_ref.get()
 
-                if doc.exists:
-                    # add content data
-                    batch.update(doc_ref, df_dict)
-                else:
-                    # create new document with content data
-                    batch.set(doc_ref, df_dict)
+                    if doc.exists:
+                        # add content data
+                        batch.update(doc_ref, df_dict)
+                    else:
+                        # create new document with content data
+                        batch.set(doc_ref, df_dict)
+                except Exception as e:
+                    print(str(e))
             print("Batch: {} of {}".format(str(k + 1), batch_count))
             batch.commit()
 
