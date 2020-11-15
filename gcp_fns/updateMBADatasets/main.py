@@ -33,8 +33,14 @@ git clone https://github.com/Flo95x/mba-pipeline.git
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
 /usr/bin/python3 execute_update.py --marketplace={0} --chunk_size={3}
-echo deleting instance
-yes Y | gcloud compute instances delete {1} --zone={2}
+# update sql DB
+cd home/merchwatch/merchwatch/
+./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
+sudo python3 manage.py runserver &
+sleep 1m
+sudo wget "127.0.0.1:8000/cron/daily"
+sleep 45m
+yes Y | gcloud compute instances stop {1} --zone {2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
 
@@ -122,7 +128,7 @@ def create_instance(marketplace, instance_name, zone, chunk_size):
         zone=zone,
         body=config).execute()
 
-def start_cron_daily():
+def start_cron_daily(marketplace, chunk_size=500):
     from pprint import pprint
     from googleapiclient import discovery
     from oauth2client.client import GoogleCredentials
@@ -139,7 +145,7 @@ def start_cron_daily():
     # Name of the instance resource to start.
     instance = 'cron-daily-de' 
 
-    startup_script = generate_startup_sql_update(instance, zone)
+    startup_script = generate_startup(marketplace, instance, zone, chunk_size)
 
     request = service.instances().get(project=project, zone=zone, instance=instance)
     response = request.execute()
@@ -169,6 +175,6 @@ def updateBqShirtTables(event, context):
 
     marketplace = "de"
 
-    create_instance(marketplace, "cron-daily", "us-west1-b", 500)
-    start_cron_daily()
+    #create_instance(marketplace, "cron-daily", "us-west1-b", 500)
+    start_cron_daily(marketplace)
 test = 0

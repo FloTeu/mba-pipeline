@@ -54,6 +54,7 @@ class Firestore():
                         batch.set(doc_ref, df_dict)
                 except Exception as e:
                     print(str(e))
+                    raise e
             print("Batch: {} of {}".format(str(k + 1), batch_count))
             batch.commit()
 
