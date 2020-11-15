@@ -552,3 +552,5 @@ class DataHandler():
         firestore = Firestore(collection + dev_str)
         firestore.update_by_df_batch(df, "asin")
 
+    def keyword_analysis(self):
+        df = pd.read_csv("~/shirts.csv",converters={"keywords": lambda x: x.strip("[]").split(", ")})
