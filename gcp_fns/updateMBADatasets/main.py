@@ -34,7 +34,7 @@ cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
 /usr/bin/python3 execute_update.py --marketplace={0} --chunk_size={3}
 # update sql DB
-cd home/merchwatch/merchwatch/
+cd /home/merchwatch/merchwatch/
 ./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
 sudo python3 manage.py runserver &
 sleep 1m

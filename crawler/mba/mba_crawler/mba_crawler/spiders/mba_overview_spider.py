@@ -437,6 +437,10 @@ class MBASpider(scrapy.Spider):
         self.df_mba_images['timestamp'] = self.df_mba_images['timestamp'].astype('datetime64[ns]')
         self.df_mba_relevance['timestamp'] = self.df_mba_relevance['timestamp'].astype('datetime64[ns]')
         self.df_mba_relevance['number'] = self.df_mba_relevance['number'].astype('int')
+        
+        # drop duplicates by asin
+        self.df_products = self.df_products.drop_duplicates(["asin"])
+        self.df_mba_images = self.df_mba_images.drop_duplicates(["asin"])
 
  
         try:
