@@ -12,6 +12,8 @@ requests==2.24.0
 Django==3.0.9 
 tqdm==4.48.2
 google-api-python-client==1.10.0
+spacy==2.3.2
+langdetect==1.0.8
 scrapy
 scrapy-rotating-proxies
 oauth2client

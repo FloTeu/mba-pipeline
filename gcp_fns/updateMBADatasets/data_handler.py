@@ -1,4 +1,5 @@
 import pandas as pd
+import numpy as np
 from google.cloud import bigquery
 from google.cloud import storage
 from google.cloud import datastore
@@ -17,6 +18,8 @@ import gc
 from django.conf import settings
 import logging
 from firestore_handler import Firestore
+from text_rank import TextRank4Keyword
+from langdetect import detect
 
 class DataHandler():
     def __init__(self):
@@ -570,5 +573,173 @@ class DataHandler():
         firestore = Firestore(collection + dev_str)
         firestore.update_by_df_batch(df, "asin")
 
-    def keyword_analysis(self):
+
+    def count_slashes(self, string):
+        count = 0
+        string_list = string.split("\'")
+        return len(string_list)
+
+
+    def keyword_dicts_to_df(self, keywords_asin, keywords_count, keywords_bsr_last, keywords_trend):
+        keyword_list = []
+        count_list = []
+        bsr_last_mean_list = []
+        bsr_last_variance_list = []
+        trend_mean_list = []
+        asin_list = []
+        for keyword in list(keywords_count.keys()):
+            # filter bsr_last which is to high -> equal to None or 404
+            bsr_last_list = keywords_bsr_last[keyword]
+            bsr_last_list_filtered = []
+            for bsr_last in bsr_last_list:
+                if bsr_last < 999999999:
+                    bsr_last_list_filtered.append(bsr_last)
+
+            if len(bsr_last_list_filtered) > 0:
+                bsr_last_mean = int(sum(bsr_last_list_filtered)/len(bsr_last_list_filtered))
+                # fill variance list
+                bsr_last_variance_list.append(int(np.var(bsr_last_list_filtered)))
+            else:
+                # ignore this keyword if no bsr exists
+                continue
+
+            bsr_last_mean_list.append(bsr_last_mean)
+            keyword_list.append(keyword)
+            keyword_count = keywords_count[keyword]
+            count_list.append(keyword_count) #999999999
+            asin_list.append(",".join(keywords_asin[keyword]))
+            trend_mean_list.append(int(sum(keywords_trend[keyword])/keyword_count))
+
+        return pd.DataFrame({"keyword":keyword_list,"count": count_list,"bsr_mean": bsr_last_mean_list, "bsr_variance": bsr_last_variance_list, "trend_mean": trend_mean_list, "asin": asin_list})
+    
+    def filter_keywords(self, keywords, keywords_to_remove, single_words_to_filter=["t","du"]):
+        keywords_filtered = []
+        for keyword_in_text in keywords:
+            filter_keyword = False
+            for keyword_to_remove in keywords_to_remove:
+                if keyword_to_remove.lower() in keyword_in_text.lower() or keyword_in_text.lower() in single_words_to_filter:
+                    filter_keyword = True
+                    break
+            if not filter_keyword:
+                keywords_filtered.append(keyword_in_text)
+        return keywords_filtered
+
+    def keyword_analysis(self, marketplace="de"):
         df = pd.read_csv("~/shirts.csv",converters={"keywords": lambda x: x.strip("[]").split(", ")})
+        '''
+        for i, df_row in df.iterrows():
+            for keyword in df_row["keywords"]:
+                keyword = keyword.replace("'","").replace('"','')
+                if keyword in keywords_count:
+                    keywords_count[keyword] = keywords_count[keyword] + 1
+                else:
+                    keywords_count[keyword] = 1
+        '''
+
+        keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
+        "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
+        "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift"]
+        keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift"]
+        keywords_to_remove_dict = {"de": keywords_to_remove_de, "com": keywords_to_remove_en}
+        keywords_to_remove = keywords_to_remove_dict[marketplace]
+
+        tr4w_de = TextRank4Keyword(language="de")
+        tr4w_en = TextRank4Keyword(language="en")
+        keywords_asin = {}
+        keywords_count = {}
+        keywords_bsr_last = {}
+        keywords_trend = {}
+        time_detect_lang = 0
+        for i, df_row in df.iterrows():
+            asin = df_row["asin"]
+            bsr_last = df_row["bsr_last"]
+            trend_nr = df_row["trend_nr"]
+            title = df_row["title"]
+            if self.count_slashes(df_row["product_features"]) > 5:
+                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split(", \'")]
+            else:
+                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split("',")]
+
+            count_feature_bullets = len(product_features)
+            if count_feature_bullets >= 5:
+                product_features = product_features[0:2]
+            elif count_feature_bullets == 4:
+                print("asin {} index {} has 4 feature bullets".format(df_row["asin"], i))
+                product_features = product_features[0:1]
+            else:
+                print("asin {} index {} has less than 4 feature bullets".format(df_row["asin"], i))
+                product_features = []
+            text = " ".join([title + "."] + product_features)
+            try:
+                time_start = time.time()
+                language = detect(text)
+                time_detect_lang = time_detect_lang + (time.time() - time_start)
+            except:
+                continue
+            if language == "en":
+                keywords = tr4w_en.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+            else:
+                keywords = tr4w_de.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+            
+            # filter keywords
+            keywords_filtered = self.filter_keywords(keywords, keywords_to_remove)
+
+            for keyword in keywords_filtered:
+                keyword = keyword.replace("'","").replace('"','')
+                if keyword in keywords_count:
+                    try:
+                        keywords_count[keyword] = keywords_count[keyword] + 1
+                        keywords_asin[keyword].append(asin)
+                        keywords_bsr_last[keyword].append(bsr_last)
+                        keywords_trend[keyword].append(trend_nr)
+                    except Exception as e:
+                        print(str(e))
+                        continue
+                else:
+                    keywords_count[keyword] = 1
+                    keywords_asin[keyword] = [asin]
+                    keywords_bsr_last[keyword] = [bsr_last]
+                    keywords_trend[keyword] = [trend_nr]
+
+        df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend)
+        df_keywords["date"] = datetime.now().date()
+        df_keywords = df_keywords[df_keywords["count"] > 1]
+        df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="replace")
+
+
+    def drop_asins_already_detected(self, df, marketplace):
+        return df[~df['asin'].isin(pd.read_gbq("SELECT DISTINCT asin FROM mba_{}.products_language".format(marketplace), project_id="mba-pipeline")["asin"].tolist())]
+
+    def update_language_code(self, marketplace):
+        df = pd.read_gbq("SELECT DISTINCT asin, title, product_features FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
+        df = self.drop_asins_already_detected(df, marketplace)
+        df = df.drop_duplicates(["asin"])
+        df["language"] = "de"
+        for i, df_row in df.iterrows():
+            title = df_row["title"]
+            if self.count_slashes(df_row["product_features"]) > 5:
+                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split(", \'")]
+            else:
+                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split("',")]
+
+            count_feature_bullets = len(product_features)
+            if count_feature_bullets >= 5:
+                product_features = product_features[0:2]
+            elif count_feature_bullets == 4:
+                print("asin {} index {} has 4 feature bullets".format(df_row["asin"], i))
+                product_features = product_features[0:1]
+            else:
+                print("asin {} index {} has less than 4 feature bullets".format(df_row["asin"], i))
+                product_features = []
+            text = " ".join([title + "."] + product_features)
+            try:
+                language = detect(text)
+            except:
+                continue
+            if language == "en":
+                df.loc[i, "language"] = language
+        
+        df[["asin", "language"]].to_gbq("mba_{}.products_language".format(marketplace), project_id="mba-pipeline", if_exists="append")
+
+
