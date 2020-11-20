@@ -980,7 +980,7 @@ class DataHandler():
         "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
         , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
         "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
-        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf"]
+        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me"]
         df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
         df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
 

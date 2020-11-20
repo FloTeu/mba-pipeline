@@ -3,7 +3,7 @@ from firestore_handler import Firestore
 import requests
 import argparse
 import time
-
+import datetime
 
 def get_args(argv=None):
     parser = argparse.ArgumentParser()
@@ -76,11 +76,14 @@ def main(args):
     send_msg("869595848", "Cron Job start for marketplace " + marketplace,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
     try:
+        today_day = datetime.datetime.now().day
         DataHandlerModel = DataHandler()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
-        #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=["2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"]) #"2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"
+        # niches are updated once a week
+        if today_day in [1,7,15,23]:
+            DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"
         #DataHandlerModel.update_trademark(marketplace)
 
     except Exception as e:
