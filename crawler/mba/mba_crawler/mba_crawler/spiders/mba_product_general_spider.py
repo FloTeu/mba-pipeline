@@ -422,7 +422,7 @@ class MBASpider(scrapy.Spider):
             try:
                 price_str, price = self.get_price(response)
             except Exception as e:
-                self.save_content(response, asin)
+                #self.save_content(response, asin)
                 #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 price_str, price = "", 0.0
             try:
