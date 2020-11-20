@@ -80,7 +80,7 @@ def main(args):
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
-        #DataHandlerModel.update_niches(marketplace)
+        #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=["2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"]) #"2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"
         #DataHandlerModel.update_trademark(marketplace)
 
     except Exception as e:

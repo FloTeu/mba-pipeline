@@ -89,12 +89,14 @@ class DataHandler():
             assert False, "limit is not correctly set"
         until_time = ""
         if until_date != None:
-            until_time = "and timestamp < '%s'" % until_date
+            until_time = "and timestamp <= '%s'" % until_date
 
         SQL_STATEMENT = """
-        SELECT asin, price, bsr, price_str, bsr_str, timestamp FROM `mba-pipeline.mba_{0}.products_details_daily`
-        where asin in {1} {3}
-        order by asin, timestamp desc
+        SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.timestamp
+        FROM `mba-pipeline.mba_{0}.products_details_daily` t0
+        LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{0}.products`) t1 on t1.asin = t0.asin
+        where t0.asin in {1} {3}
+        order by t0.asin, t0.timestamp desc
         {2}
         """.format(marketplace, SQL_WHERE_IN, SQL_LIMIT, until_time)
         return SQL_STATEMENT
@@ -373,10 +375,18 @@ class DataHandler():
         except:
             occ_4w = first_occ_ue_zero
 
-        if with_asin:
-            return last_occ["bsr"], last_occ_price["price"], first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], asin
+        if last_occ_price["price"] == 0:
+            try:
+                price_last = df_occ.iloc[0]["price_overview"]
+            except:
+                price_last = last_occ_price["price"]
         else:
-            return last_occ["bsr"], last_occ_price["price"], first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
+            price_last = last_occ_price["price"]
+
+        if with_asin:
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], asin
+        else:
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
@@ -869,25 +879,33 @@ class DataHandler():
         '''.format(marketplace)
         return SQL_STATEMENT
 
-    def update_niches(self, marketplace, chunk_size=1000):
+    def update_niches(self, marketplace, chunk_size=1000, dates=[]):
         print("Load shirt data from bigquery for niche update")
-        start_time = time.time()
+        start_time_first = time.time()
         project_id = 'mba-pipeline'
         # read data from bigquery
-        df_keyword_data = pd.read_gbq(self.get_sql_keyword_data(marketplace), project_id="mba-pipeline").drop_duplicates(["asin"])
-        #df_keyword_data = pd.read_csv("~/keyword_data.csv")
+        #df_keyword_data = pd.read_gbq(self.get_sql_keyword_data(marketplace), project_id="mba-pipeline").drop_duplicates(["asin"])
+        df_keyword_data = pd.read_csv("~/keyword_data.csv")
 
         print("Chunk size: "+ str(chunk_size))
         # create dataframe with asins and timestamp as index. Will be used for chunking data to prevent reading all daily bsr data from bigquery
         df_shirts_asin = df_keyword_data[["asin", "timestamp"]].copy().set_index('timestamp')
 
         # older dates: "2020-06-15"
-        dates = ["2020-10-01", "2020-11-01"]
+        if len(dates) == 0:
+            dates = [str(datetime.now().date())]
+
         # dev case
         #df_keywords_data_with_more_info = pd.read_csv("~/shirts_20200615.csv")
         #self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, dates[0])
 
         for date in dates:
+            print("Date %s" % date)
+            # get string of next day of day
+            date_object = datetime.strptime(date, "%Y-%m-%d")
+            date_object = date_object + timedelta(days=1)
+            next_day = datetime.strftime(date_object, "%Y-%m-%d")
+
             df_shirts_asin_chunks = [df_shirts_asin.loc[date:][i:i+chunk_size] for i in range(0,df_shirts_asin.loc[date:].shape[0],chunk_size)]
             for i, df_shirts_asin_chunk in enumerate(df_shirts_asin_chunks):
                 start_time = time.time()
@@ -895,10 +913,10 @@ class DataHandler():
                 asin_list = df_shirts_asin_chunk["asin"].tolist()
                 print("Start to get chunk from bigquery")
                 try:
-                    self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, until_date=date), project_id="mba-pipeline", verbose=True).drop_duplicates()
+                    self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, until_date=next_day), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 except Exception as e:
                     print(str(e))
-                    raise ValueError
+                    raise e
                 print("Got bigquery chunk")
                 self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 
@@ -916,6 +934,7 @@ class DataHandler():
             # create trend column
             df_keywords_data_with_more_info = df_keywords_data_with_more_info.merge(self.make_trend_column(df_keywords_data_with_more_info)[["asin","trend_nr"]], on="asin", how='left')
             df_keywords_data_with_more_info = df_keywords_data_with_more_info.reset_index(drop=True)
+            print("elapsed time for all chunks: %.2f sec" %((time.time() - start_time_first)))
             # filter keywords to niches and append it to bigquery
             self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
 
