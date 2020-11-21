@@ -83,6 +83,7 @@ def main(args):
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         # niches are updated once a week
         if today_day in [1,7,15,23]:
+            send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2020-10-07", "2020-10-15", "2020-10-23", "2020-11-07", "2020-11-15"
         #DataHandlerModel.update_trademark(marketplace)
 

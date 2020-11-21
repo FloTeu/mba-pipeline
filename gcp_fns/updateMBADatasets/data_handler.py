@@ -481,7 +481,7 @@ class DataHandler():
                 GROUP BY asin
                 )  on t0.asin = t2.asin 
                 
-            WHERE t0.bsr_mean != 0 and t0.price_last != 404 and t0.upload_date IS NOT NULL
+            WHERE t0.upload_date IS NOT NULL --old where t0.bsr_mean != 0 and t0.price_last != 404
              {1}
             ) t_tmp
         ) t_fin {3}
@@ -554,6 +554,49 @@ class DataHandler():
         for list_keys_i in list_keys:
             dclient.delete_multi(list_keys_i)
 
+    def cut_product_feature_list(self, product_features_list):
+        # count number of bullets
+        count_feature_bullets = len(product_features_list)
+        # if 5 bullets exists choose only top two (user generated)
+        if count_feature_bullets >= 5:
+            product_features_list = product_features_list[0:2]
+        # if 4 bullets exists choose only top one
+        elif count_feature_bullets == 4:
+            product_features_list = product_features_list[0:1]
+        # if less than 4 choose no bullet
+        else:
+            product_features_list = []
+        return product_features_list
+
+    def create_keywords(self, df_row):
+        asin = df_row["asin"].lower()
+        brand_list = df_row["brand"].lower().split(" ")
+        title_list = df_row["title"].lower().split(" ")
+        # get only first two feature bullets (listings)
+        product_features_list = self.list_str_to_list(df_row["product_features"])
+        product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+
+        product_features_list = self.cut_product_feature_list(product_features_list)
+        product_features_keywords_list = []
+        for product_features in product_features_list:
+            words = re.findall(r'\w+', product_features) 
+            product_features_keywords_list.extend([v.lower() for v in words])
+
+
+        keywords = [asin] + brand_list + title_list + product_features_keywords_list
+        keywords_2word = []
+        for i in range(len(keywords)):
+            keywords_2word.append(" ".join(keywords[i:i+2]))
+        keywords_3word = []
+        for i in range(len(keywords)):
+            keywords_3word.append(" ".join(keywords[i:i+3]))
+        keywords_4word = []
+        for i in range(len(keywords)):
+            keywords_4word.append(" ".join(keywords[i:i+4]))
+
+        keywords_final = list(dict.fromkeys(keywords + keywords_2word[0:-1] + keywords_3word[0:-2] + keywords_4word[0:-3]))
+        return keywords_final
+
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
@@ -562,31 +605,9 @@ class DataHandler():
 
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
 
-        def create_keywords(df_row):
-            asin = df_row["asin"].lower()
-            brand_list = df_row["brand"].lower().split(" ")
-            title_list = df_row["title"].lower().split(" ")
-            # get only first two feature bullets (listings)
-            product_features_list = [feature.strip().replace("'","") for feature in df_row["product_features"].strip("[]").split("',")][0:2]
-            product_features_keywords_list = []
-            for product_features in product_features_list:
-                words = re.findall(r'\w+', product_features) 
-                product_features_keywords_list.extend([v.lower() for v in words])
-
-
-            keywords = [asin] + brand_list + title_list + product_features_keywords_list
-            keywords_2word = []
-            for i in range(len(keywords)):
-                keywords_2word.append(" ".join(keywords[i:i+2]))
-            keywords_3word = []
-            for i in range(len(keywords)):
-                keywords_3word.append(" ".join(keywords[i:i+3]))
-
-            return keywords + keywords_2word[0:-1] + keywords_3word[0:-2]
-
-        df["keywords"] = df.apply(lambda x: create_keywords(x), axis=1)
+        df["keywords"] = df.apply(lambda x: self.create_keywords(x), axis=1)
         firestore = Firestore(collection + dev_str)
-        firestore.update_by_df_batch(df, "asin")
+        firestore.update_by_df_batch(df, "asin", batch_size=250)
 
 
     def count_slashes(self, string):
@@ -804,20 +825,10 @@ class DataHandler():
                 continue
 
             product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
-
+            
             # create text with keyword
-            count_feature_bullets = len(product_features)
-            # if 5 bullets exists choose only top two (user generated)
-            if count_feature_bullets >= 5:
-                product_features = product_features[0:2]
-            # if 4 bullets exists choose only top one
-            elif count_feature_bullets == 4:
-                print("asin {} index {} has 4 feature bullets".format(df_row["asin"], i))
-                product_features = product_features[0:1]
-            # if less than 4 choose no bullet
-            else:
-                print("asin {} index {} has less than 4 feature bullets".format(df_row["asin"], i))
-                product_features = []
+            product_features = self.cut_product_feature_list(product_features)
+
             try:
                 text = " ".join([title + "."] + [brand + "."] + product_features + [description])
             except Exception as e:
