@@ -895,8 +895,8 @@ class DataHandler():
         start_time_first = time.time()
         project_id = 'mba-pipeline'
         # read data from bigquery
-        #df_keyword_data = pd.read_gbq(self.get_sql_keyword_data(marketplace), project_id="mba-pipeline").drop_duplicates(["asin"])
-        df_keyword_data = pd.read_csv("~/keyword_data.csv")
+        df_keyword_data = pd.read_gbq(self.get_sql_keyword_data(marketplace), project_id="mba-pipeline").drop_duplicates(["asin"])
+        #df_keyword_data = pd.read_csv("~/keyword_data.csv")
 
         print("Chunk size: "+ str(chunk_size))
         # create dataframe with asins and timestamp as index. Will be used for chunking data to prevent reading all daily bsr data from bigquery
