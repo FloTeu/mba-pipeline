@@ -20,6 +20,7 @@ import logging
 from firestore_handler import Firestore
 from text_rank import TextRank4Keyword
 from langdetect import detect
+import difflib
 
 class DataHandler():
     def __init__(self):
@@ -654,11 +655,14 @@ class DataHandler():
         count_without_bsr_list = []
         count_with_404_list = []
         bsr_mean_list = []
+        bsr_best_list = []
         bsr_change_mean_list = []
         bsr_change_variance_list = []
         bsr_variance_list = []
         price_mean_list = []
         price_variance_list = []
+        price_lowest_list = []
+        price_heighest_list = []
         trend_mean_list = []
         trend_variance_list = []
         asin_list = []
@@ -692,6 +696,7 @@ class DataHandler():
 
             if len(bsr_list_filtered) > 0:
                 bsr_last_mean, bsr_last_variance = self.get_mean_and_variance(bsr_list_filtered)
+                bsr_best = int(min(bsr_list_filtered))
             else:
                 # ignore this keyword if no bsr exists
                 continue
@@ -710,11 +715,16 @@ class DataHandler():
             # fill bsr lists
             bsr_mean_list.append(bsr_last_mean)
             bsr_variance_list.append(bsr_last_variance)
+            bsr_best_list.append(bsr_best)
             
             # fill price lists
             price_mean, price_variance = self.get_mean_and_variance(price_list_filtered, return_integer=False)
+            price_lowest = min(price_list_filtered)
+            price_highest = max(price_list_filtered)
             price_mean_list.append(price_mean)
             price_variance_list.append(price_variance)
+            price_lowest_list.append(price_lowest)
+            price_heighest_list.append(price_highest)
 
             # fill general keyword lists
             keyword_list.append(keyword)
@@ -735,8 +745,8 @@ class DataHandler():
         
         # return final niche dataframe
         return pd.DataFrame({"keyword":keyword_list, "count": count_list, "count_with_bsr": count_with_bsr_list, "count_without_bsr": count_without_bsr_list, "count_404": count_with_404_list,
-         "bsr_mean": bsr_mean_list, "bsr_variance": bsr_variance_list, "trend_mean": trend_mean_list, "trend_variance": trend_variance_list, "bsr_change_mean": bsr_change_mean_list,
-         "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_variance": price_variance_list, "asin": asin_list})
+         "bsr_mean": bsr_mean_list,"bsr_best": bsr_best_list, "bsr_variance": bsr_variance_list, "trend_mean": trend_mean_list, "trend_variance": trend_variance_list, "bsr_change_mean": bsr_change_mean_list,
+         "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_lowest": price_lowest_list, "price_heighest": price_heighest_list,"price_variance": price_variance_list, "asin": asin_list})
     
     def filter_keywords(self, keywords, keywords_to_remove, single_words_to_filter=["t","du"]):
         keywords_filtered = []
@@ -752,6 +762,54 @@ class DataHandler():
             if not filter_keyword:
                 keywords_filtered.append(keyword_in_text)
         return keywords_filtered
+
+    def chunks(self, lst, n):
+        """Yield successive n-sized chunks from lst."""
+        for i in range(0, len(lst), n):
+            yield lst[i:i + n]
+    
+
+    def get_similar_keywords_to_drop(self, keywords_count, chunk_size=2000):
+        '''This Function returns a list of keywords which are similar to keywords with higher count/appereance and therefore should be dropped
+        '''
+        similar_keywords_to_drop = []
+        keywords = list(keywords_count.keys())
+        keywords_sorted = sorted(keywords, key=str.lower)
+
+        keyword_chunks = self.chunks(keywords_sorted, chunk_size)
+        count_chunks = 0
+        start_time_total = time.time()
+        for keyword_chunk in keyword_chunks:
+            count_chunks += 1
+            print("Chunk {} with first keyword: {}".format(count_chunks, keyword_chunk[0]))
+            start_time = time.time()
+            for keyword in keyword_chunk:
+                # get all similar keywords
+                similar_keywords = difflib.get_close_matches(keyword, keyword_chunk, n=10, cutoff=0.9)
+                if len(similar_keywords) > 0:
+                    keyword_with_highest_count = similar_keywords[0]
+                    highest_count = keywords_count[keyword_with_highest_count]
+                    for similar_keyword in similar_keywords:
+                        #score = difflib.SequenceMatcher(None, keyword, similar_keyword).ratio()
+                        # get count of similar keyword
+                        keyword_count = keywords_count[similar_keyword]
+                        if keyword_count > highest_count:
+                            # found new keyword with highest count
+                            keyword_with_highest_count = similar_keyword
+                            # set highest count to new highest count found
+                            highest_count = keyword_count
+                    # remove keyword with highest count from drop list
+                    similar_keywords.remove(keyword_with_highest_count)
+                similar_keywords_to_drop.extend(similar_keywords)
+                # remove keywords from chunk to prevent looping not again through keyword
+                for similar_keyword in similar_keywords:
+                    keyword_chunk.remove(similar_keyword)
+            #print("elapsed time for chunk: %.2f sec" %((time.time() - start_time)))
+        print("elapsed time finding similar keywords to drop total: %.2f sec" %((time.time() - start_time_total)))
+
+        # return keywords to drop
+        return similar_keywords_to_drop
+
 
     def list_str_to_list(self, list_str):
         list_str = list_str.strip("[]")
@@ -786,6 +844,10 @@ class DataHandler():
         # extract product listings as list
         df["product_features"] = df.apply(lambda x: self.list_str_to_list(x["product_features"]), axis=1)
 
+        df_asin_keywords = pd.read_gbq("SELECT * FROM mba_" + str(marketplace) +".products_details_keywords", project_id="mba-pipeline")
+        asins_which_have_already_keywords = df_asin_keywords["asin"].tolist()
+        df = df.merge(df_asin_keywords, on='asin', how='left')
+
         # keyword to filter (To often used and are not related to niche)
         keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -809,6 +871,7 @@ class DataHandler():
             if i % 100 == 0:
                 print("Shirt {} of {}".format(i, len(df)))
             try:
+                keywords = df_row["keywords"]
                 asin = df_row["asin"]
                 bsr_last = df_row["bsr_last"]
                 bsr_change = df_row["bsr_change"]
@@ -823,35 +886,45 @@ class DataHandler():
             except Exception as e:
                 print(str(e))
                 continue
-
-            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
             
-            # create text with keyword
-            product_features = self.cut_product_feature_list(product_features)
+            # if no keyword was extracted before find ones
+            if keywords == None:
+                product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
+                
+                # create text with keyword
+                product_features = self.cut_product_feature_list(product_features)
 
-            try:
-                text = " ".join([title + "."] + [brand + "."] + product_features + [description])
-            except Exception as e:
-                print(str(e))
-                continue
-
-            # language of design
-            if language == None or language == "":
                 try:
-                    time_start = time.time()
-                    language = detect(text)
-                    time_detect_lang = time_detect_lang + (time.time() - time_start)
-                except:
+                    text = " ".join([title + "."] + [brand + "."] + product_features + [description])
+                except Exception as e:
+                    print(str(e))
                     continue
 
-            # get all keywords
-            if language == "en":
-                keywords = tr4w_en.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+                # language of design
+                if language == None or language == "":
+                    try:
+                        time_start = time.time()
+                        language = detect(text)
+                        time_detect_lang = time_detect_lang + (time.time() - time_start)
+                    except:
+                        continue
+
+                # get all keywords
+                if language == "en":
+                    keywords = tr4w_en.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+                else:
+                    keywords = tr4w_de.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+                
+                # filter keywords
+                keywords_filtered = self.filter_keywords(keywords, keywords_to_remove)
+
+                # add Data to dataframe 
+                df.loc[i,"keywords"] = ";".join(keywords_filtered)
             else:
-                keywords = tr4w_de.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+                keywords_filtered = keywords.split(";")
             
-            # filter keywords
-            keywords_filtered = self.filter_keywords(keywords, keywords_to_remove)
+            # drop duplicates (Happens if ; is within keyword and therfore gets splitted twice)
+            keywords_filtered = list(dict.fromkeys(keywords_filtered))
 
             for keyword in keywords_filtered:
                 #if uncommented duplicates of asins appear
@@ -874,6 +947,27 @@ class DataHandler():
                     keywords_trend[keyword] = [trend_nr]
                     keywords_price_last[keyword] = [price_last]
                     keywords_bsr_change[keyword] = [bsr_change]
+        
+        # upload asin + keyword in big query table
+        df_asin_keywords = df[["asin","keywords"]]
+        # drop asins where keywords are already known
+        df_asin_keywords = df_asin_keywords[~df_asin_keywords["asin"].isin(asins_which_have_already_keywords)]
+        try:
+            df_asin_keywords.to_gbq("mba_" + str(marketplace) +".products_details_keywords", project_id="mba-pipeline", if_exists="append")
+        except Exception as e:
+            print(str(e))
+            pass
+
+        # remove similar keywords
+        keywords_count_filtered = {k: v for k, v in keywords_count.items() if v > 1 }
+        keywords_to_drop = self.get_similar_keywords_to_drop(keywords_count_filtered)
+        print("Found {} keywords to drop".format(len(keywords_to_drop)))
+        for keyword in keywords_to_drop:
+            keywords_asin.pop(keyword, None)
+            keywords_count.pop(keyword, None)
+            keywords_bsr_last.pop(keyword, None)
+            keywords_trend.pop(keyword, None)
+            keywords_bsr_change.pop(keyword, None)
 
         df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
         df_keywords["date"] = date
@@ -909,6 +1003,8 @@ class DataHandler():
         # dev case
         #df_keywords_data_with_more_info = pd.read_csv("~/shirts_20200615.csv")
         #self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, dates[0])
+        #asin_list = 'B07WSXL51T,B083R3X6N2,B08FC3C2G9,B082G3QJGY,B08MZ4RH8H,B08MZ6DD3R,B08MZ5CYL5,B08MZ49KQR,B08N23KNKQ,B089NXVPN9,B07VJJHGHG,B07KBK8QM9,B081X4CB8L,B08MXVZ1DD,B08JH5ZDQL,B08N7GXTS8,B08N7G36GS,B07WRSDP2S,B08MZ66XLQ,B08N7J8JGT,B08N7JSYM6,B08GK9SV74,B08MWC7J8P,B08MYBDRC3,B08MYQ4MJF,B082BVLXJM,B08KHYYVHR,B07YD3HT71,B089R2T5ZC,B07WY16M1G,B08L1XSGKP,B07K4FBXRQ,B07WDJLVQV,B07XTYZZS5,B07YBJS486,B08125CT2B,B084VQ3Z9S,B08GRZ1689,B082XXD2BN,B0841M5KZX,B0842J49CN,B0842KC6MQ,B0841LS763,B0842MKLQ5,B084SCDY21,B085H2LWPM,B08KSYLJ7D,B08MWF3T1G,B08MVPGCF4,B08BX8GMB6,B08CTJW716,B08FFH11T5,B08FTZSH46,B08JHBMH95,B08JH6TZVN,B08MVC47XK,B08LCW4WT9,B08MXG9F8P,B08MWDMTLM,B08H6FMDL7,B08MMBJMLS,B08MRRGX4J,B08MMJX9RN,B08MNP7T53,B08MMC4KMQ,B08MRFW5M8,B08MMGGZD3,B08MQYH262,B08MS16MZ8,B08MSM8HQB,B08MRXQD93,B08MTW8V9K,B08MX65SLS,B08MVWPL8M,B08MVMDX77,B08MVV33HW,B07JHSZCBH,B08179G4QB,B07Y5C3LGX,B07S1Q9BS4,B084KB95T4,B07ZBSDVX4,B08MRGMCNC,B08F5C82Q3,B08DY7VNGY,B07V43JJY7,B07TTKMLBD,B07S9HG1B9,B08J8XZ44B,B081ZNWRY3,B08FG5XR73,B089TVJLFK,B07PHVFJG4,B083YNP5WN,B08GDFRBFQ,B07TSG1N1J,B0841J2984,B082B7Q1SY,B081FKS914,B081FK6ZVP,B081XLM33D,B089S322YZ,B08CH3H6L7,B089WYN4HH,B089Z3S9PK,B089Z14XGY,B08H9LJQQ8,B08GG57ZFG,B08GZZ56J1,B08GB1LF6X,B07WNWLH83,B089SRSPCG,B089QTWL1Z,B0818MWK44,B0825C9PK4,B08MBNZMQP,B08MBP35DP,B084HG7XCT,B089PS9P36,B084ZQP54S,B089THLJT4,B07SMB73MZ,B07RWF4KWN,B07TVL11M6,B0853VP3GC,B081VTZLLM,B08J5333HZ,B08J14S1T3,B083HY7QGG,B089TZTV19,B0824H73HF,B08CP7RWN4,B07NW6B9P2,B07YXQVLY3,B07MRGTNNF,B0856K4V8N,B08JHGFMMJ,B07WDS48K5,B07WW1RRYQ,B08M49N4GP,B083HXS5XC,B07X1T75X8,B07W6JHXV8,B07XB5X24Q,B07XB31D2S,B07WVDKG2R,B07WXMM3YS,B07Z5L9S3D,B07YD3CWKM,B07YTMJWQM,B081YGBCNM,B07ZHW7H3J,B081FLF5XG,B081FKR9NB,B081FLTS6V,B082GTSPTB,B0842MZ2WQ,B0842KHTH8,B0842SSTZT,B085CSBYXP,B08BBGZRF2,B0866CYCSP,B08DGPDH2H,B08CD3VBBH,B089Z2MMDR,B089WML6TW,B08HJZ3Z1L,B08CSMKB4H,B08CL8H8YC,B08CSNPP9P,B08D5824XD,B08F335KV1,B08F2TW251,B08JQPQQ1B,B08LL1V78Y,B07YBJDHKX,B07NVTQZFB,B07YV59R6Q,B07ZNCTXWQ,B084F8T3VF,B089TKRMV1,B07TL6H9GV,B07NW6LQLF,B07S8R3JV3,B08CP13MH5,B081QY9TX9,B0847DN7K6,B089SLLN7X,B07X4S83KS,B07XXJ292Q,B07WSXL1HG,B07WRSD675,B0841LZ8GF,B07JG1BPRM,B083YNP5WR,B07SDHMKVB,B0814BJ2R6,B07PQ8WV6T,B07WYNNTCT,B07K7T7BKQ,B083SCPWX2,B07L1GBN8J,B08HWM3HHY,B089RDWVCP,B0829SBFZ7,B07YD3QZG5,B08DLQYRC6,B081V1WG1W,B07VY4PPFV,B08B2G7CKW,B089VGG142,B07PDN2V4J,B08DZ1TCQY,B08D8DTWQS,B07X4SDQ5J,B07KCYHP3R,B08J4Y952T,B07FYHLRKG,B08CSVC65S,B081DP2V2F,B07ZS3KBVY,B07ZZR6C5H,B07SP3TRX5,B07SFRV9DF,B07WNXS13Y,B07Q8XRWBQ,B08B2H4HT9,B08D22SFPJ,B08HXKWT3F,B089SLGZ1X,B07Z5BBY9F,B07TGWWFM8,B089THSFZR,B0841XK1Q1,B08CP58R64,B0823JP2G8,B07YD5BTMT,B07PD1BQQK,B07WMY66JD,B07GWTNFHX,B07M936YZD,B08HXQFPC2,B07W61YM6G,B08FYDXRJL,B07XXGTK4C,B08L6PTSG9,B08JVG8F7D,B08K9YZ847,B08JZ5FQHB,B08JCYYDGT,B08JJ2XCKW,B08J8SZ1BF,B08J6F78MS,B08HLHLKK6,B08J8CLXCH,B08J8XLXDX,B08JCWQJL7,B08HWMZ8CZ,B08J15662V,B08H12MW59,B08HK2K5W1,B08GNZ3FK8,B08H1WVGMM,B08F4WZ82L,B08FFPSZB2,B08F5SB2HD,B08GG8QQ4V,B08FYFRBHR,B08FFF5SGT,B08FFPSZCX,B08FFG497T,B08FG478T8,B08FFBC9VB,B08FL83TSL,B08FW6G6ND,B08D8XCTPG,B08DK48RN9,B08DPRL6L3,B08DPBLWZV,B08FC2Y1VV,B08DQP2Y6Y,B08DPGPTZQ,B08CSQ7BNH,B08CXHNGGW,B08CT4FHCZ,B08CSKDWYF,B08D9NC49K,B08D86955Z,B08C8KTMJV,B08C9GPDFK,B08C9P3ZCX,B08C1F717V,B08C761QNH,B08C2KVQ6Q,B08C8KDP6V,B08CJ5GXQH,B08CJ7P1JZ,B08CFZG1VT,B08D1CNB3P,B08BGHTWWV,B08BX1V8CN,B08C2QQ2JR,B08B6G19TV,B08B6LKC25,B08B8RLG88,B08BJY44QP,B08BJGX289,B08BJZ6SNV,B08BLBSRL1,B08BLC14Q2,B08BKPMWK8,B08BKRM31T,B08BQRYKFN,B08BV2CRH9,B08BY2PMLX,B08BY5K9CF,B08B5WX6VN,B08B5Z2V73,B08B9BWVXH,B08B5WPYNW,B08B77TCJH,B08B5XGX1T,B089LGYBFG,B089MJG33B,B089LLN1FL,B089PS9QV4,B08B28MFCW,B089S33GLD,B08B4M6T3D,B08B4QKTQ4,B08656DFKC,B089M13HDN,B0867W91XR,B0867W1W6M,B0868H9B2X,B0869DQX6K,B086BQKYXH,B086CRYH85'.split(",")
+
 
         for date in dates:
             print("Date %s" % date)
