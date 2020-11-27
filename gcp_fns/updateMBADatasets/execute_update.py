@@ -87,6 +87,7 @@ def main(args):
         # niches are updated once a week every sunday
         if today_weekday == 6:
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+            DataHandlerModel.update_language_code(marketplace)
             DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
         #DataHandlerModel.update_trademark(marketplace)
 

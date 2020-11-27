@@ -664,6 +664,7 @@ class DataHandler():
         price_lowest_list = []
         price_heighest_list = []
         trend_mean_list = []
+        trend_best_list = []
         trend_variance_list = []
         asin_list = []
 
@@ -740,12 +741,14 @@ class DataHandler():
 
             # fill trend lists
             trend_mean, trend_variance = self.get_mean_and_variance(trend_list_filtered)
+            trend_best = int(min(trend_list_filtered))
             trend_mean_list.append(trend_mean)
+            trend_best_list.append(trend_best)
             trend_variance_list.append(trend_variance)
         
         # return final niche dataframe
         return pd.DataFrame({"keyword":keyword_list, "count": count_list, "count_with_bsr": count_with_bsr_list, "count_without_bsr": count_without_bsr_list, "count_404": count_with_404_list,
-         "bsr_mean": bsr_mean_list,"bsr_best": bsr_best_list, "bsr_variance": bsr_variance_list, "trend_mean": trend_mean_list, "trend_variance": trend_variance_list, "bsr_change_mean": bsr_change_mean_list,
+         "bsr_mean": bsr_mean_list,"bsr_best": bsr_best_list, "bsr_variance": bsr_variance_list, "trend_mean": trend_mean_list, "trend_best":trend_best_list,"trend_variance": trend_variance_list, "bsr_change_mean": bsr_change_mean_list,
          "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_lowest": price_lowest_list, "price_heighest": price_heighest_list,"price_variance": price_variance_list, "asin": asin_list})
     
     def filter_keywords(self, keywords, keywords_to_remove, single_words_to_filter=["t","du"]):
@@ -885,10 +888,20 @@ class DataHandler():
                 language = df_row["language"]
             except Exception as e:
                 print(str(e))
-                continue
+                raise e
             
             # if no keyword was extracted before find ones
-            if keywords == None:
+            do_keywords_not_exist = True
+            if type(keywords) == str and len(keywords.split(";"))>0:
+                do_keywords_not_exist = False
+            else:
+                try:
+                    do_keywords_not_exist = np.isnan(keywords) 
+                except Exception as e:
+                    print(str(e), asin)
+                    pass
+            
+            if do_keywords_not_exist:
                 product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
                 
                 # create text with keyword
@@ -1053,13 +1066,11 @@ class DataHandler():
         df = self.drop_asins_already_detected(df, marketplace)
         df = df.drop_duplicates(["asin"])
         df["language"] = "de"
+        df["product_features"] = df.apply(lambda x: self.list_str_to_list(x["product_features"]), axis=1)
+
         for i, df_row in df.iterrows():
             title = df_row["title"]
-            if self.count_slashes(df_row["product_features"]) > 5:
-                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split(", \'")]
-            else:
-                product_features = [v.strip("''") for v in df_row["product_features"].strip("[]").split("',")]
-
+            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
             count_feature_bullets = len(product_features)
             if count_feature_bullets >= 5:
                 product_features = product_features[0:2]

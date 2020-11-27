@@ -75,3 +75,5 @@ mba-page/merchwatch/merchwatch/settings.py
 
 /gcp_fns/bigquery_fns/data/*
 /gcp_fns/updateMBADatasets/data/*
+
+nohup.out
