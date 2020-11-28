@@ -21,6 +21,7 @@ from firestore_handler import Firestore
 from text_rank import TextRank4Keyword
 from langdetect import detect
 import difflib
+from pytz import timezone
 
 class DataHandler():
     def __init__(self):
@@ -749,7 +750,8 @@ class DataHandler():
         # return final niche dataframe
         return pd.DataFrame({"keyword":keyword_list, "count": count_list, "count_with_bsr": count_with_bsr_list, "count_without_bsr": count_without_bsr_list, "count_404": count_with_404_list,
          "bsr_mean": bsr_mean_list,"bsr_best": bsr_best_list, "bsr_variance": bsr_variance_list, "trend_mean": trend_mean_list, "trend_best":trend_best_list,"trend_variance": trend_variance_list, "bsr_change_mean": bsr_change_mean_list,
-         "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_lowest": price_lowest_list, "price_heighest": price_heighest_list,"price_variance": price_variance_list, "asin": asin_list})
+         "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_lowest": price_lowest_list, "price_heighest": price_heighest_list,"price_variance": price_variance_list, "asin": asin_list}
+         )#,dtype={'keyword': str,'Wind':int64})
     
     def filter_keywords(self, keywords, keywords_to_remove, single_words_to_filter=["t","du"]):
         keywords_filtered = []
@@ -1057,6 +1059,100 @@ class DataHandler():
             print("elapsed time for all chunks: %.2f sec" %((time.time() - start_time_first)))
             # filter keywords to niches and append it to bigquery
             self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
+
+
+    def update_niches_by_keyword(self, marketplace, keyword):
+        print("Load shirt data from bigquery for niche update")
+        start_time_first = time.time()
+        project_id = 'mba-pipeline'
+
+        SQL_STATEMENT = """SELECT t1.asin, t1.upload_date, DATE_DIFF(current_date(), Date(t1.upload_date), DAY) as time_since_upload, t1.timestamp FROM (SELECT * FROM `mba-pipeline.mba_{0}.niches`  where keyword = '{1}') t0
+CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT('%', t1.asin, '%')
+            order by t1.timestamp desc""".format(marketplace, keyword)
+        # read data from bigquery
+        df_keyword_data = pd.read_gbq(SQL_STATEMENT, project_id=project_id).drop_duplicates(["asin"])
+
+        SQL_STATEMENT = """SELECT date FROM `mba-pipeline.mba_{0}.niches` where keyword = '{1}'
+            order by date desc""".format(marketplace, keyword)
+        # read data from bigquery
+        dates_already_calculated = pd.read_gbq(SQL_STATEMENT, project_id=project_id).drop_duplicates(["date"])["date"].tolist()
+
+        df_shirts_asin = df_keyword_data[["asin", "timestamp"]].copy().set_index('timestamp')
+        asin_list = df_shirts_asin["asin"].tolist()
+        df_shirts_detail_daily_total = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list), project_id="mba-pipeline", verbose=True).drop_duplicates()
+        dates = [str(v.date()) for v in df_shirts_detail_daily_total.sort_values(["timestamp"])["timestamp"].tolist()]
+        # drop duplicates and dates already caclulated
+        dates = list(dict.fromkeys(dates))
+        for date_already_calculated in dates_already_calculated:
+            if date_already_calculated in dates:
+                dates.remove(date_already_calculated)
+
+        for date in dates:
+            print("Date %s" % date)
+            # get string of next day of day
+            date_object = datetime.strptime(date, "%Y-%m-%d")
+            date_object = date_object + timedelta(days=1)
+            next_day = datetime.strftime(date_object, "%Y-%m-%d")
+
+            df_shirts_asin_date = df_shirts_asin.loc[date:]
+
+            start_time = time.time()
+            self.df_shirts_detail_daily = df_shirts_detail_daily_total[df_shirts_detail_daily_total["timestamp"] <= next_day]
+            self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+
+            print("Start to get first and last bsr of shirts")
+            df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
+            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "asin"]
+
+            df_keywords_data_with_more_info = df_keyword_data.merge(df_additional_data, 
+                left_on="asin", right_on="asin")
+            print("elapsed time: %.2f sec" %((time.time() - start_time)))
+            
+            # create trend column
+            df_keywords_data_with_more_info = df_keywords_data_with_more_info.merge(self.make_trend_column(df_keywords_data_with_more_info)[["asin","trend_nr"]], on="asin", how='left')
+            df_keywords_data_with_more_info = df_keywords_data_with_more_info.reset_index(drop=True)
+            df_keywords_data_with_more_info["trend_nr"] = -99
+            # filter keywords to niches and append it to bigquery
+            #self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
+
+            keywords_asin = {}
+            keywords_count = {}
+            keywords_bsr_last = {}
+            keywords_price_last = {}
+            keywords_bsr_change = {}
+            keywords_trend = {}
+
+            for i, df_row in df_keywords_data_with_more_info.iterrows():
+                asin = df_row["asin"]
+                bsr_last = df_row["bsr_last"]
+                bsr_change = df_row["bsr_change"]
+                price_last = df_row["price_last"]
+                trend_nr = df_row["trend_nr"]
+
+                if keyword in keywords_count:
+                    try:
+                        keywords_count[keyword] = keywords_count[keyword] + 1
+                        keywords_asin[keyword].append(asin)
+                        keywords_bsr_last[keyword].append(bsr_last)
+                        keywords_trend[keyword].append(trend_nr)
+                        keywords_price_last[keyword].append(price_last)
+                        keywords_bsr_change[keyword].append(bsr_change)
+                    except Exception as e:
+                        print(str(e))
+                        continue
+                else:
+                    keywords_count[keyword] = 1
+                    keywords_asin[keyword] = [asin]
+                    keywords_bsr_last[keyword] = [bsr_last]
+                    keywords_trend[keyword] = [trend_nr]
+                    keywords_price_last[keyword] = [price_last]
+                    keywords_bsr_change[keyword] = [bsr_change]
+
+
+            df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
+            df_keywords["date"] = date
+            if not df_keywords.empty:
+                df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
 
     def drop_asins_already_detected(self, df, marketplace):
         return df[~df['asin'].isin(pd.read_gbq("SELECT DISTINCT asin FROM mba_{}.products_language".format(marketplace), project_id="mba-pipeline")["asin"].tolist())]
