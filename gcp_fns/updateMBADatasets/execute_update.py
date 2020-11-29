@@ -85,12 +85,12 @@ def main(args):
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         #DataHandlerModel.update_niches_by_keyword(marketplace, "Impostor")
+        #DataHandlerModel.crawl_niches(marketplace, "Schleich di du Oaschloch;Impostor;Tegel")
         # niches are updated once a week every sunday
         if today_weekday == 6:
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_language_code(marketplace)
             DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
-        #DataHandlerModel.update_trademark(marketplace)
 
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")

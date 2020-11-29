@@ -198,12 +198,30 @@ def get_asin_product_detail_daily_crawled(marketplace):
     
     return df_product_details
 
+def get_sql_asins_by_niches(marketplace, list_niches):
+    list_niches_str = "'" + "','".join(list_niches) + "'"
+    SQL_STATEMENT = """DECLARE last_date STRING DEFAULT (SELECT date FROM (SELECT date, count(*) as count FROM `mba-pipeline.mba_{0}.niches` group by date order by date desc) where count > 1000 LIMIT 1) ;
+
+    WITH keywords as (SELECT *
+    FROM UNNEST([{1}])
+    AS keyword
+    WITH OFFSET AS offset
+    ORDER BY offset)
+
+    SELECT asin FROM `mba-pipeline.mba_{0}.niches` t0 
+    LEFT JOIN keywords t1 on t0.keyword = t1.keyword
+    WHERE t1.keyword IS NOT NULL
+    and date = last_date
+    """.format(marketplace, list_niches_str)
+    return SQL_STATEMENT
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('daily', type=str2bool, nargs='?', const=True, help='Should the webcrawler for daily crawling be used or the normal one time detail crawler?')
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If -1, every image that is not already crawled will be crawled.')
     parser.add_argument('--proportion_priority_low_bsr_count', default=0.5, type=float, help='50% is the default proportion what means 50% should be design which were crawled least often')
+    parser.add_argument('--niches', default="", type=str, help='multiple niches. If set only this niches are crawled')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -215,16 +233,37 @@ def main(argv):
     daily = args.daily
     number_products = args.number_products
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
+    niches = args.niches
+    project_id = 'mba-pipeline'
 
     exclude_asins = ["B00N3THBE8", "B076LTLG1Q", "B001EAQB12", "B001EAQB12", "B00OLG9GOK", "B07VPQHZHZ", "B076LX1H2V",
      "B0097B9SKQ", "B001EAQBH6", "B084X5Z1RX", "B07VPQHZHZ", "B07N4CHR77", "B002LBVRJO", "B00O1QQNGE",
       "B084ZRCLBD", "B084JBK66T", "B07VRY4WL3", "B078KR341N", "B00MP1PPHK", "B000YEVF4C", "B07WL5C9G9"
       ,"B07WVM8QBX", "B076LTN3ZV", "B016QM4XAI", "B007VATVL6", "B00U6U8GXC", "B00JZQHZ6C", "B00B69A928", "B0731RSZ8V"
       , "B01N2I5UO7", "B01MU11HZ4", "B00K5R9XCY", "B07BP9MDDR", "B0845C7JWN", "B0731RB39G", "B00Q4L52EI", "B0731R9KN4",
-      "B084ZRG8T8", "B07W7F64J1", "B084WYWVDY", "B00PK2JBIA", "B07G5JXZZZ", "B07MVM8QBX"]
+      "B084ZRG8T8", "B07W7F64J1", "B084WYWVDY", "B00PK2JBIA", "B07G5JXZZZ", "B07MVM8QBX", "B08P45JK6P", "B08P49MY6P", "B07G57GSW3",
+      "B07SPXP8G4", "B00N3THB8E", "B01LZ3CICA", "B07V5P1VCP"]
+    strange_layout = ["B08P4P6NW2", "B08P9RSFPB", "B08P715HSQ", "B08P6ZZZYD", "B08NPN1BSM", "B08P6W8DF5", "B08P6Z741L", "B08NF2KRVD",
+    "B08P6YR7H1", "B08P745NZF", "B08P11VQT1", "B08P7254PL", "B08P6Y478X", "B08P4WF7BJ", "B08P4W854L", "B08P5WJN16", "B08P5BLGCG"]
+    exclude_asins = exclude_asins + strange_layout
 
     filename = "urls"
-    if daily:
+    if niches != "":
+        niches = [v.strip() for v in niches.split(";")]
+        df_asin_by_niches = pd.read_gbq(get_sql_asins_by_niches(marketplace, niches), project_id=project_id)
+        asin_list = []
+        for i, df_row in df_asin_by_niches.iterrows():
+            asins = df_row["asin"].split(",")
+            asin_list.extend(asins)
+        # drop duplicates
+        asin_list = list(dict.fromkeys(asin_list))
+        # exclude asins which are already crawled today
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins(marketplace), project_id=project_id)["asin"].to_list()
+
+        df_product_details_tocrawl = pd.DataFrame({"asin": asin_list})
+        number_products = len(df_product_details_tocrawl)
+        filename = "urls_mba_daily_" + marketplace
+    elif daily:
         # get asins which are not already crawled
         #df_product_details_tocrawl_total = get_asin_product_detail_daily_crawled(marketplace)
         #df_product_details_tocrawl = df_product_details_tocrawl_total[0:int(number_products*proportion_priority_low_bsr_count)].reset_index(drop=True)
@@ -252,6 +291,7 @@ def main(argv):
 
     df_product_details_tocrawl = df_product_details_tocrawl[~df_product_details_tocrawl['asin'].isin(exclude_asins)]
     Path("mba_crawler/url_data/").mkdir(parents=True, exist_ok=True)
+    print(str(number_products) + " number of products stored in csv")
     df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)
 
 if __name__ == '__main__':

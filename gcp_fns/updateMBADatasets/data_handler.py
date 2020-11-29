@@ -22,6 +22,7 @@ from text_rank import TextRank4Keyword
 from langdetect import detect
 import difflib
 from pytz import timezone
+import subprocess
 
 class DataHandler():
     def __init__(self):
@@ -1060,7 +1061,6 @@ class DataHandler():
             # filter keywords to niches and append it to bigquery
             self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
 
-
     def update_niches_by_keyword(self, marketplace, keyword):
         print("Load shirt data from bigquery for niche update")
         start_time_first = time.time()
@@ -1086,6 +1086,8 @@ CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT
         for date_already_calculated in dates_already_calculated:
             if date_already_calculated in dates:
                 dates.remove(date_already_calculated)
+
+        #dates = dates + ["2020-11-30"]
 
         for date in dates:
             print("Date %s" % date)
@@ -1189,15 +1191,28 @@ CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT
     def update_trademark(self, marketplace):
         df = pd.read_gbq("SELECT DISTINCT brand, count(*) as count FROM mba_{}.products_details group by brand order by count desc".format(marketplace), project_id="mba-pipeline")
         df["trademark"] = True
+        df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
+        df_listings["trademark"] = True
         trademarks = ["disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
         "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
         "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
         , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
         "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
-        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me"]
+        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me", "Shrek", "The Thread Shop", "Licensed"]
         df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
+        df_listings = df_listings[df_listings["product_features"].str.contains("|".join(trademarks),regex=True, case=False)][["brand", "trademark"]].drop_duplicates(["brand"])
+        df_trademarks = df_trademarks.append(df_listings).drop_duplicates(["brand"])
         df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
 
+    def crawl_niches(self, marketplace, list_niches_str):
+        shell_command = '''cd .. 
+        cd ..
+        cd crawler/mba/mba_crawler
+        sudo /usr/bin/python3 create_url_csv.py {0} True --number_products=0  --niches="{1}"
+        sudo scrapy crawl mba_general_de -a daiy=True
+        '''.format(marketplace, list_niches_str)
+        subprocess.call(shell_command, shell=True)
+        test = 0
 
 
 
