@@ -244,7 +244,9 @@ def main(argv):
       "B084ZRG8T8", "B07W7F64J1", "B084WYWVDY", "B00PK2JBIA", "B07G5JXZZZ", "B07MVM8QBX", "B08P45JK6P", "B08P49MY6P", "B07G57GSW3",
       "B07SPXP8G4", "B00N3THB8E", "B01LZ3CICA", "B07V5P1VCP"]
     strange_layout = ["B08P4P6NW2", "B08P9RSFPB", "B08P715HSQ", "B08P6ZZZYD", "B08NPN1BSM", "B08P6W8DF5", "B08P6Z741L", "B08NF2KRVD",
-    "B08P6YR7H1", "B08P745NZF", "B08P11VQT1", "B08P7254PL", "B08P6Y478X", "B08P4WF7BJ", "B08P4W854L", "B08P5WJN16", "B08P5BLGCG"]
+    "B08P6YR7H1", "B08P745NZF", "B08P11VQT1", "B08P7254PL", "B08P6Y478X", "B08P4WF7BJ", "B08P4W854L", "B08P5WJN16", "B08P5BLGCG", "B08PB5H8MX",
+    "B08P9TJT15", "B08P96596Z", "B08P7DN9DK","B08P6S9BFW", "B08P6L9YNY", "B08P6Z6398", "B08P9HGNV1", "B08P94XH62", "B08P9T4DPT"
+    , "B08P761ZZ7", "B08P72GHH8", "B08PBPR798", "B08PBHYMTT"]
     exclude_asins = exclude_asins + strange_layout
 
     filename = "urls"
@@ -285,11 +287,16 @@ def main(argv):
     except:
         df_product_details_tocrawl["url"] = []
 
+    # reset index
+    df_product_details_tocrawl = df_product_details_tocrawl.reset_index(drop=True)
+
+    # drop asins to exclude
+    df_product_details_tocrawl = df_product_details_tocrawl[~df_product_details_tocrawl['asin'].isin(exclude_asins)]
+
     # if number_images is equal to -1, every image should be crawled
     if number_products == -1:
         number_products = len(df_product_details_tocrawl)
 
-    df_product_details_tocrawl = df_product_details_tocrawl[~df_product_details_tocrawl['asin'].isin(exclude_asins)]
     Path("mba_crawler/url_data/").mkdir(parents=True, exist_ok=True)
     print(str(number_products) + " number of products stored in csv")
     df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)

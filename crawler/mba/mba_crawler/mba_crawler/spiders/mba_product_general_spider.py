@@ -376,7 +376,11 @@ class MBASpider(scrapy.Spider):
             raise ValueError("Could not get upload date for crawler " + self.name)
 
     def is_captcha_required(self, response):
-        return "captcha" in response.body.decode("utf-8").lower()
+        captcha = "captcha" in response.body.decode("utf-8").lower()
+        content_protection = "benningtonschools" in response.body.decode("utf-8").lower()
+        if content_protection:
+            print("Found content protection of benningtonschools.org")
+        return  content_protection or captcha
 
     def get_proxy(self, response):
         proxy = ""
