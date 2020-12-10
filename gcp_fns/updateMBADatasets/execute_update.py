@@ -84,7 +84,7 @@ def main(args):
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
-        #DataHandlerModel.update_niches_by_keyword(marketplace, "Impostor")
+        #DataHandlerModel.update_niches_by_keyword(marketplace, "Weihnachtselfen & Weihnachtsmänner")
         #DataHandlerModel.crawl_niches(marketplace, "Schleich di du Oaschloch;Impostor;Tegel")
         # niches are updated once a week every sunday
         if today_weekday == 6:

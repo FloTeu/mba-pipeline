@@ -33,13 +33,6 @@ git clone https://github.com/Flo95x/mba-pipeline.git
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
 /usr/bin/python3 execute_update.py --marketplace={0} --chunk_size={3}
-# update sql DB
-cd /home/merchwatch/merchwatch/
-./cloud_sql_proxy -instances="mba-pipeline:europe-west3:merchwatch-sql"=tcp:3306 &
-sudo python3 manage.py runserver &
-sleep 1m
-sudo wget "127.0.0.1:8000/cron/daily"
-sleep 45m
 yes Y | gcloud compute instances stop {1} --zone {2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
