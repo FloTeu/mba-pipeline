@@ -77,7 +77,7 @@ class DataHandler():
         left join `mba-pipeline.mba_{0}.products_mba_images` t3 on t0.asin = t3.asin
         
         ) t_fin
-        order by t_fin.bsr_mean
+        order by t_fin.bsr_mean desc
         {1}
         """.format(marketplace, SQL_LIMIT)
         return SQL_STATEMENT
@@ -95,7 +95,7 @@ class DataHandler():
             until_time = "and timestamp <= '%s'" % until_date
 
         SQL_STATEMENT = """
-        SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.timestamp
+        SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.array_bsr_categorie, t0.timestamp
         FROM `mba-pipeline.mba_{0}.products_details_daily` t0
         LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{0}.products`) t1 on t1.asin = t0.asin
         where t0.asin in {1} {3}
@@ -104,16 +104,44 @@ class DataHandler():
         """.format(marketplace, SQL_WHERE_IN, SQL_LIMIT, until_time)
         return SQL_STATEMENT
 
-    def make_trend_column(self, df_shirts):
-        df_shirts = df_shirts.reset_index(drop=True)
+    def power(self, my_list):
+        '''Exponential growth
+        '''
+        return [ x**3 for x in my_list ]
+
+    def change_outlier_with_max(self, list_with_outliers, q=90):
+        value = np.percentile(list_with_outliers, q)
+        print(value)
+        for i in range(len(list_with_outliers)):
+            if list_with_outliers[i] > value:
+                list_with_outliers[i] = value
+        #return list_with_outliers
+
+    def make_trend_column(self, df_shirts, months_privileged=6, marketplace="de"):
+        df_shirts = df_shirts.sort_values("time_since_upload").reset_index(drop=True)
+        # get list of integers with time since upload days
         x = df_shirts[["time_since_upload"]].values 
+        # fill na with max value
+        x = np.nan_to_num(x, np.nanmax(x))
+        # get index of last value within privileged timezone
+        index_privileged = len([v for v in x if v < 30*months_privileged])
+        # transform outliers to max value before outliers
+        x_without_outliers = x.copy()
+        self.change_outlier_with_max(x_without_outliers)
         min_max_scaler = preprocessing.MinMaxScaler()
-        x_scaled = min_max_scaler.fit_transform(x)
-        df = pd.DataFrame(x_scaled)
-        df_shirts["time_since_upload_norm"] = df.iloc[:,0] + 0.001
+        # scale list to values between 0 and 1
+        x_scaled = min_max_scaler.fit_transform(x_without_outliers)
+        # add add_value to scaled list to have values < 1 reduce trend and values < 1 increase it
+        add_value = 1 - x_scaled[index_privileged]
+        x_scaled = x_scaled + add_value
+        # power operation for exponential change 0 < x < (1+add_value)**3
+        x_power = self.power(x_scaled)
+        df = pd.DataFrame(x_power)
+        df_shirts["time_since_upload_power"] = df.iloc[:,0]
+        df_shirts.loc[(df_shirts['bsr_category'] != self.get_category_name(marketplace)), "bsr_last"] = 999999999
         df_shirts.loc[(df_shirts['bsr_last'] == 0.0), "bsr_last"] = 999999999
         df_shirts.loc[(df_shirts['bsr_last'] == 404.0), "bsr_last"] = 999999999
-        df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_norm"] * 2
+        df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_power"]
         df_shirts = df_shirts.sort_values("trend", ignore_index=True).reset_index(drop=True)
         df_shirts["trend_nr"] = df_shirts.index + 1
         return df_shirts
@@ -226,8 +254,8 @@ class DataHandler():
  
             print("Start to get first and last bsr of shirts")
             start_time = time.time()
-            df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"])), axis=1)
-            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last"]
+            df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], marketplace=marketplace)), axis=1)
+            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category"]
             df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
 
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
@@ -261,11 +289,10 @@ class DataHandler():
         try:
 
             df_shirts_with_more_info['trend_nr_old'] = df_shirts_with_more_info['trend_nr_old'].fillna(value=0).astype(int)
-            
             df_shirts_with_more_info["trend_change"] = df_shirts_with_more_info.apply(lambda x: 0 if int(x["trend_nr_old"]) == 0 else int(x["trend_nr_old"] - x["trend_nr"]),axis=1)
         except Exception as e:
             df_shirts_with_more_info["trend_change"] = 0
-        # try to create has_bsr_last_changed column
+        # try to create should_be_updated column
         try:
             df_shirts_with_more_info['bsr_last_old'] = df_shirts_with_more_info['bsr_last_old'].fillna(value=0).astype(int)
             df_shirts_with_more_info['bsr_last_change'] = (df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]).astype(int)
@@ -275,9 +302,9 @@ class DataHandler():
             df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000)]
             # change bsr_last_change to 1 for those how should be updated independent of bsr_last
             df_shirts_with_more_info.loc[df_should_update.index, "bsr_last_change"] = 1
-            df_shirts_with_more_info['has_bsr_last_changed'] = df_shirts_with_more_info['bsr_last_change'] != 0
+            df_shirts_with_more_info['should_be_updated'] = df_shirts_with_more_info['bsr_last_change'] != 0
         except Exception as e:
-            df_shirts_with_more_info["has_bsr_last_changed"] = True
+            df_shirts_with_more_info["should_be_updated"] = True
 
         # save dataframe with shirts in local storage
         print("Length of dataframe", len(df_shirts_with_more_info),dev_str)
@@ -307,12 +334,28 @@ class DataHandler():
         except ZeroDivisionError:
             return 0
 
-    def get_first_and_last_data(self, asin, with_asin=False):
+    def get_category_name(self, marketplace):
+        if marketplace == "de":
+            return "Bekleidung"
+        else:
+            return "Clothing, Shoes & Jewelry"
+
+    def get_bsr_category(self, df_row, marketplace):
+        bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[0].strip("'")
+        if bsr_category == "404" or bsr_category == "":
+            bsr_category = self.get_category_name(marketplace)
+        return bsr_category
+
+    def get_first_and_last_data(self, asin, with_asin=False, marketplace="de"):
         # return last_bsr, last_price, first_bsr, first_price
         occurences = (self.df_shirts_detail_daily.asin.values == asin)
         df_occ = self.df_shirts_detail_daily[occurences]
         if len(df_occ) == 0:
-            return 0,0,0,0,0,0,0,0
+            category_name = self.get_category_name(marketplace)
+            if with_asin:
+                return 0,0,0,0,0,0,0,0, category_name, asin
+            else:
+                return 0,0,0,0,0,0,0,0, category_name
         else:
             i = 0
             # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
@@ -385,11 +428,12 @@ class DataHandler():
                 price_last = last_occ_price["price"]
         else:
             price_last = last_occ_price["price"]
+        bsr_category = self.get_bsr_category(last_occ, marketplace)
 
         if with_asin:
-            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], asin
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], bsr_category, asin
         else:
-            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"]
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], bsr_category
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
@@ -425,37 +469,6 @@ class DataHandler():
         y=",".join(str(y) for y in df_asin_detail_daily["bsr"].tolist())
         return x, y
 
-    def insert_df_to_datastore(self, df, kind):
-        dclient = datastore.Client()
-        # The kind for the new entity
-        columns = df.columns.values
-        entities = []
-        row_count = len(df)
-        for i, row in df.iterrows():
-            if i % 1000 == 0:
-                print("row {} of {}".format(i, row_count))
-            modulo = ((i+1) % 500)
-            if modulo != 0:
-                # The Cloud Datastore key for the new entity
-                task_key = dclient.key(kind, row["asin"])
-                # Prepares the new entity
-                entity = datastore.Entity(key=task_key)
-
-                for column in columns:
-                    if column != "plot":
-                        entity[column] = row[column]
-                entities.append(entity)
-            else:
-                # Saves the entity
-                try:
-                    if i != 0 and len(entities) > 0: 
-                        dclient.put_multi(entities)
-                except Exception as e:
-                    print(str(e))
-                    raise e
-                entities = []
-
-
     def get_shirt_dataset_sql(self, marketplace, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
@@ -463,9 +476,9 @@ class DataHandler():
             dev_str = "_dev"
 
         ORDERBY_STATEMENT = "order by trend_nr"
-        WHERE_STATEMENT = ""
+        WHERE_STATEMENT = "where bsr_category='{}'".format(self.get_category_name(marketplace))
         if not update_all:
-            WHERE_STATEMENT = "where t_fin.has_bsr_last_changed"
+            WHERE_STATEMENT = WHERE_STATEMENT + " and t_fin.should_be_updated"
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
             SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
@@ -493,6 +506,19 @@ class DataHandler():
 
         return SQL_STATEMENT
 
+    def get_shirt_dataset_unequal_normal_bsr_sql(self, marketplace, dev=False):
+        # if development than bigquery operations should only change dev tables
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        WHERE_STATEMENT = "where bsr_category!='{}'".format(self.get_category_name(marketplace))
+        SQL_STATEMENT = """
+        SELECT asin FROM `mba-pipeline.mba_{0}.merchwatch_shirts{1}` {2}     
+        """.format(marketplace, dev_str, WHERE_STATEMENT)
+    	#.drop_duplicates(["asin"])
+        return SQL_STATEMENT 
+
     def get_shirt_dataset(self, marketplace, dev=False, update_all=False):
         shirt_sql = self.get_shirt_dataset_sql(marketplace, dev=dev, update_all=update_all)
         try:
@@ -501,61 +527,6 @@ class DataHandler():
             print(str(e))
             raise e
         return df_shirts
-
-    def update_datastore(self, marketplace, kind, dev=False, update_all=False):
-        # if development than bigquery operations should only change dev tables
-        dev_str = ""
-        if dev:
-            dev_str = "_dev"
-
-        df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
-        self.insert_df_to_datastore(df, kind + dev_str)
-        df = self.get_shirt_dataset_404(marketplace, dev=dev)
-        self.delete_list_asin_from_datastore(marketplace, df["asin"].drop_duplicates().tolist(), dev=dev)
-
-    def get_shirt_dataset_404_sql(self, marketplace, dev=False):
-        # if development than bigquery operations should only change dev tables
-        dev_str = ""
-        if dev:
-            dev_str = "_dev"
-
-        SQL_STATEMENT = """
-        SELECT DISTINCT asin FROM `mba-pipeline.mba_{0}.merchwatch_shirts{1}` where price_last = 404
-        
-        """.format(marketplace, dev_str)
-
-        return SQL_STATEMENT
-
-    def get_shirt_dataset_404(self, marketplace, dev=False):
-        shirt_sql = self.get_shirt_dataset_404_sql(marketplace, dev=dev)
-        try:
-            df_shirts=pd.read_gbq(shirt_sql, project_id="mba-pipeline")
-        except Exception as e:
-            print(str(e))
-            raise e
-        return df_shirts
-
-    def delete_list_asin_from_datastore(self, marketplace, list_asin, dev=False):
-        """
-            Remove all given asins from datastore
-        """
-        dclient = datastore.Client()
-        # if development than bigquery operations should only change dev tables
-        dev_str = ""
-        if dev:
-            dev_str = "_dev"
-        kind = marketplace + "_shirts" + dev_str
-        list_keys = []
-        list_keys_i = []
-        for i, asin in enumerate(list_asin):
-            if (i+1) % 500 == 0:
-                list_keys.append(list_keys_i)
-                list_keys_i = []
-            list_keys_i.append(datastore.key.Key(kind, asin, project="mba-pipeline"))
-            print("Delete key with asin: " + str(asin))
-        list_keys.append(list_keys_i)
-        for list_keys_i in list_keys:
-            dclient.delete_multi(list_keys_i)
 
     def cut_product_feature_list(self, product_features_list):
         # count number of bullets
@@ -607,10 +578,14 @@ class DataHandler():
             dev_str = "_dev"
 
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
+        #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
 
         df["keywords"] = df.apply(lambda x: self.create_keywords(x), axis=1)
         firestore = Firestore(collection + dev_str)
         firestore.update_by_df_batch(df, "asin", batch_size=250)
+        # for i, df_row in df_unequal_normal_bsr.iterrows():
+        #     asin = df_row["asin"]
+        #     firestore.delete_document(asin)
 
 
     def count_slashes(self, string):
@@ -1045,7 +1020,7 @@ class DataHandler():
 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
-                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "asin"]
+                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
 
                 df_keywords_data_chunk = df_keyword_data.merge(df_additional_data, 
                     left_on="asin", right_on="asin")
@@ -1104,7 +1079,7 @@ CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT
 
             print("Start to get first and last bsr of shirts")
             df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
-            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "asin"]
+            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
 
             df_keywords_data_with_more_info = df_keyword_data.merge(df_additional_data, 
                 left_on="asin", right_on="asin")

@@ -145,3 +145,7 @@ class Firestore():
 
     def get_document(self, doc_id):
         return self.db.collection(self.collection_name).document(doc_id).get()
+
+    def delete_document(self, doc_id):
+        self.db.collection(self.collection_name).document(doc_id).delete()
+

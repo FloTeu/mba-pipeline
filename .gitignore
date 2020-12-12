@@ -60,6 +60,7 @@ target/
 
 *.jpg
 *.jpeg
+*.png
 /crawler/mba/data/shirts/*
 /crawler/mba/data/*
 crawler/mba/data/shirts/*
