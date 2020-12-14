@@ -25,9 +25,22 @@ from pytz import timezone
 import subprocess
 
 class DataHandler():
-    def __init__(self):
+    def __init__(self, marketplace="de"):
         self.filePath = None
         self.df_shirts_detail_daily = None
+        # keyword to filter (To often used and are not related to niche)
+        self.marketplace = marketplace
+        keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
+        "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
+        "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
+        , "Überraschung"]
+        keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand"]
+        self.keywords_to_remove_dict = {"de": keywords_to_remove_de, "com": keywords_to_remove_en}
+        self.keywords_to_remove = self.keywords_to_remove_dict[marketplace]
+
+        self.tr4w_de = TextRank4Keyword(language="de")
+        self.tr4w_en = TextRank4Keyword(language="en")
 
     def get_sql_shirts(self, marketplace, limit=None, filter=None):
         if limit == None:
@@ -117,6 +130,13 @@ class DataHandler():
                 list_with_outliers[i] = value
         #return list_with_outliers
 
+    def add_value_to_older_shirts(self, x_scaled, index_privileged, add_value, add_value_newer=0.05):
+        for i in range(len(x_scaled)):
+            if i > index_privileged:
+                x_scaled[i] = x_scaled[i] + add_value
+            else:
+                x_scaled[i] = x_scaled[i] + add_value_newer
+
     def make_trend_column(self, df_shirts, months_privileged=6, marketplace="de"):
         df_shirts = df_shirts.sort_values("time_since_upload").reset_index(drop=True)
         # get list of integers with time since upload days
@@ -133,7 +153,8 @@ class DataHandler():
         x_scaled = min_max_scaler.fit_transform(x_without_outliers)
         # add add_value to scaled list to have values < 1 reduce trend and values < 1 increase it
         add_value = 1 - x_scaled[index_privileged]
-        x_scaled = x_scaled + add_value
+        self.add_value_to_older_shirts(x_scaled, index_privileged, add_value)
+        #x_scaled = x_scaled + add_value
         # power operation for exponential change 0 < x < (1+add_value)**3
         x_power = self.power(x_scaled)
         df = pd.DataFrame(x_power)
@@ -482,7 +503,7 @@ class DataHandler():
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
             SELECT t_tmp.*, ROW_NUMBER() OVER() row_number FROM (
-                SELECT t0.*,t2.url_affiliate,t2.img_affiliate, CASE WHEN t2.img_affiliate IS NOT NULL THEN true ELSE false END as affiliate_exists FROM 
+                SELECT t0.*, t_key.keywords, t_lang.language, t_general.description, t2.url_affiliate,t2.img_affiliate, CASE WHEN t2.img_affiliate IS NOT NULL THEN true ELSE false END as affiliate_exists FROM 
                 -- remove duplicates by choosing only the first entry of asin
                 (
                 SELECT ARRAY_AGG(t LIMIT 1)[OFFSET(0)] t0
@@ -496,6 +517,9 @@ class DataHandler():
                 FROM `mba-pipeline.mba_{0}.products_affiliate_urls` t_aff
                 GROUP BY asin
                 )  on t0.asin = t2.asin 
+            left join `mba-pipeline.mba_{0}.products_details_keywords` t_key on t0.asin = t_key.asin
+            left join `mba-pipeline.mba_{0}.products_language` t_lang on t0.asin = t_lang.asin
+            left join `mba-pipeline.mba_{0}.products_details` t_general on t0.asin = t_general.asin
                 
             WHERE t0.upload_date IS NOT NULL --old where t0.bsr_mean != 0 and t0.price_last != 404
              {1}
@@ -544,31 +568,37 @@ class DataHandler():
 
     def create_keywords(self, df_row):
         asin = df_row["asin"].lower()
-        brand_list = df_row["brand"].lower().split(" ")
-        title_list = df_row["title"].lower().split(" ")
-        # get only first two feature bullets (listings)
-        product_features_list = self.list_str_to_list(df_row["product_features"])
-        product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+        # if keywords are already known use them
+        if df_row["keywords"] != None:
+            return [asin] + df_row["keywords"].lower().split(";")
+        keywords_filtered = [v.lower() for v in self.get_keywords_filtered(df_row)]
+        keywords_final = [asin] + keywords_filtered
+        # old method
+        # brand_list = df_row["brand"].lower().split(" ")
+        # title_list = df_row["title"].lower().split(" ")
+        # # get only first two feature bullets (listings)
+        # product_features_list = self.list_str_to_list(df_row["product_features"])
+        # product_features_list = [v.strip("'").strip('"') for v in product_features_list]
 
-        product_features_list = self.cut_product_feature_list(product_features_list)
-        product_features_keywords_list = []
-        for product_features in product_features_list:
-            words = re.findall(r'\w+', product_features) 
-            product_features_keywords_list.extend([v.lower() for v in words])
+        # product_features_list = self.cut_product_feature_list(product_features_list)
+        # product_features_keywords_list = []
+        # for product_features in product_features_list:
+        #     words = re.findall(r'\w+', product_features) 
+        #     product_features_keywords_list.extend([v.lower() for v in words])
 
 
-        keywords = [asin] + brand_list + title_list + product_features_keywords_list
-        keywords_2word = []
-        for i in range(len(keywords)):
-            keywords_2word.append(" ".join(keywords[i:i+2]))
-        keywords_3word = []
-        for i in range(len(keywords)):
-            keywords_3word.append(" ".join(keywords[i:i+3]))
-        keywords_4word = []
-        for i in range(len(keywords)):
-            keywords_4word.append(" ".join(keywords[i:i+4]))
+        # keywords = [asin] + brand_list + title_list + product_features_keywords_list
+        # keywords_2word = []
+        # for i in range(len(keywords)):
+        #     keywords_2word.append(" ".join(keywords[i:i+2]))
+        # keywords_3word = []
+        # for i in range(len(keywords)):
+        #     keywords_3word.append(" ".join(keywords[i:i+3]))
+        # keywords_4word = []
+        # for i in range(len(keywords)):
+        #     keywords_4word.append(" ".join(keywords[i:i+4]))
 
-        keywords_final = list(dict.fromkeys(keywords + keywords_2word[0:-1] + keywords_3word[0:-2] + keywords_4word[0:-3]))
+        # keywords_final = list(dict.fromkeys(keywords + keywords_2word[0:-1] + keywords_3word[0:-2] + keywords_4word[0:-3]))
         return keywords_final
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
@@ -581,8 +611,14 @@ class DataHandler():
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
 
         df["keywords"] = df.apply(lambda x: self.create_keywords(x), axis=1)
+        columns = list(df.columns.values)
+        for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
+            columns.remove(column_to_drop)
+        df_filtered = df[columns]
+        #df["keywords"] = df.apply(lambda x: self.get_keywords_filtered(x), axis=1)
+        #df_filtered = df_filtered.iloc[124*250:len(df_filtered)]
         firestore = Firestore(collection + dev_str)
-        firestore.update_by_df_batch(df, "asin", batch_size=250)
+        firestore.update_by_df_batch(df_filtered, "asin", batch_size=250)
         # for i, df_row in df_unequal_normal_bsr.iterrows():
         #     asin = df_row["asin"]
         #     firestore.delete_document(asin)
@@ -729,14 +765,14 @@ class DataHandler():
          "bsr_change_variance":bsr_change_variance_list, "price_mean": price_mean_list, "price_lowest": price_lowest_list, "price_heighest": price_heighest_list,"price_variance": price_variance_list, "asin": asin_list}
          )#,dtype={'keyword': str,'Wind':int64})
     
-    def filter_keywords(self, keywords, keywords_to_remove, single_words_to_filter=["t","du"]):
+    def filter_keywords(self, keywords, single_words_to_filter=["t","du"]):
         keywords_filtered = []
         for keyword_in_text in keywords:
             filter_keyword = False
             if len(keyword_in_text) < 3:
                 filter_keyword = True
             else:
-                for keyword_to_remove in keywords_to_remove:
+                for keyword_to_remove in self.keywords_to_remove:
                     if keyword_to_remove.lower() in keyword_in_text.lower() or keyword_in_text.lower() in single_words_to_filter:
                         filter_keyword = True
                         break
@@ -818,6 +854,72 @@ class DataHandler():
             list_return.append(list_element)
         return list_return
 
+    def get_keywords_filtered(self, df_row):
+        time_detect_lang = 0
+        try:
+            keywords = df_row["keywords"]
+            asin = df_row["asin"]
+            title = df_row["title"]
+            brand = df_row["brand"]
+            description = df_row["description"]
+            if description == None or type(description) != str or (type(description) == float and np.isnan(description)):
+                description = ""
+            language = df_row["language"]
+        except Exception as e:
+            print(str(e))
+            raise e
+        
+        # if no keyword was extracted before find ones
+        do_keywords_not_exist = True
+        if type(keywords) == str and len(keywords.split(";"))>0:
+            do_keywords_not_exist = False
+        else:
+            try:
+                if keywords == None:
+                    do_keywords_not_exist = True
+                else:
+                    do_keywords_not_exist = np.isnan(keywords) 
+            except Exception as e:
+                print(str(e), asin)
+                pass
+        
+        if do_keywords_not_exist:
+            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
+            
+            # create text with keyword
+            product_features = self.cut_product_feature_list(product_features)
+
+            try:
+                text = " ".join([title + "."] + [brand + "."] + product_features + [description])
+            except Exception as e:
+                print(str(e))
+                return None
+
+            # language of design
+            if language == None or language == "":
+                try:
+                    time_start = time.time()
+                    language = detect(text)
+                    time_detect_lang = time_detect_lang + (time.time() - time_start)
+                except:
+                    return None
+
+            # get all keywords
+            if language == "en":
+                keywords = self.tr4w_en.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+            else:
+                keywords = self.tr4w_de.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+            
+            # filter keywords
+            keywords_filtered = self.filter_keywords(keywords)
+
+        else:
+            keywords_filtered = keywords.split(";")
+        
+        # drop duplicates (Happens if ; is within keyword and therfore gets splitted twice)
+        keywords_filtered = list(dict.fromkeys(keywords_filtered))
+        
+        return keywords_filtered
 
     def append_niche_table_in_bigquery(self, marketplace, df, date):
         #df = pd.read_csv("~/shirts.csv",converters={"keywords": lambda x: x.strip("[]").split(", ")})        
@@ -829,93 +931,24 @@ class DataHandler():
         asins_which_have_already_keywords = df_asin_keywords["asin"].tolist()
         df = df.merge(df_asin_keywords, on='asin', how='left')
 
-        # keyword to filter (To often used and are not related to niche)
-        keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
-        "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
-        "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
-        "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
-        , "Überraschung"]
-        keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand"]
-        keywords_to_remove_dict = {"de": keywords_to_remove_de, "com": keywords_to_remove_en}
-        keywords_to_remove = keywords_to_remove_dict[marketplace]
-
-        tr4w_de = TextRank4Keyword(language="de")
-        tr4w_en = TextRank4Keyword(language="en")
         keywords_asin = {}
         keywords_count = {}
         keywords_bsr_last = {}
         keywords_price_last = {}
         keywords_bsr_change = {}
         keywords_trend = {}
-        time_detect_lang = 0
+
         for i, df_row in df.iterrows():
-            if i % 100 == 0:
-                print("Shirt {} of {}".format(i, len(df)))
-            try:
-                keywords = df_row["keywords"]
-                asin = df_row["asin"]
-                bsr_last = df_row["bsr_last"]
-                bsr_change = df_row["bsr_change"]
-                price_last = df_row["price_last"]
-                trend_nr = df_row["trend_nr"]
-                title = df_row["title"]
-                brand = df_row["brand"]
-                description = df_row["description"]
-                if description == None or type(description) != str or (type(description) == float and np.isnan(description)):
-                    description = ""
-                language = df_row["language"]
-            except Exception as e:
-                print(str(e))
-                raise e
+            asin = df_row["asin"]
+            bsr_last = df_row["bsr_last"]
+            bsr_change = df_row["bsr_change"]
+            price_last = df_row["price_last"]
+            trend_nr = df_row["trend_nr"]
+
+            keywords_filtered = self.get_keywords_filtered(df_row)
             
-            # if no keyword was extracted before find ones
-            do_keywords_not_exist = True
-            if type(keywords) == str and len(keywords.split(";"))>0:
-                do_keywords_not_exist = False
-            else:
-                try:
-                    do_keywords_not_exist = np.isnan(keywords) 
-                except Exception as e:
-                    print(str(e), asin)
-                    pass
-            
-            if do_keywords_not_exist:
-                product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
-                
-                # create text with keyword
-                product_features = self.cut_product_feature_list(product_features)
-
-                try:
-                    text = " ".join([title + "."] + [brand + "."] + product_features + [description])
-                except Exception as e:
-                    print(str(e))
-                    continue
-
-                # language of design
-                if language == None or language == "":
-                    try:
-                        time_start = time.time()
-                        language = detect(text)
-                        time_detect_lang = time_detect_lang + (time.time() - time_start)
-                    except:
-                        continue
-
-                # get all keywords
-                if language == "en":
-                    keywords = tr4w_en.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
-                else:
-                    keywords = tr4w_de.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
-                
-                # filter keywords
-                keywords_filtered = self.filter_keywords(keywords, keywords_to_remove)
-
-                # add Data to dataframe 
-                df.loc[i,"keywords"] = ";".join(keywords_filtered)
-            else:
-                keywords_filtered = keywords.split(";")
-            
-            # drop duplicates (Happens if ; is within keyword and therfore gets splitted twice)
-            keywords_filtered = list(dict.fromkeys(keywords_filtered))
+            # add Data to dataframe 
+            df.loc[i,"keywords"] = ";".join(keywords_filtered)
 
             for keyword in keywords_filtered:
                 #if uncommented duplicates of asins appear

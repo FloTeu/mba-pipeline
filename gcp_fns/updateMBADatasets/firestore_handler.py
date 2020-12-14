@@ -47,6 +47,12 @@ class Firestore():
                     doc = doc_ref.get()
 
                     if doc.exists:
+                        # DELETE PROPERTIES which are not up to date anymore
+                        properties = list(doc._data.keys())
+                        properties_not_in_dict = list(np.setdiff1d(properties,list(df_dict.keys())))
+                        for property_delete in properties_not_in_dict:
+                            df_dict.update({property_delete: firestore.DELETE_FIELD})
+
                         # add content data
                         batch.update(doc_ref, df_dict)
                     else:
