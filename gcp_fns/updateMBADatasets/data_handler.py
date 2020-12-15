@@ -329,7 +329,7 @@ class DataHandler():
 
         # save dataframe with shirts in local storage
         print("Length of dataframe", len(df_shirts_with_more_info),dev_str)
-        df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline", if_exists="replace")
+        df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) +".merchwatch_shirts" + dev_str,chunksize=10000, project_id="mba-pipeline", if_exists="replace")
         self.replace_price_last_zero(marketplace)
         # make memory space free
         self.df_shirts_detail_daily = None
