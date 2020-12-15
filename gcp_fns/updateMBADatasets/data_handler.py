@@ -1222,6 +1222,15 @@ CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT
         subprocess.call(shell_command, shell=True)
         test = 0
 
+    def get_asins_uploads_price_sql(self, marketplace):
+        SQL_STATEMENT = """SELECT t1.asin, t1.upload_date,CAST(REPLACE(
+            t2.price,
+            ',',
+            '.') as FLOAT64) as price
+        FROM `mba-pipeline.mba_{}.products_details` t1
+        LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{}.products`) t2 on t1.asin = t2.asin
+        """.format(marketplace)
 
+        return SQL_STATEMENT
 
 
