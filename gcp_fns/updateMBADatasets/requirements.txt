@@ -18,3 +18,4 @@ scrapy
 scrapy-rotating-proxies
 oauth2client
 firebase-admin
+rake-nltk==1.0.4

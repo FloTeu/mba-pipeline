@@ -3,6 +3,7 @@ import numpy as np
 import spacy
 from spacy.lang.en.stop_words import STOP_WORDS
 from spacy.lang.de.stop_words import STOP_WORDS as STOP_WORDS_DE
+from rake_nltk import Metric, Rake
 
 
 class TextRank4Keyword():
@@ -118,7 +119,10 @@ class TextRank4Keyword():
         doc = self.nlp(text)
 
         # get connected words
-        entities = list([ent.text for ent in doc.ents])
+        if lower:
+            entities = list([ent.text.lower() for ent in doc.ents])
+        else:
+            entities = list([ent.text for ent in doc.ents])
         
         # Filter sentences
         sentences = self.sentence_segment(doc, candidate_pos, lower) # list of list of words
@@ -126,11 +130,32 @@ class TextRank4Keyword():
         # Build vocabulary
         vocab = self.get_vocab(sentences)
         
+        longtail_keywords = self.get_rake_longtail_keywords(text, stopwords=stopwords)
+
         # drop duplicates
-        keywords = list(dict.fromkeys(list(vocab) + entities))
+        keywords = list(dict.fromkeys(list(vocab) + entities + longtail_keywords))
         # return keywords
         return keywords
 
+    def get_rake_longtail_keywords(self, text, stopwords=list()):
+        language_name = "english"
+        if self.language == "de":
+            language_name = "german"
+
+        r = Rake(language=language_name, min_length=2, max_length=5, stopwords=stopwords)
+        r.extract_keywords_from_text(text)
+        return r.get_ranked_phrases()
+
+    def is_meaningful_keyword(self, text, keyword_to_poc):
+        important_kinds = ['NOUN', 'PROPN', "VERB"]
+
+        for token_text in text.split(" "):
+            try:
+                if keyword_to_poc[token_text] in important_kinds:
+                    return True
+            except:
+                pass
+        return False
 
     def analyze(self, text, 
                 candidate_pos=['NOUN', 'PROPN'], 

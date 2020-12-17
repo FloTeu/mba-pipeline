@@ -38,6 +38,7 @@ class DataHandler():
         keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand"]
         self.keywords_to_remove_dict = {"de": keywords_to_remove_de, "com": keywords_to_remove_en}
         self.keywords_to_remove = self.keywords_to_remove_dict[marketplace]
+        self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove_dict[marketplace]]
 
         self.tr4w_de = TextRank4Keyword(language="de")
         self.tr4w_en = TextRank4Keyword(language="en")
@@ -566,39 +567,77 @@ class DataHandler():
             product_features_list = []
         return product_features_list
 
-    def create_keywords(self, df_row):
+    def get_all_keywords(self, df_row):
         asin = df_row["asin"].lower()
+        # old method
+        brand_list = df_row["brand"].lower().split(" ")
+        title_list = df_row["title"].lower().split(" ")
+        language = df_row["language"]
+        # get only first two feature bullets (listings)
+        product_features_list = self.list_str_to_list(df_row["product_features"])
+        product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+        product_features_list = self.cut_product_feature_list(product_features_list)
+
+        keyword_text = " ".join([df_row["title"] + "."] + [df_row["brand"] + "."] + product_features_list)
+        if language == None or language == "":
+            language = detect(keyword_text)
+
+        # extract type of token like NOUN or VERB etc.
+        if language == "de":
+            tr4w = self.tr4w_de
+        else:
+            tr4w = self.tr4w_en
+        doc = tr4w.nlp(keyword_text)
+        keyword_to_pos = {}
+        for token in doc:
+            keyword_to_pos.update({token.text.lower(): token.pos_})
+
+        # extract product features/ listings
+        product_features_keywords_list = []
+        for product_features in product_features_list:
+            words = re.findall(r'\w+', product_features) 
+            product_features_keywords_list.extend([v.lower() for v in words])
+
+        keywords = brand_list + title_list + product_features_keywords_list
+        keywords = [word for word in keywords if word.lower() not in self.keywords_to_remove_lower]
+
+        # list of sentences
+        keyword_blocks = [df_row["brand"].lower(), df_row["title"].lower()]
+        for product_features_list_i in product_features_list:
+            product_feature_sentences = product_features_list_i.split(".")
+            for product_feature_sentence in product_feature_sentences:
+                if product_feature_sentence.strip() != "":
+                    keyword_blocks.append(product_feature_sentence.strip())
+
+        # extract longtail keywords
+        keyword_longtail = []
+        for keyword_sentence in keyword_blocks:
+            words = re.findall(r'\w+', keyword_sentence)
+            words = [word.lower() for word in words if word.lower() not in self.keywords_to_remove_lower + ["t"]]
+            keywords_2word = []
+            for i in range(len(words)):
+                keywords_2word.append(" ".join(words[i:i+2]))
+            keywords_3word = []
+            for i in range(len(words)):
+                keywords_3word.append(" ".join(words[i:i+3]))
+            keywords_4word = []
+            for i in range(len(words)):
+                keywords_4word.append(" ".join(words[i:i+4]))
+            keyword_longtail.extend(keywords_2word[0:-1] + keywords_3word[0:-2] + keywords_4word[0:-3])
+
+        # drop duplicates
+        keywords_final = list(dict.fromkeys(keywords + keyword_longtail))
+        # drop not meaningful keywords
+        keywords_final = [asin] + [keyword for keyword in keywords_final if tr4w.is_meaningful_keyword(keyword.lower(), keyword_to_pos)]
+
+        return keywords_final
+    
+    def create_keywords(self, df_row):
         # if keywords are already known use them
         if df_row["keywords"] != None:
-            return [asin] + df_row["keywords"].lower().split(";")
-        keywords_filtered = [v.lower() for v in self.get_keywords_filtered(df_row)]
-        keywords_final = [asin] + keywords_filtered
-        # old method
-        # brand_list = df_row["brand"].lower().split(" ")
-        # title_list = df_row["title"].lower().split(" ")
-        # # get only first two feature bullets (listings)
-        # product_features_list = self.list_str_to_list(df_row["product_features"])
-        # product_features_list = [v.strip("'").strip('"') for v in product_features_list]
-
-        # product_features_list = self.cut_product_feature_list(product_features_list)
-        # product_features_keywords_list = []
-        # for product_features in product_features_list:
-        #     words = re.findall(r'\w+', product_features) 
-        #     product_features_keywords_list.extend([v.lower() for v in words])
-
-
-        # keywords = [asin] + brand_list + title_list + product_features_keywords_list
-        # keywords_2word = []
-        # for i in range(len(keywords)):
-        #     keywords_2word.append(" ".join(keywords[i:i+2]))
-        # keywords_3word = []
-        # for i in range(len(keywords)):
-        #     keywords_3word.append(" ".join(keywords[i:i+3]))
-        # keywords_4word = []
-        # for i in range(len(keywords)):
-        #     keywords_4word.append(" ".join(keywords[i:i+4]))
-
-        # keywords_final = list(dict.fromkeys(keywords + keywords_2word[0:-1] + keywords_3word[0:-2] + keywords_4word[0:-3]))
+            return df_row["keywords"].split(";")
+        keywords_filtered = [v for v in self.get_keywords_filtered(df_row)]
+        keywords_final = keywords_filtered
         return keywords_final
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
@@ -610,7 +649,13 @@ class DataHandler():
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
 
-        df["keywords"] = df.apply(lambda x: self.create_keywords(x), axis=1)
+        time_start = time.time()
+        df["keywords_meaningful"] = df.apply(lambda x: self.create_keywords(x), axis=1)
+        print("elapsed time for all meaningful keywords creation %.2f sec" % ((time.time() - time_start)/60))
+        time_start = time.time()
+        df["keywords"] = df.apply(lambda x: self.get_all_keywords(x), axis=1)
+        print("elapsed time for all keyword creation %.2f sec" % ((time.time() - time_start)/60))
+        #df["keywords_meaningful_count"] = df.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
         columns = list(df.columns.values)
         for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
             columns.remove(column_to_drop)
@@ -768,6 +813,8 @@ class DataHandler():
     def filter_keywords(self, keywords, single_words_to_filter=["t","du"]):
         keywords_filtered = []
         for keyword_in_text in keywords:
+            if keyword_in_text[len(keyword_in_text)-2:len(keyword_in_text)] in [" t", " T"]:
+                keyword_in_text = keyword_in_text[0:len(keyword_in_text)-2]
             filter_keyword = False
             if len(keyword_in_text) < 3:
                 filter_keyword = True
