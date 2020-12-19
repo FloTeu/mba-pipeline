@@ -1,4 +1,5 @@
 from data_handler import DataHandler
+from niche_updater import NicheUpdater
 from firestore_handler import Firestore
 import requests
 import argparse
@@ -80,7 +81,9 @@ def main(args):
         tz = pytz.timezone('Europe/Berlin')
         today_day = datetime.datetime.now(tz).day
         today_weekday = datetime.datetime.now(tz).weekday()
-        DataHandlerModel = DataHandler()
+        DataHandlerModel = DataHandler(marketplace=marketplace)
+        NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
+        #NicheUpdaterModel.update_firestore_niche_data(keyword=None)
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         #DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)

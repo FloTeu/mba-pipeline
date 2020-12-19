@@ -23,6 +23,7 @@ from langdetect import detect
 import difflib
 from pytz import timezone
 import subprocess
+import collections
 
 class DataHandler():
     def __init__(self, marketplace="de"):
@@ -30,13 +31,14 @@ class DataHandler():
         self.df_shirts_detail_daily = None
         # keyword to filter (To often used and are not related to niche)
         self.marketplace = marketplace
-        keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        self.keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
         "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
         , "Überraschung"]
-        keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand"]
-        self.keywords_to_remove_dict = {"de": keywords_to_remove_de, "com": keywords_to_remove_en}
+        self.keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
+         "childreen", "present", "boys", "girls"]
+        self.keywords_to_remove_dict = {"de": self.keywords_to_remove_de, "com": self.keywords_to_remove_en}
         self.keywords_to_remove = self.keywords_to_remove_dict[marketplace]
         self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove_dict[marketplace]]
 
@@ -585,8 +587,13 @@ class DataHandler():
         # extract type of token like NOUN or VERB etc.
         if language == "de":
             tr4w = self.tr4w_de
+            if self.marketplace=="de":
+                keywords_to_remove = self.keywords_to_remove_lower
+            else:
+                keywords_to_remove = [v.lower() for v in self.keywords_to_remove_de]
         else:
             tr4w = self.tr4w_en
+            keywords_to_remove = self.keywords_to_remove_en
         doc = tr4w.nlp(keyword_text)
         keyword_to_pos = {}
         for token in doc:
@@ -599,7 +606,7 @@ class DataHandler():
             product_features_keywords_list.extend([v.lower() for v in words])
 
         keywords = brand_list + title_list + product_features_keywords_list
-        keywords = [word for word in keywords if word.lower() not in self.keywords_to_remove_lower]
+        keywords = [word for word in keywords if word.lower() not in keywords_to_remove]
 
         # list of sentences
         keyword_blocks = [df_row["brand"].lower(), df_row["title"].lower()]
@@ -613,7 +620,7 @@ class DataHandler():
         keyword_longtail = []
         for keyword_sentence in keyword_blocks:
             words = re.findall(r'\w+', keyword_sentence)
-            words = [word.lower() for word in words if word.lower() not in self.keywords_to_remove_lower + ["t"]]
+            words = [word.lower() for word in words if word.lower() not in keywords_to_remove + ["t"]]
             keywords_2word = []
             for i in range(len(words)):
                 keywords_2word.append(" ".join(words[i:i+2]))
@@ -651,10 +658,10 @@ class DataHandler():
 
         time_start = time.time()
         df["keywords_meaningful"] = df.apply(lambda x: self.create_keywords(x), axis=1)
-        print("elapsed time for all meaningful keywords creation %.2f sec" % ((time.time() - time_start)/60))
+        print("elapsed time for all meaningful keywords creation %.2f min" % ((time.time() - time_start)/60))
         time_start = time.time()
         df["keywords"] = df.apply(lambda x: self.get_all_keywords(x), axis=1)
-        print("elapsed time for all keyword creation %.2f sec" % ((time.time() - time_start)/60))
+        print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
         #df["keywords_meaningful_count"] = df.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
         columns = list(df.columns.values)
         for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
@@ -1268,16 +1275,4 @@ CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT
         '''.format(marketplace, list_niches_str)
         subprocess.call(shell_command, shell=True)
         test = 0
-
-    def get_asins_uploads_price_sql(self, marketplace):
-        SQL_STATEMENT = """SELECT t1.asin, t1.upload_date,CAST(REPLACE(
-            t2.price,
-            ',',
-            '.') as FLOAT64) as price
-        FROM `mba-pipeline.mba_{}.products_details` t1
-        LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{}.products`) t2 on t1.asin = t2.asin
-        """.format(marketplace)
-
-        return SQL_STATEMENT
-
 
