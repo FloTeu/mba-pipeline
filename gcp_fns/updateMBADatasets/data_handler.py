@@ -24,6 +24,8 @@ import difflib
 from pytz import timezone
 import subprocess
 import collections
+from niche_updater import list_str_to_list
+
 
 class DataHandler():
     def __init__(self, marketplace="de"):
@@ -147,7 +149,7 @@ class DataHandler():
         # fill na with max value
         x = np.nan_to_num(x, np.nanmax(x))
         # get index of last value within privileged timezone
-        index_privileged = len([v for v in x if v < 30*months_privileged])
+        index_privileged = len([v for v in x if v < 30*months_privileged]) - 1
         # transform outliers to max value before outliers
         x_without_outliers = x.copy()
         self.change_outlier_with_max(x_without_outliers)
@@ -576,7 +578,7 @@ class DataHandler():
         title_list = df_row["title"].lower().split(" ")
         language = df_row["language"]
         # get only first two feature bullets (listings)
-        product_features_list = self.list_str_to_list(df_row["product_features"])
+        product_features_list = list_str_to_list(df_row["product_features"])
         product_features_list = [v.strip("'").strip('"') for v in product_features_list]
         product_features_list = self.cut_product_feature_list(product_features_list)
 
@@ -882,31 +884,6 @@ class DataHandler():
         return similar_keywords_to_drop
 
 
-    def list_str_to_list(self, list_str):
-        list_str = list_str.strip("[]")
-        split_indices = []
-        index_open = True
-        quote_type = ""
-        split_index = []
-        for i, char in enumerate(list_str):
-            if char == "'" or char == '"':
-                if index_open:
-                    quote_type = char
-                    split_index.append(i)
-                    index_open = False
-                # if we want a closing index two conditions must be fit 1. closing char must be equal to opening char + (comma char in next 3 chars or string ends in the next 3 chars)
-                elif ("," in list_str[i:i+4] or i+4 > len(list_str)) and char == quote_type: 
-                    split_index.append(i)
-                    split_indices.append(split_index)
-                    # reset split index
-                    split_index = []
-                    # search for next index to open list element
-                    index_open = True
-        list_return = []
-        for split_index in split_indices:
-            list_element = list_str[split_index[0]:split_index[1]]
-            list_return.append(list_element)
-        return list_return
 
     def get_keywords_filtered(self, df_row):
         time_detect_lang = 0
@@ -975,11 +952,61 @@ class DataHandler():
         
         return keywords_filtered
 
+
+    def drop_asins_already_detected(self, df, marketplace):
+        return df[~df['asin'].isin(pd.read_gbq("SELECT DISTINCT asin FROM mba_{}.products_language".format(marketplace), project_id="mba-pipeline")["asin"].tolist())]
+
+    def update_language_code(self, marketplace):
+        df = pd.read_gbq("SELECT DISTINCT asin, title, product_features FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
+        df = self.drop_asins_already_detected(df, marketplace)
+        df = df.drop_duplicates(["asin"])
+        df["language"] = "de"
+        df["product_features"] = df.apply(lambda x: list_str_to_list(x["product_features"]), axis=1)
+
+        for i, df_row in df.iterrows():
+            title = df_row["title"]
+            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
+            count_feature_bullets = len(product_features)
+            if count_feature_bullets >= 5:
+                product_features = product_features[0:2]
+            elif count_feature_bullets == 4:
+                print("asin {} index {} has 4 feature bullets".format(df_row["asin"], i))
+                product_features = product_features[0:1]
+            else:
+                print("asin {} index {} has less than 4 feature bullets".format(df_row["asin"], i))
+                product_features = []
+            text = " ".join([title + "."] + product_features)
+            try:
+                language = detect(text)
+            except:
+                continue
+            if language == "en":
+                df.loc[i, "language"] = language
+        
+        df[["asin", "language"]].to_gbq("mba_{}.products_language".format(marketplace), project_id="mba-pipeline", if_exists="append")
+
+    def update_trademark(self, marketplace):
+        df = pd.read_gbq("SELECT DISTINCT brand, count(*) as count FROM mba_{}.products_details group by brand order by count desc".format(marketplace), project_id="mba-pipeline")
+        df["trademark"] = True
+        df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
+        df_listings["trademark"] = True
+        trademarks = ["disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
+        "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
+        "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
+        , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
+        "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
+        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me", "Shrek", "The Thread Shop", "Licensed"]
+        df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
+        df_listings = df_listings[df_listings["product_features"].str.contains("|".join(trademarks),regex=True, case=False)][["brand", "trademark"]].drop_duplicates(["brand"])
+        df_trademarks = df_trademarks.append(df_listings).drop_duplicates(["brand"])
+        df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
+
+
     def append_niche_table_in_bigquery(self, marketplace, df, date):
         #df = pd.read_csv("~/shirts.csv",converters={"keywords": lambda x: x.strip("[]").split(", ")})        
         
         # extract product listings as list
-        df["product_features"] = df.apply(lambda x: self.list_str_to_list(x["product_features"]), axis=1)
+        df["product_features"] = df.apply(lambda x: list_str_to_list(x["product_features"]), axis=1)
 
         df_asin_keywords = pd.read_gbq("SELECT * FROM mba_" + str(marketplace) +".products_details_keywords", project_id="mba-pipeline")
         asins_which_have_already_keywords = df_asin_keywords["asin"].tolist()
@@ -1123,156 +1150,119 @@ class DataHandler():
             # filter keywords to niches and append it to bigquery
             self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
 
-    def update_niches_by_keyword(self, marketplace, keyword):
+    def update_niches_by_keyword(self, marketplace, keywords):
         print("Load shirt data from bigquery for niche update")
         start_time_first = time.time()
         project_id = 'mba-pipeline'
 
-        SQL_STATEMENT = """SELECT t1.asin, t1.upload_date, DATE_DIFF(current_date(), Date(t1.upload_date), DAY) as time_since_upload, t1.timestamp FROM (SELECT * FROM `mba-pipeline.mba_{0}.niches`  where keyword = '{1}') t0
-CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT('%', t1.asin, '%')
-            order by t1.timestamp desc""".format(marketplace, keyword)
-        # read data from bigquery
-        df_keyword_data = pd.read_gbq(SQL_STATEMENT, project_id=project_id).drop_duplicates(["asin"])
+        keywords_str = "({})".format(",".join(["'" + v + "'" for v in keywords.split(";")]))
+        keywords_list = keywords.split(";")
 
-        SQL_STATEMENT = """SELECT date FROM `mba-pipeline.mba_{0}.niches` where keyword = '{1}'
-            order by date desc""".format(marketplace, keyword)
+
+        SQL_STATEMENT = """SELECT keyword, t1.asin, t1.upload_date, DATE_DIFF(current_date(), Date(t1.upload_date), DAY) as time_since_upload, t1.timestamp FROM (SELECT * FROM `mba-pipeline.mba_{0}.niches`  where keyword in {1}) t0
+        CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT('%', t1.asin, '%')
+            order by t1.timestamp desc""".format(marketplace, keywords_str)
+        # read data from bigquery
+        df_keyword_data = pd.read_gbq(SQL_STATEMENT, project_id=project_id)#.drop_duplicates(["asin"])
+
+        SQL_STATEMENT = """SELECT date FROM `mba-pipeline.mba_{0}.niches` where keyword in {1}
+            order by date desc""".format(marketplace, keywords_str)
         # read data from bigquery
         dates_already_calculated = pd.read_gbq(SQL_STATEMENT, project_id=project_id).drop_duplicates(["date"])["date"].tolist()
 
+        dates_dict = {}
+        df_shirts_asin_keyword_dict = {}
+        df_shirts_detail_daily_total_dict = {}
         df_shirts_asin = df_keyword_data[["asin", "timestamp"]].copy().set_index('timestamp')
-        asin_list = df_shirts_asin["asin"].tolist()
+        asin_list = list(set(df_shirts_asin["asin"].tolist()))
         df_shirts_detail_daily_total = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list), project_id="mba-pipeline", verbose=True).drop_duplicates()
-        dates = [str(v.date()) for v in df_shirts_detail_daily_total.sort_values(["timestamp"])["timestamp"].tolist()]
-        # drop duplicates and dates already caclulated
-        dates = list(dict.fromkeys(dates))
-        for date_already_calculated in dates_already_calculated:
-            if date_already_calculated in dates:
-                dates.remove(date_already_calculated)
+        
+        for keyword in keywords_list:
+            df_shirts_asin_keyword = df_keyword_data[df_keyword_data["keyword"]==keyword].drop_duplicates(["asin"])[["asin", "timestamp"]].copy().set_index('timestamp')
+            asin_list_keyword = df_shirts_asin_keyword["asin"].tolist()
+            df_shirts_detail_daily_total_keyword = df_shirts_detail_daily_total[df_shirts_detail_daily_total["asin"].isin(asin_list_keyword)]
+            dates = [str(v.date()) for v in df_shirts_detail_daily_total_keyword.sort_values(["timestamp"])["timestamp"].tolist()]
+            # drop duplicates and dates already caclulated
+            dates = list(dict.fromkeys(dates))
+            for date_already_calculated in dates_already_calculated:
+                if date_already_calculated in dates:
+                    dates.remove(date_already_calculated)
+            dates_dict.update({keyword: dates})
+            df_shirts_asin_keyword_dict.update({keyword: df_shirts_asin_keyword})
+            df_shirts_detail_daily_total_dict.update({keyword: df_shirts_detail_daily_total_keyword})
 
         #dates = dates + ["2020-11-30"]
+        for keyword in keywords_list:
+            dates = dates_dict[keyword]
+            df_shirts_asin = df_shirts_asin_keyword_dict[keyword]
+            df_shirts_detail_daily_total = df_shirts_detail_daily_total_dict[keyword]
+            for date in dates:
+                print("Date %s" % date)
+                # get string of next day of day
+                date_object = datetime.strptime(date, "%Y-%m-%d")
+                date_object = date_object + timedelta(days=1)
+                next_day = datetime.strftime(date_object, "%Y-%m-%d")
 
-        for date in dates:
-            print("Date %s" % date)
-            # get string of next day of day
-            date_object = datetime.strptime(date, "%Y-%m-%d")
-            date_object = date_object + timedelta(days=1)
-            next_day = datetime.strftime(date_object, "%Y-%m-%d")
+                df_shirts_asin_date = df_shirts_asin.loc[next_day:]
 
-            df_shirts_asin_date = df_shirts_asin.loc[date:]
+                start_time = time.time()
+                self.df_shirts_detail_daily = df_shirts_detail_daily_total[df_shirts_detail_daily_total["timestamp"] <= next_day]
+                self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 
-            start_time = time.time()
-            self.df_shirts_detail_daily = df_shirts_detail_daily_total[df_shirts_detail_daily_total["timestamp"] <= next_day]
-            self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+                print("Start to get first and last bsr of shirts")
+                df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
+                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
 
-            print("Start to get first and last bsr of shirts")
-            df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
-            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
+                df_keywords_data_with_more_info = df_keyword_data[df_keyword_data["keyword"]==keyword].drop_duplicates(["asin"]).merge(df_additional_data, 
+                    left_on="asin", right_on="asin")
+                print("elapsed time: %.2f sec" %((time.time() - start_time)))
+                
+                # create trend column
+                df_keywords_data_with_more_info = df_keywords_data_with_more_info.merge(self.make_trend_column(df_keywords_data_with_more_info)[["asin","trend_nr"]], on="asin", how='left').drop_duplicates(["asin"])
+                df_keywords_data_with_more_info = df_keywords_data_with_more_info.reset_index(drop=True)
+                df_keywords_data_with_more_info["trend_nr"] = -99
+                # filter keywords to niches and append it to bigquery
+                #self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
 
-            df_keywords_data_with_more_info = df_keyword_data.merge(df_additional_data, 
-                left_on="asin", right_on="asin")
-            print("elapsed time: %.2f sec" %((time.time() - start_time)))
-            
-            # create trend column
-            df_keywords_data_with_more_info = df_keywords_data_with_more_info.merge(self.make_trend_column(df_keywords_data_with_more_info)[["asin","trend_nr"]], on="asin", how='left')
-            df_keywords_data_with_more_info = df_keywords_data_with_more_info.reset_index(drop=True)
-            df_keywords_data_with_more_info["trend_nr"] = -99
-            # filter keywords to niches and append it to bigquery
-            #self.append_niche_table_in_bigquery(marketplace, df_keywords_data_with_more_info, date)
+                keywords_asin = {}
+                keywords_count = {}
+                keywords_bsr_last = {}
+                keywords_price_last = {}
+                keywords_bsr_change = {}
+                keywords_trend = {}
 
-            keywords_asin = {}
-            keywords_count = {}
-            keywords_bsr_last = {}
-            keywords_price_last = {}
-            keywords_bsr_change = {}
-            keywords_trend = {}
-
-            for i, df_row in df_keywords_data_with_more_info.iterrows():
-                asin = df_row["asin"]
-                bsr_last = df_row["bsr_last"]
-                bsr_change = df_row["bsr_change"]
-                price_last = df_row["price_last"]
-                trend_nr = df_row["trend_nr"]
-
-                if keyword in keywords_count:
-                    try:
-                        keywords_count[keyword] = keywords_count[keyword] + 1
-                        keywords_asin[keyword].append(asin)
-                        keywords_bsr_last[keyword].append(bsr_last)
-                        keywords_trend[keyword].append(trend_nr)
-                        keywords_price_last[keyword].append(price_last)
-                        keywords_bsr_change[keyword].append(bsr_change)
-                    except Exception as e:
-                        print(str(e))
-                        continue
-                else:
-                    keywords_count[keyword] = 1
-                    keywords_asin[keyword] = [asin]
-                    keywords_bsr_last[keyword] = [bsr_last]
-                    keywords_trend[keyword] = [trend_nr]
-                    keywords_price_last[keyword] = [price_last]
-                    keywords_bsr_change[keyword] = [bsr_change]
+                for i, df_row in df_keywords_data_with_more_info.iterrows():
+                    asin = df_row["asin"]
+                    bsr_last = df_row["bsr_last"]
+                    bsr_change = df_row["bsr_change"]
+                    price_last = df_row["price_last"]
+                    trend_nr = df_row["trend_nr"]
 
 
-            df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
-            df_keywords["date"] = date
-            if not df_keywords.empty:
-                df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
+                    if keyword in keywords_count:
+                        try:
+                            keywords_count[keyword] = keywords_count[keyword] + 1
+                            keywords_asin[keyword].append(asin)
+                            keywords_bsr_last[keyword].append(bsr_last)
+                            keywords_trend[keyword].append(trend_nr)
+                            keywords_price_last[keyword].append(price_last)
+                            keywords_bsr_change[keyword].append(bsr_change)
+                        except Exception as e:
+                            print(str(e))
+                            continue
+                    else:
+                        keywords_count[keyword] = 1
+                        keywords_asin[keyword] = [asin]
+                        keywords_bsr_last[keyword] = [bsr_last]
+                        keywords_trend[keyword] = [trend_nr]
+                        keywords_price_last[keyword] = [price_last]
+                        keywords_bsr_change[keyword] = [bsr_change]
 
-    def drop_asins_already_detected(self, df, marketplace):
-        return df[~df['asin'].isin(pd.read_gbq("SELECT DISTINCT asin FROM mba_{}.products_language".format(marketplace), project_id="mba-pipeline")["asin"].tolist())]
 
-    def update_language_code(self, marketplace):
-        df = pd.read_gbq("SELECT DISTINCT asin, title, product_features FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        df = self.drop_asins_already_detected(df, marketplace)
-        df = df.drop_duplicates(["asin"])
-        df["language"] = "de"
-        df["product_features"] = df.apply(lambda x: self.list_str_to_list(x["product_features"]), axis=1)
+                df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
+                df_keywords["date"] = date
+                if not df_keywords.empty:
+                    df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
 
-        for i, df_row in df.iterrows():
-            title = df_row["title"]
-            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
-            count_feature_bullets = len(product_features)
-            if count_feature_bullets >= 5:
-                product_features = product_features[0:2]
-            elif count_feature_bullets == 4:
-                print("asin {} index {} has 4 feature bullets".format(df_row["asin"], i))
-                product_features = product_features[0:1]
-            else:
-                print("asin {} index {} has less than 4 feature bullets".format(df_row["asin"], i))
-                product_features = []
-            text = " ".join([title + "."] + product_features)
-            try:
-                language = detect(text)
-            except:
-                continue
-            if language == "en":
-                df.loc[i, "language"] = language
-        
-        df[["asin", "language"]].to_gbq("mba_{}.products_language".format(marketplace), project_id="mba-pipeline", if_exists="append")
 
-    def update_trademark(self, marketplace):
-        df = pd.read_gbq("SELECT DISTINCT brand, count(*) as count FROM mba_{}.products_details group by brand order by count desc".format(marketplace), project_id="mba-pipeline")
-        df["trademark"] = True
-        df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        df_listings["trademark"] = True
-        trademarks = ["disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
-        "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
-        "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
-        , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
-        "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
-        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me", "Shrek", "The Thread Shop", "Licensed"]
-        df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
-        df_listings = df_listings[df_listings["product_features"].str.contains("|".join(trademarks),regex=True, case=False)][["brand", "trademark"]].drop_duplicates(["brand"])
-        df_trademarks = df_trademarks.append(df_listings).drop_duplicates(["brand"])
-        df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
-
-    def crawl_niches(self, marketplace, list_niches_str):
-        shell_command = '''cd .. 
-        cd ..
-        cd crawler/mba/mba_crawler
-        sudo /usr/bin/python3 create_url_csv.py {0} True --number_products=0  --niches="{1}"
-        sudo scrapy crawl mba_general_de -a daiy=True
-        '''.format(marketplace, list_niches_str)
-        subprocess.call(shell_command, shell=True)
-        test = 0
 

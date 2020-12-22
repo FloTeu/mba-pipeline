@@ -4,7 +4,36 @@ import numpy as np
 from firestore_handler import Firestore
 import hashlib
 from scrapy.utils.python import to_bytes
+import subprocess
+from os.path import join
 
+
+def list_str_to_list(list_str):
+    list_str = list_str.strip("[]")
+    split_indices = []
+    index_open = True
+    quote_type = ""
+    split_index = []
+    for i, char in enumerate(list_str):
+        if char == "'" or char == '"':
+            if index_open:
+                quote_type = char
+                split_index.append(i)
+                index_open = False
+            # if we want a closing index two conditions must be fit 1. closing char must be equal to opening char + (comma char in next 3 chars or string ends in the next 3 chars)
+            elif ("," in list_str[i:i+4] or i+4 > len(list_str)) and char == quote_type: 
+                split_index.append(i)
+                split_indices.append(split_index)
+                # reset split index
+                split_index = []
+                # search for next index to open list element
+                index_open = True
+    list_return = []
+    for split_index in split_indices:
+        list_element = list_str[split_index[0]:split_index[1]]
+        list_return.append(list_element)
+    return list_return
+    
 class NicheUpdater():
     def __init__(self, marketplace="de", dev=False):
         dev_str = ""
@@ -13,6 +42,16 @@ class NicheUpdater():
 
         self.marketplace = marketplace
         self.firestore = Firestore(marketplace + "_niches" + dev_str)
+
+    def crawl_niches(self, list_niches_str):
+        shell_command = '''cd .. 
+        cd ..
+        cd crawler/mba/mba_crawler
+        sudo /usr/bin/python3 create_url_csv.py {0} True --number_products=0  --niches="{1}"
+        sudo scrapy crawl mba_general_de -a daiy=True
+        '''.format(self.marketplace, list_niches_str)
+        subprocess.call(shell_command, shell=True)
+        test = 0
 
     def get_asins_uploads_price_sql(self):
         SQL_STATEMENT = """SELECT t1.asin, t1.upload_date,CAST(REPLACE(
@@ -26,17 +65,18 @@ class NicheUpdater():
 
         return SQL_STATEMENT
 
-    def get_niche_data_sql(self, keyword=None):
+    def get_niche_data_sql(self, keywords=None):
         WHERE_STATEMENT = "and count > 5 and count < 100 and bsr_mean < 750000 and bsr_best < 200000 and price_mean > 18"
-        if keyword != None:
-            WHERE_STATEMENT = " and keyword = '{}'".format(keyword)
+        if keywords != None:
+            keywords_str = "({})".format(",".join(["'" + v + "'" for v in keywords.split(";")]))
+            WHERE_STATEMENT = " and keyword in {}".format(keywords_str)
 
         SQL_STATEMENT = """
         WITH last_date as (SELECT * FROM (SELECT date, count(*) as count FROM `mba-pipeline.mba_{0}.niches` group by date order by date desc) where count > 1000 LIMIT 1) 
-SELECT t0.*
+    SELECT t0.*
         FROM `mba-pipeline.mba_{0}.niches` t0 LEFT JOIN 
         (
-SELECT keyword
+    SELECT keyword
         FROM `mba-pipeline.mba_{0}.niches`
         where date = (SELECT date FROM last_date) {1}
         group by keyword) t1 on t0.keyword = t1.keyword 
@@ -46,12 +86,12 @@ SELECT keyword
 
         return SQL_STATEMENT
 
-    def update_firestore_niche_data(self, keyword=None):
+    def update_firestore_niche_data(self, keywords=None):
         self.df_upload_data = pd.read_gbq(self.get_asins_uploads_price_sql(), project_id="mba-pipeline")
         self.df_upload_data["date"] = self.df_upload_data.apply(lambda x: str(x["upload_date"].date()),axis=1)
         self.df_upload_data = self.df_upload_data[self.df_upload_data["date"]!="1995-01-01"]
 
-        df_niche_data_keywords = pd.read_gbq(self.get_niche_data_sql(keyword=keyword), project_id="mba-pipeline")
+        df_niche_data_keywords = pd.read_gbq(self.get_niche_data_sql(keywords=keywords), project_id="mba-pipeline")
         keywords = df_niche_data_keywords.groupby(by=["keyword"]).count()["count"].index.tolist()
 
         for keyword in keywords:
@@ -169,3 +209,4 @@ SELECT keyword
         firestore_dict.update({"date_last_upload": date_last_upload, "date_first_upload": date_first_upload, "uploads": upload_count_dict, "prices": price_dict, "bsr": bsr_dict, "takedowns":takedown_dict})
         
         return firestore_dict
+

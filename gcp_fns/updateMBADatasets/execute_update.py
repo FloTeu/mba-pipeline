@@ -83,12 +83,13 @@ def main(args):
         today_weekday = datetime.datetime.now(tz).weekday()
         DataHandlerModel = DataHandler(marketplace=marketplace)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
-        #NicheUpdaterModel.update_firestore_niche_data(keyword=None)
+        keywords="Schlafkleidung;Among;Querdenken;Qanon"
+        #NicheUpdaterModel.crawl_niches(keywords)
+        #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
+        #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         #DataHandlerModel.update_datastore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
-        #DataHandlerModel.update_niches_by_keyword(marketplace, "Weihnachtselfen & Weihnachtsmänner")
-        #DataHandlerModel.crawl_niches(marketplace, "Schleich di du Oaschloch;Impostor;Tegel")
         # niches are updated once a week every sunday
         if today_weekday == 6:
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
