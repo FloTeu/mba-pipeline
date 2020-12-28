@@ -18,7 +18,7 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 #USER_AGENT = 'mba_crawler (+http://www.yourdomain.com)'
 
 # Obey robots.txt rules
-ROBOTSTXT_OBEY = True
+ROBOTSTXT_OBEY = False
 use_public_proxies = False
 use_private_proxies = False
 
