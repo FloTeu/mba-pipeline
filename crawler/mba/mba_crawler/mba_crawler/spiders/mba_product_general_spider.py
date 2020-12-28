@@ -16,6 +16,7 @@ import dateparser
 from scrapy.exceptions import CloseSpider
 
 import time
+import threading
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 from scrapy.spidermiddlewares.httperror import HttpError
@@ -57,6 +58,7 @@ class MBASpider(scrapy.Spider):
         super().__init__(**kwargs)  # python3
 
     def start_requests(self):
+        self.reset_was_banned_every_hour()
         urls = pd.read_csv(self.url_data_path)["url"].tolist()
         asins = pd.read_csv(self.url_data_path)["asin"].tolist()
         send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
@@ -137,6 +139,11 @@ class MBASpider(scrapy.Spider):
     def status_update(self):
         if len(self.df_products_details_daily) % 100 == 0:
             send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
+
+    def reset_was_banned_every_hour(self):
+        threading.Timer(1 * 60 * 60, self.reset_was_banned_every_hour).start()
+        self.was_banned = {}
+        send_msg(self.target, "Reset banned proxies", self.api_key)
 
     def get_ban_count(self, proxy):
         ban_count = 0
