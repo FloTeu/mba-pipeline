@@ -197,12 +197,16 @@ class NicheUpdater():
                     upload_count_last = upload_count_dict[date_str]
                     price_upload_data_by_date = (price_upload_data_by_date * (count_upload_data_cum-count_inactive_crawling) + price_upload_data * upload_count_last)/ (count_upload_data_cum + upload_count_last - count_inactive_crawling)
                     count_upload_data_cum = count_upload_data_cum + upload_count_last
-                    price_dict.update({date_str: self.calc_price(price_upload_data_by_date, count_upload_data_cum, price_mean_crawling, count_crawling, count_inactive_crawling)})
+                    price_mean = self.calc_price(price_upload_data_by_date, count_upload_data_cum, price_mean_crawling, count_crawling, count_inactive_crawling)
+                    price_dict.update({date_str: price_mean})
+                    #print("Price update with upload data", date_str, price_mean, price_upload_data_by_date, count_upload_data_cum, price_mean_crawling, count_crawling, count_inactive_crawling)
                 # case only crawling data given
                 except:
                     #price_upload_data_by_date = (price_upload_data_by_date * (count_upload_data_cum-count_inactive_crawling) + price_mean_crawling * upload_count_last)/ (count_upload_data_cum + upload_count_last - count_inactive_crawling)
                     #price_mean = float("%.2f" % price_mean)
-                    price_dict.update({date_str: self.calc_price(price_upload_data_by_date, count_upload_data_cum, price_mean_crawling, count_crawling, count_inactive_crawling)})
+                    price_mean = self.calc_price(price_upload_data_by_date, count_upload_data_cum, price_mean_crawling, count_crawling, count_inactive_crawling)
+                    price_dict.update({date_str: price_mean})
+                    #print("Price update without upload data", date_str, price_mean, price_upload_data_by_date)
                 
         price_dict = collections.OrderedDict(sorted(price_dict.items()))
 

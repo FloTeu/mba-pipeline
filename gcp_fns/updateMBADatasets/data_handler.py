@@ -1131,6 +1131,10 @@ class DataHandler():
                     raise e
                 print("Got bigquery chunk")
                 self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+                asin_list_crawling = self.df_shirts_detail_daily.drop_duplicates(["asin"])["asin"].tolist()
+
+                # drop asins which were not crawled already
+                df_shirts_asin_chunk = df_shirts_asin_chunk[df_shirts_asin_chunk["asin"].isin(asin_list_crawling)]
 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
@@ -1194,6 +1198,7 @@ class DataHandler():
         #dates = dates + ["2020-11-30"]
         for keyword in keywords_list:
             dates = dates_dict[keyword]
+            #dates = ["2020-11-27"]
             df_shirts_asin = df_shirts_asin_keyword_dict[keyword]
             df_shirts_detail_daily_total = df_shirts_detail_daily_total_dict[keyword]
             for date in dates:
@@ -1203,11 +1208,15 @@ class DataHandler():
                 date_object = date_object + timedelta(days=1)
                 next_day = datetime.strftime(date_object, "%Y-%m-%d")
 
-                df_shirts_asin_date = df_shirts_asin.loc[next_day:]
+                df_shirts_asin_date = df_shirts_asin.loc[date:]
 
                 start_time = time.time()
                 self.df_shirts_detail_daily = df_shirts_detail_daily_total[df_shirts_detail_daily_total["timestamp"] <= next_day]
                 self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
+                asin_list_crawling = self.df_shirts_detail_daily.drop_duplicates(["asin"])["asin"].tolist()
+
+                # drop asins which were not crawled already
+                df_shirts_asin_date = df_shirts_asin_date[df_shirts_asin_date["asin"].isin(asin_list_crawling)]
 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
@@ -1261,6 +1270,9 @@ class DataHandler():
 
                 df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
                 df_keywords["date"] = date
+                if df_keywords["price_mean"].iloc[0] < 13:
+                    test = 0
+                    pass
                 if not df_keywords.empty:
                     df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
 
