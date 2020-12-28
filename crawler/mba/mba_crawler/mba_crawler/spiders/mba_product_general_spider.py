@@ -141,7 +141,8 @@ class MBASpider(scrapy.Spider):
             send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
 
     def reset_was_banned_every_hour(self):
-        threading.Timer(1 * 60 * 60, self.reset_was_banned_every_hour).start()
+        self.reset_ban = threading.Timer(1 * 60 * 60, self.reset_was_banned_every_hour)
+        self.reset_ban.start()
         self.was_banned = {}
         send_msg(self.target, "Reset banned proxies", self.api_key)
 
@@ -521,6 +522,11 @@ class MBASpider(scrapy.Spider):
             #    raise CloseSpider(reason='To many captchas received')
 
     def closed(self, reason):
+        try:
+            self.reset_ban.cancel()
+        except Exception as e:
+            send_msg(self.target, "Could not cancel ban reset function", self.api_key)
+            print("Could not cancel ban reset function", str(e))
         try:
             ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
             ip_addr_str=""
