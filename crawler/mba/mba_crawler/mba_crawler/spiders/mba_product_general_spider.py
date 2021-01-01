@@ -536,8 +536,8 @@ class MBASpider(scrapy.Spider):
             for proxy, data in self.was_banned.items():
                 proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
-            send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
-            send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
+            #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
+            #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
             send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
