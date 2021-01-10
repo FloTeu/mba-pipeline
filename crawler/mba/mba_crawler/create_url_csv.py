@@ -69,6 +69,13 @@ def get_sql_best_seller(marketplace):
     '''.format(marketplace)
     return SQL_STATEMENT
 
+def get_sql_watchlist(marketplace):
+    SQL_STATEMENT = '''
+    SELECT asin, operation FROM  `mba-pipeline.mba_{0}.watchlist` 
+    order by timestamp desc
+    '''.format(marketplace)
+    return SQL_STATEMENT
+
 def get_sql_lowest_bsr_count(marketplace):
     SQL_STATEMENT = '''
     SELECT t0.asin, t2.bsr_count FROM mba_{0}.products t0 
@@ -154,7 +161,15 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
         df_ranking = df_random.iloc[0:2]
     df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
 
-    pd_list = [df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_ranking[["asin"]]] 
+    # get watchlist data
+    try:
+        df_watchlist = pd.read_gbq(get_sql_watchlist(marketplace), project_id=project_id)
+        df_watchlist = df_watchlist.drop_duplicates(subset=['asin'], keep='first')
+        df_watchlist = df_watchlist[df_watchlist["operation"] == "insert"]
+    except:
+        df_watchlist = df_random.iloc[0:2]
+
+    pd_list = [df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_ranking[["asin"]], df_watchlist[["asin"]]]
     df_total = pd.concat(pd_list).drop_duplicates(["asin"])
     return df_total.sample(len(df_total))
 
