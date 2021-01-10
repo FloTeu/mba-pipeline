@@ -649,33 +649,45 @@ class DataHandler():
         keywords_final = keywords_filtered
         return keywords_final
 
+    def was_takedown(self, df_row):
+        if df_row["price_last"] == 404:
+            return True
+        else:
+            return False
+
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
         dev_str = ""
         if dev:
             dev_str = "_dev"
 
+        firestore = Firestore(collection + dev_str)
+        
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
 
-        time_start = time.time()
-        df["keywords_meaningful"] = df.apply(lambda x: self.create_keywords(x), axis=1)
-        print("elapsed time for all meaningful keywords creation %.2f min" % ((time.time() - time_start)/60))
-        time_start = time.time()
-        df["keywords"] = df.apply(lambda x: self.get_all_keywords(x), axis=1)
-        print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-        #df["keywords_meaningful_count"] = df.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
-        columns = list(df.columns.values)
-        for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
-            columns.remove(column_to_drop)
-        df_filtered = df[columns]
-        #df["keywords"] = df.apply(lambda x: self.get_keywords_filtered(x), axis=1)
-        #df_filtered = df_filtered.iloc[124*250:len(df_filtered)]
-        firestore = Firestore(collection + dev_str)
-        firestore.update_by_df_batch(df_filtered, "asin", batch_size=250)
-        # for i, df_row in df_unequal_normal_bsr.iterrows():
-        #     asin = df_row["asin"]
-        #     firestore.delete_document(asin)
+        chunk_size = 1000
+        df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
+        for df_chunk in df_chunks:
+            df_chunk["takedown"] = df_chunk.apply(lambda x: self.was_takedown(x), axis=1)
+
+            time_start = time.time()
+            df_chunk["keywords_meaningful"] = df_chunk.apply(lambda x: self.create_keywords(x), axis=1)
+            print("elapsed time for all meaningful keywords creation %.2f min" % ((time.time() - time_start)/60))
+            time_start = time.time()
+            df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_all_keywords(x), axis=1)
+            print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
+            #df_chunk["keywords_meaningful_count"] = df_chunk.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
+            columns = list(df_chunk.columns.values)
+            for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
+                columns.remove(column_to_drop)
+            df_filtered = df_chunk[columns]
+            #df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_keywords_filtered(x), axis=1)
+            #df_filtered = df_filtered.iloc[124*250:len(df_filtered)]
+            firestore.update_by_df_batch(df_filtered, "asin", batch_size=250)
+            # for i, df_row in df_unequal_normal_bsr.iterrows():
+            #     asin = df_row["asin"]
+            #     firestore.delete_document(asin)
 
 
     def count_slashes(self, string):
