@@ -143,8 +143,9 @@ class MBASpider(scrapy.Spider):
     def reset_was_banned_every_hour(self):
         self.reset_ban = threading.Timer(1 * 60 * 60, self.reset_was_banned_every_hour)
         self.reset_ban.start()
+        if self.was_banned:
+            send_msg(self.target, "Reset banned proxies", self.api_key)
         self.was_banned = {}
-        send_msg(self.target, "Reset banned proxies", self.api_key)
 
     def get_ban_count(self, proxy):
         ban_count = 0

@@ -6,7 +6,7 @@ import hashlib
 from scrapy.utils.python import to_bytes
 import subprocess
 from os.path import join
-
+import datetime
 
 def list_str_to_list(list_str):
     list_str = list_str.strip("[]")
@@ -93,6 +93,9 @@ class NicheUpdater():
 
         df_niche_data_keywords = pd.read_gbq(self.get_niche_data_sql(keywords=keywords), project_id="mba-pipeline")
         keywords = df_niche_data_keywords.groupby(by=["keyword"]).count()["count"].index.tolist()
+        df_keywords = pd.DataFrame(data={"keyword": keywords})
+        df_keywords["timestamp"] = datetime.datetime.now()
+        df_keywords.to_gbq("mba_" + str(self.marketplace) +".niches_firestore", project_id="mba-pipeline", if_exists="append")
 
         for keyword in keywords:
             df_niche_data_keyword = df_niche_data_keywords[df_niche_data_keywords["keyword"]==keyword]

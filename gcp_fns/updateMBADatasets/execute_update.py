@@ -83,7 +83,7 @@ def main(args):
         today_weekday = datetime.datetime.now(tz).weekday()
         DataHandlerModel = DataHandler(marketplace=marketplace)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
-        keywords="Agrardemiker"#Among;Schlafkleidung;Querdenken;Qanon"
+        keywords="Lockdown 2021" #"Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
@@ -93,7 +93,7 @@ def main(args):
         if today_weekday == 6:
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_language_code(marketplace)
-            DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
+            DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #"2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
 
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
