@@ -67,7 +67,7 @@ class NicheUpdater():
 
     def get_niche_data_sql(self, keywords=None):
         WHERE_STATEMENT = "and count > 5 and count < 100 and bsr_mean < 750000 and bsr_best < 200000 and price_mean > 18"
-        if keywords != None:
+        if keywords != None and keywords != "":
             keywords_str = "({})".format(",".join(["'" + v + "'" for v in keywords.split(";")]))
             WHERE_STATEMENT = " and keyword in {}".format(keywords_str)
 

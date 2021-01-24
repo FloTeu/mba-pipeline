@@ -25,6 +25,7 @@ from pytz import timezone
 import subprocess
 import collections
 from niche_updater import list_str_to_list
+import hashlib
 
 
 class DataHandler():
@@ -998,20 +999,45 @@ class DataHandler():
         df[["asin", "language"]].to_gbq("mba_{}.products_language".format(marketplace), project_id="mba-pipeline", if_exists="append")
 
     def update_trademark(self, marketplace):
-        df = pd.read_gbq("SELECT DISTINCT brand, count(*) as count FROM mba_{}.products_details group by brand order by count desc".format(marketplace), project_id="mba-pipeline")
+        df = pd.read_gbq("SELECT DISTINCT brand FROM mba_{}.products_details group by brand".format(marketplace), project_id="mba-pipeline")
         df["trademark"] = True
         df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        df_listings["trademark"] = True
         trademarks = ["disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
         "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
         "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
         , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
         "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
         "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me", "Shrek", "The Thread Shop", "Licensed"]
-        df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
-        df_listings = df_listings[df_listings["product_features"].str.contains("|".join(trademarks),regex=True, case=False)][["brand", "trademark"]].drop_duplicates(["brand"])
-        df_trademarks = df_trademarks.append(df_listings).drop_duplicates(["brand"])
+        #df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
+        df_trademarks = pd.DataFrame(columns=['brand', 'trademark'])
+        for trademark in trademarks:
+            df_trademarks_row = df[df["brand"].str.contains(trademark, regex=True, case=False)]
+            df_listings_trademarked_brands_row = df_listings[df_listings["product_features"].str.contains(" " + trademark + " ", case=False)][["brand"]]
+            for i, df_listings_trademarked_brands_row_i in df_listings_trademarked_brands_row.iterrows():
+                if df_listings_trademarked_brands_row_i["brand"] not in df_trademarks_row["brand"].tolist():
+                    # add brands from listing matches
+                    df_trademarks_row = df_trademarks_row.append(df_listings_trademarked_brands_row_i, ignore_index=True)
+            df_trademarks_row = df_trademarks_row.reset_index(drop=True)
+            df_trademarks_row["trademark"] = trademark
+            df_trademarks_row = df_trademarks_row.drop_duplicates(["brand"])
+            if df_trademarks.empty:
+                df_trademarks = df_trademarks_row.copy()
+            else:
+                df_trademarks = df_trademarks.append(df_trademarks_row, ignore_index=True)
+        
+        #df_listings = df_listings[df_listings["product_features"].str.contains("|".join(trademarks),regex=True, case=False)][["brand", "trademark"]].drop_duplicates(["brand"])
+        #df_trademarks = df_trademarks.append(df_listings).drop_duplicates(["brand"])
         df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
+        
+        # FIRESTORE
+        firestore_trademark = Firestore("de_trademarks")
+        for trademark in trademarks:
+            df_firestore = df_trademarks[df_trademarks["trademark"]==trademark]
+            brands = df_firestore["brand"].tolist()
+            firestore_dict = {"brands": brands, "trademark": trademark}
+            doc_id = hashlib.sha1(trademark.encode("utf-8")).hexdigest()
+            doc_ref = firestore_trademark.db.collection(firestore_trademark.collection_name).document(doc_id)
+            doc_ref.set(firestore_dict)
 
 
     def append_niche_table_in_bigquery(self, marketplace, df, date):
