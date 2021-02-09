@@ -26,7 +26,9 @@ import subprocess
 import collections
 from niche_updater import list_str_to_list
 import hashlib
-
+import nltk
+from nltk.stem.snowball import SnowballStemmer
+from nltk.corpus import stopwords
 
 class DataHandler():
     def __init__(self, marketplace="de"):
@@ -572,6 +574,18 @@ class DataHandler():
             product_features_list = []
         return product_features_list
 
+    def get_keyword_text(self, df_row):
+        """ Function to receive all relevant keyword in a text
+        """
+        brand_list = df_row["brand"].lower().split(" ")
+        title_list = df_row["title"].lower().split(" ")
+        language = df_row["language"]
+        # get only first two feature bullets (listings)
+        product_features_list = list_str_to_list(df_row["product_features"])
+        product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+        product_features_list = self.cut_product_feature_list(product_features_list)
+        return " ".join([df_row["title"] + "."] + [df_row["brand"] + "."] + product_features_list)
+
     def get_all_keywords(self, df_row):
         asin = df_row["asin"].lower()
         # old method
@@ -655,6 +669,83 @@ class DataHandler():
             return True
         else:
             return False
+    
+    def create_stem_keywords(self, df_row):
+        """Function to receive firestore property with stem keywords
+        """
+        keyword_text = self.get_keyword_text(df_row)
+        keyword_list = re.findall(r'\w+', keyword_text)
+        language = df_row["language"] 
+        if language == None or language == "":
+            language = detect(keyword_text)
+        fs_stem_word_dict = self.get_fs_stem_word_dict(keyword_list, language)
+        fs_stem_word_dict.update({df_row["asin"].lower(): True})
+        return fs_stem_word_dict
+
+    def get_fs_stem_word_dict(self, keywords, language):
+        # return the stem words of given list of keywords
+        fs_stem_word_dict = {}
+        stem_words = self.keywords_to_stem_words(keywords, language)
+        # drop duplicates
+        for stem_word in stem_words:
+            fs_stem_word_dict.update({stem_word: True})
+        return fs_stem_word_dict
+
+    def keywords_to_stem_words(self, keywords, language):
+        stem_words = []
+        
+        # drop keywords with more than 1 word
+        keywords = [keyword for keyword in keywords if len(keyword.split(" ")) == 1]
+
+        if language == "de":
+            stop_words = set(stopwords.words('german'))  
+            keywords_filtered = [w for w in keywords if not w in stop_words]  
+            snowball_stemmer = SnowballStemmer("german")
+
+            for keyword in keywords_filtered:
+                stem_words.append(snowball_stemmer.stem(keyword))
+        else:
+            stop_words = set(stopwords.words('english'))  
+            keywords_filtered = [w for w in keywords if not w in stop_words]  
+            snowball_stemmer = SnowballStemmer("english")
+
+            for keyword in keywords_filtered:
+                stem_words.append(snowball_stemmer.stem(keyword))
+
+        return stem_words
+
+    def get_bsr_last_ranges(self, df_row):
+        bsr_last_ranges = {}
+        bsr_last = df_row["bsr_last"]
+        # number which represents bsr range in 100000 steps 
+        bsr_range_point = int(bsr_last / 100000)
+        for i in range(20):
+            if i < bsr_range_point:
+                bsr_last_ranges.update({str(i): False})
+            else:
+                bsr_last_ranges.update({str(i): True})
+        return bsr_last_ranges
+
+    def get_price_last_ranges(self, df_row):
+        price_last_ranges = {}
+        price_last = df_row["price_last"]
+        # number which represents bsr range in 100000 steps 
+        price_range_point = int(price_last)
+        for i in np.arange(12,26,1):
+            if i < price_range_point:
+                price_last_ranges.update({str(i): False})
+            else:
+                price_last_ranges.update({str(i): True})
+        return price_last_ranges
+
+    def get_firestore_data(self, df_row):
+        takedown = self.was_takedown(df_row)
+        keywords = self.get_all_keywords(df_row)
+        keywords_meaningful = self.create_keywords(df_row)
+        keywords_stem = self.create_stem_keywords(df_row)
+        price_last_ranges = self.get_price_last_ranges(df_row)
+        bsr_last_ranges = self.get_bsr_last_ranges(df_row)
+        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -670,14 +761,25 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            df_chunk["takedown"] = df_chunk.apply(lambda x: self.was_takedown(x), axis=1)
-
+            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges", "bsr_last_ranges"]
             time_start = time.time()
-            df_chunk["keywords_meaningful"] = df_chunk.apply(lambda x: self.create_keywords(x), axis=1)
-            print("elapsed time for all meaningful keywords creation %.2f min" % ((time.time() - time_start)/60))
-            time_start = time.time()
-            df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_all_keywords(x), axis=1)
+            firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
+            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges in firestore_data_series.values], columns=firestore_property_columns)
+            # merge data
+            df_chunk = pd.concat([df_chunk, df_fs_data.reindex(df_chunk.index)], axis=1)
+
+            # df_chunk["takedown"] = df_chunk.apply(lambda x: self.was_takedown(x), axis=1)
+            # time_start = time.time()
+            # df_chunk["keywords_meaningful"] = df_chunk.apply(lambda x: self.create_keywords(x), axis=1)
+            # print("elapsed time for all meaningful keywords creation %.2f min" % ((time.time() - time_start)/60))
+            # time_start = time.time()
+            # df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_all_keywords(x), axis=1)
+            # df_chunk["keywords_stem"] = df_chunk.apply(lambda x: self.create_stem_keywords(x), axis=1)
+            # df_chunk["price_last_ranges"] = df_chunk.apply(lambda x: self.get_price_last_ranges(x), axis=1)
+            # df_chunk["bsr_last_ranges"] = df_chunk.apply(lambda x: self.get_bsr_last_ranges(x), axis=1)
+
+        
             #df_chunk["keywords_meaningful_count"] = df_chunk.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
             columns = list(df_chunk.columns.values)
             for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
@@ -1308,11 +1410,14 @@ class DataHandler():
 
                 df_keywords = self.keyword_dicts_to_df(keywords_asin, keywords_count, keywords_bsr_last, keywords_trend, keywords_price_last, keywords_bsr_change)
                 df_keywords["date"] = date
-                if df_keywords["price_mean"].iloc[0] < 13:
-                    test = 0
+                try:
+                    if df_keywords["price_mean"].iloc[0] < 13:
+                        test = 0
+                        pass
+                    if not df_keywords.empty:
+                        df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
+                except Exception as e:
+                    print(str(e))
                     pass
-                if not df_keywords.empty:
-                    df_keywords.to_gbq("mba_" + str(marketplace) +".niches", project_id="mba-pipeline", if_exists="append")
-
 
 

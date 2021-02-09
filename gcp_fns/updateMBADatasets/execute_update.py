@@ -83,7 +83,7 @@ def main(args):
         today_weekday = datetime.datetime.now(tz).weekday()
         DataHandlerModel = DataHandler(marketplace=marketplace)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
-        keywords="" #"Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
+        keywords="Wolliball" #"Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)

@@ -46,6 +46,7 @@ class Firestore():
                     doc = doc_ref.get()
 
                     if doc.exists:
+                        # TODO: if every property will be deleted which is not in df_dict its might be the same as just using set
                         # DELETE PROPERTIES which are not up to date anymore
                         properties = list(doc._data.keys())
                         properties_not_in_dict = list(np.setdiff1d(properties,list(df_dict.keys())))
