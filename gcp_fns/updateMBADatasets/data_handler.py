@@ -767,6 +767,7 @@ class DataHandler():
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
             df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
+            df_chunk = df_chunk.reset_index(drop=True)
             df_chunk = pd.concat([df_chunk, df_fs_data.reindex(df_chunk.index)], axis=1)
 
             # df_chunk["takedown"] = df_chunk.apply(lambda x: self.was_takedown(x), axis=1)
