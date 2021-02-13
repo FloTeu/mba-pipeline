@@ -43,21 +43,21 @@ class Firestore():
                     df_dict.update({'timestamp': datetime.datetime.now()})
 
                     doc_ref = self.db.collection(self.collection_name).document(document_id)
-                    doc = doc_ref.get()
+                    # doc = doc_ref.get()
 
-                    if doc.exists:
-                        # TODO: if every property will be deleted which is not in df_dict its might be the same as just using set
-                        # DELETE PROPERTIES which are not up to date anymore
-                        properties = list(doc._data.keys())
-                        properties_not_in_dict = list(np.setdiff1d(properties,list(df_dict.keys())))
-                        for property_delete in properties_not_in_dict:
-                            df_dict.update({property_delete: firestore.DELETE_FIELD})
+                    # if doc.exists:
+                    #     # TODO: if every property will be deleted which is not in df_dict its might be the same as just using set
+                    #     # DELETE PROPERTIES which are not up to date anymore
+                    #     properties = list(doc._data.keys())
+                    #     properties_not_in_dict = list(np.setdiff1d(properties,list(df_dict.keys())))
+                    #     for property_delete in properties_not_in_dict:
+                    #         df_dict.update({property_delete: firestore.DELETE_FIELD})
 
-                        # add content data
-                        batch.update(doc_ref, df_dict)
-                    else:
-                        # create new document with content data
-                        batch.set(doc_ref, df_dict)
+                    #     # add content data
+                    #     batch.update(doc_ref, df_dict)
+                    # else:
+                    # create new document with content data
+                    batch.set(doc_ref, df_dict)
                 except Exception as e:
                     print(str(e))
                     raise e

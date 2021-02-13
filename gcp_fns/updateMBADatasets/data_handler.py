@@ -738,14 +738,32 @@ class DataHandler():
                 price_last_ranges.update({str(i): True})
         return price_last_ranges
 
+    def get_price_last_ranges_array(self, df_row):
+        price_last_ranges_array = []
+        price_last = df_row["price_last"]
+        # number which represents bsr range in 100000 steps 
+        price_range_point = int(price_last)
+        # price_range_point is not allowed to be lower than 13
+        if price_range_point < 13:
+            price_range_point = 13
+        for price_min in np.arange(13,26,1):
+            for price_max in np.arange(13,26,1):
+                # if price_min is not smaller than price_max, loop should be continued
+                if price_min >= price_max:
+                    continue
+                if price_min < price_range_point and price_max > price_range_point:
+                    pride_range = int(f"{price_min}{price_max}")
+                    price_last_ranges_array.append(pride_range)
+        return price_last_ranges_array
+
     def get_firestore_data(self, df_row):
         takedown = self.was_takedown(df_row)
         keywords = self.get_all_keywords(df_row)
         keywords_meaningful = self.create_keywords(df_row)
         keywords_stem = self.create_stem_keywords(df_row)
-        price_last_ranges = self.get_price_last_ranges(df_row)
+        price_last_ranges_array = self.get_price_last_ranges_array(df_row)
         bsr_last_ranges = self.get_bsr_last_ranges(df_row)
-        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges
+        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -761,11 +779,11 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges", "bsr_last_ranges"]
+            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "bsr_last_ranges"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges, bsr_last_ranges in firestore_data_series.values], columns=firestore_property_columns)
+            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
             df_chunk = df_chunk.reset_index(drop=True)
             df_chunk = pd.concat([df_chunk, df_fs_data.reindex(df_chunk.index)], axis=1)
