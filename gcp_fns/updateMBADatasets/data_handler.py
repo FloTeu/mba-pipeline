@@ -751,7 +751,7 @@ class DataHandler():
                 # if price_min is not smaller than price_max, loop should be continued
                 if price_min >= price_max:
                     continue
-                if price_min < price_range_point and price_max > price_range_point:
+                if price_min <= price_range_point and price_max > price_range_point:
                     pride_range = int(f"{price_min}{price_max}")
                     price_last_ranges_array.append(pride_range)
         return price_last_ranges_array
