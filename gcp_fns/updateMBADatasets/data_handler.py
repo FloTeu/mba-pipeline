@@ -746,6 +746,9 @@ class DataHandler():
         # price_range_point is not allowed to be lower than 13
         if price_range_point < 13:
             price_range_point = 13
+        # price_range_point is not allowed to be higher than 25
+        if price_range_point >= 25:
+            price_range_point = 24
         for price_min in np.arange(13,26,1):
             for price_max in np.arange(13,26,1):
                 # if price_min is not smaller than price_max, loop should be continued
