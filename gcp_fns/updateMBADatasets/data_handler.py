@@ -675,35 +675,37 @@ class DataHandler():
         """
         keyword_text = self.get_keyword_text(df_row)
         keyword_list = re.findall(r'\w+', keyword_text)
-        language = df_row["language"] 
-        if language == None or language == "":
-            language = detect(keyword_text)
-        fs_stem_word_dict = self.get_fs_stem_word_dict(keyword_list, language)
+        fs_stem_word_dict = self.get_fs_stem_word_dict(keyword_list)
         fs_stem_word_dict.update({df_row["asin"].lower(): True})
         return fs_stem_word_dict
 
-    def get_fs_stem_word_dict(self, keywords, language):
+    def get_fs_stem_word_dict(self, keywords):
         # return the stem words of given list of keywords
         fs_stem_word_dict = {}
-        stem_words = self.keywords_to_stem_words(keywords, language)
+        stem_words = self.keywords_to_stem_words(keywords)
         # drop duplicates
         for stem_word in stem_words:
             fs_stem_word_dict.update({stem_word: True})
         return fs_stem_word_dict
 
-    def keywords_to_stem_words(self, keywords, language):
+    def keywords_to_stem_words(self, keywords):
         stem_words = []
         
         # drop keywords with more than 1 word
         keywords = [keyword for keyword in keywords if len(keyword.split(" ")) == 1]
 
-        if language == "de":
+        # keywords are not stemped related to the language of the text but of the marketplace they are uploaded to
+        # Background: user searches for data in marketplace and might write english keyword but want german designs
+        # Use Case: User searches for "home office". keyword text is german but includes keyword "home office".
+        # Solution: stem dependend on marketplace not language of keyword text
+        if self.marketplace == "de":
             stop_words = set(stopwords.words('german'))  
             keywords_filtered = [w for w in keywords if not w in stop_words]  
             snowball_stemmer = SnowballStemmer("german")
 
             for keyword in keywords_filtered:
                 stem_words.append(snowball_stemmer.stem(keyword))
+        # other marketplaces which might only be the american in future
         else:
             stop_words = set(stopwords.words('english'))  
             keywords_filtered = [w for w in keywords if not w in stop_words]  
@@ -714,17 +716,29 @@ class DataHandler():
 
         return stem_words
 
-    def get_bsr_last_ranges(self, df_row):
-        bsr_last_ranges = {}
+    # def get_bsr_last_ranges(self, df_row):
+    #     bsr_last_ranges = {}
+    #     bsr_last = df_row["bsr_last"]
+    #     # number which represents bsr range in 100000 steps 
+    #     bsr_range_point = int(bsr_last / 100000)
+    #     for i in range(20):
+    #         if i < bsr_range_point:
+    #             bsr_last_ranges.update({str(i): False})
+    #         else:
+    #             bsr_last_ranges.update({str(i): True})
+    #     return bsr_last_ranges
+
+    def get_bsr_last_range(self, df_row):
         bsr_last = df_row["bsr_last"]
         # number which represents bsr range in 100000 steps 
         bsr_range_point = int(bsr_last / 100000)
-        for i in range(20):
-            if i < bsr_range_point:
-                bsr_last_ranges.update({str(i): False})
-            else:
-                bsr_last_ranges.update({str(i): True})
-        return bsr_last_ranges
+        # case last bsr is between 0 and 5000000
+        if bsr_range_point < 50:
+            return bsr_range_point
+        # case last bsr is higher than 5000000 or does not exists
+        else:
+            return 99
+        return bsr_range_point
 
     def get_price_last_ranges(self, df_row):
         price_last_ranges = {}
@@ -737,6 +751,12 @@ class DataHandler():
             else:
                 price_last_ranges.update({str(i): True})
         return price_last_ranges
+
+    def get_price_last_range(self, df_row):
+        price_last = df_row["price_last"]
+        # number which represents bsr range in 100000 steps 
+        price_range_point = int(price_last)
+        return price_range_point
 
     def get_price_last_ranges_array(self, df_row):
         price_last_ranges_array = []
@@ -765,8 +785,9 @@ class DataHandler():
         keywords_meaningful = self.create_keywords(df_row)
         keywords_stem = self.create_stem_keywords(df_row)
         price_last_ranges_array = self.get_price_last_ranges_array(df_row)
-        bsr_last_ranges = self.get_bsr_last_ranges(df_row)
-        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges
+        price_last_range = self.get_price_last_range(df_row)
+        bsr_last_range = self.get_bsr_last_range(df_row)
+        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -782,11 +803,11 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "bsr_last_ranges"]
+            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, bsr_last_ranges in firestore_data_series.values], columns=firestore_property_columns)
+            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
             df_chunk = df_chunk.reset_index(drop=True)
             df_chunk = pd.concat([df_chunk, df_fs_data.reindex(df_chunk.index)], axis=1)
