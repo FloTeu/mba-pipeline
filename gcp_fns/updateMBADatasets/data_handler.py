@@ -116,7 +116,8 @@ class DataHandler():
             until_time = "and timestamp <= '%s'" % until_date
 
         SQL_STATEMENT = """
-        SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.array_bsr_categorie, t0.timestamp
+        SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.array_bsr_categorie,
+         t0.customer_review_score_mean, t0.customer_review_count, t0.timestamp
         FROM `mba-pipeline.mba_{0}.products_details_daily` t0
         LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{0}.products`) t1 on t1.asin = t0.asin
         where t0.asin in {1} {3}
@@ -284,7 +285,7 @@ class DataHandler():
             print("Start to get first and last bsr of shirts")
             start_time = time.time()
             df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], marketplace=marketplace)), axis=1)
-            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category"]
+            df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category"]
             df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
 
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
@@ -382,9 +383,9 @@ class DataHandler():
         if len(df_occ) == 0:
             category_name = self.get_category_name(marketplace)
             if with_asin:
-                return 0,0,0,0,0,0,0,0, category_name, asin
+                return 0,0,0,0,0,0,0,0,0,0, category_name, asin
             else:
-                return 0,0,0,0,0,0,0,0, category_name
+                return 0,0,0,0,0,0,0,0,0,0, category_name
         else:
             i = 0
             # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
@@ -460,9 +461,9 @@ class DataHandler():
         bsr_category = self.get_bsr_category(last_occ, marketplace)
 
         if with_asin:
-            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], bsr_category, asin
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category, asin
         else:
-            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], bsr_category
+            return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category
 
     def create_plot_html(self, df_shirts_row):
         config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
@@ -779,6 +780,12 @@ class DataHandler():
                     price_last_ranges_array.append(pride_range)
         return price_last_ranges_array
 
+    def get_score_last_rounded(self, df_row):
+        try:
+            return int(round(df_row["score_last"], 0)) 
+        except:
+            return 0
+
     def get_firestore_data(self, df_row):
         takedown = self.was_takedown(df_row)
         keywords = self.get_all_keywords(df_row)
@@ -787,7 +794,8 @@ class DataHandler():
         price_last_ranges_array = self.get_price_last_ranges_array(df_row)
         price_last_range = self.get_price_last_range(df_row)
         bsr_last_range = self.get_bsr_last_range(df_row)
-        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range
+        score_last_rounded = self.get_score_last_rounded(df_row)
+        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -803,13 +811,14 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range"]
+            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range in firestore_data_series.values], columns=firestore_property_columns)
+            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
             df_chunk = df_chunk.reset_index(drop=True)
+
             df_chunk = pd.concat([df_chunk, df_fs_data.reindex(df_chunk.index)], axis=1)
 
             # df_chunk["takedown"] = df_chunk.apply(lambda x: self.was_takedown(x), axis=1)
@@ -825,7 +834,7 @@ class DataHandler():
         
             #df_chunk["keywords_meaningful_count"] = df_chunk.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
             columns = list(df_chunk.columns.values)
-            for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number"]:
+            for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number", "score_min", "score_mean", "score_max"]:
                 columns.remove(column_to_drop)
             df_filtered = df_chunk[columns]
             #df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_keywords_filtered(x), axis=1)
@@ -1321,7 +1330,7 @@ class DataHandler():
 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
-                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
+                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category", "asin"]
 
                 df_keywords_data_chunk = df_keyword_data.merge(df_additional_data, 
                     left_on="asin", right_on="asin")
@@ -1403,7 +1412,7 @@ class DataHandler():
 
                 print("Start to get first and last bsr of shirts")
                 df_additional_data = df_shirts_asin_date.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], with_asin=True)), axis=1)
-                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "bsr_category", "asin"]
+                df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category", "asin"]
 
                 df_keywords_data_with_more_info = df_keyword_data[df_keyword_data["keyword"]==keyword].drop_duplicates(["asin"]).merge(df_additional_data, 
                     left_on="asin", right_on="asin")
