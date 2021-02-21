@@ -169,6 +169,8 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
     except:
         df_watchlist = df_random.iloc[0:2]
     df_watchlist = df_watchlist[~df_watchlist['asin'].isin(exclude_asins)]
+    # allow only a maximum of 50 watchlist asins per crawling
+    df_watchlist = df_watchlist.iloc[0:50]
 
     pd_list = [df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_ranking[["asin"]], df_watchlist[["asin"]]]
     df_total = pd.concat(pd_list).drop_duplicates(["asin"])

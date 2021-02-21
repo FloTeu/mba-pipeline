@@ -806,6 +806,8 @@ class DataHandler():
         firestore = Firestore(collection + dev_str)
         
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
+        #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
+        #print(df.shape)
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
 
         chunk_size = 1000
