@@ -233,6 +233,30 @@ class DataHandler():
         query_job = bq_client.query(SQL_STATEMENT)
         query_job.result()
 
+    def get_takedown_lists(self, df_asins):
+        takedown_data = df_asins.apply(lambda x: self.get_takedown_data(x), axis=1)
+        takedown_list = []
+        takedown_date_list = []
+        for takedown_data_i in takedown_data:
+            takedown_list.append(takedown_data_i[0])
+            takedown_date_list.append(takedown_data_i[1])
+        return takedown_list, takedown_date_list
+
+    def get_plot_lists(self, df_asins):
+        plot_data = df_asins.apply(lambda x: self.create_plot_data(x), axis=1)
+        plot_x=[]
+        plot_y=[]
+        for plot_data_i in plot_data:
+            plot_x.append(plot_data_i[0])
+            plot_y.append(plot_data_i[1])
+        plot_price_data = df_asins.apply(lambda x: self.create_plot_price_data(x), axis=1)
+        plot_x_price = []
+        plot_y_price = []
+        for plot_price_data_i in plot_price_data:
+            plot_x_price.append(plot_price_data_i[0])
+            plot_y_price.append(plot_price_data_i[1])
+        return plot_x, plot_y, plot_x_price, plot_y_price
+
     def update_bq_shirt_tables(self, marketplace, chunk_size=500, limit=None, filter=None,dev=False):
         # This part should only triggered once a day to update all relevant data
         print("Load shirt data from bigquery")
@@ -240,6 +264,7 @@ class DataHandler():
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
         df_shirts = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates(["asin"])
+        #df_shirts = df_shirts[df_shirts["asin"]== "B08XPGNNVP"]
         #df_shirts = bq_client.query(self.get_sql_shirts(marketplace, None, None)).to_dataframe().drop_duplicates()
         # This dataframe is expanded with additional information with every chunk 
         df_shirts_with_more_info = df_shirts.copy()
@@ -274,12 +299,7 @@ class DataHandler():
             # get plot data
             print("Start to get plot data of shirts")
             start_time = time.time()
-            plot_data = df_shirts_asin_chunk.apply(lambda x: self.create_plot_data(x), axis=1)
-            plot_x=[]
-            plot_y=[]
-            for plot_data_i in plot_data:
-                plot_x.append(plot_data_i[0])
-                plot_y.append(plot_data_i[1])
+            plot_x, plot_y, plot_x_price, plot_y_price = self.get_plot_lists(df_shirts_asin_chunk)
             print("elapsed time: %.2f sec" %((time.time() - start_time)))
  
             print("Start to get first and last bsr of shirts")
@@ -287,6 +307,10 @@ class DataHandler():
             df_additional_data = df_shirts_asin_chunk.apply(lambda x: pd.Series(self.get_first_and_last_data(x["asin"], marketplace=marketplace)), axis=1)
             df_additional_data.columns=["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category"]
             df_additional_data["plot_x"],df_additional_data["plot_y"] = plot_x, plot_y
+            df_additional_data["plot_x_price"],df_additional_data["plot_y_price"] = plot_x_price, plot_y_price
+            # add takedown data    
+            takedown_list, takedown_date_list = self.get_takedown_lists(df_shirts_asin_chunk)        
+            df_additional_data["takedown"],df_additional_data["takedown_date"] = takedown_list, takedown_date_list
 
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
                 left_index=True, right_index=True)
@@ -295,6 +319,7 @@ class DataHandler():
             else:
                 df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
             print("elapsed time: %.2f sec" %((time.time() - start_time)))
+
 
             '''
             print("Start to create plot html")
@@ -491,13 +516,50 @@ class DataHandler():
         return plot_div
 
     def create_plot_data(self, df_shirts_row):
-        config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
-        # remove bsr with 0 
-        df_asin_detail_daily = df_asin_detail_daily[df_asin_detail_daily["bsr"]!=0]
+        # remove bsr with 0 or 404
+        df_asin_detail_daily = df_asin_detail_daily[(df_asin_detail_daily["bsr"]!=0)&(df_asin_detail_daily["bsr"]!=404)]
         x=",".join(x.strftime("%d/%m/%Y") for x in df_asin_detail_daily["date"].tolist())
         y=",".join(str(y) for y in df_asin_detail_daily["bsr"].tolist())
         return x, y
+
+    def create_plot_price_data(self, df_shirts_row):
+        df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        price_dates = df_asin_detail_daily["date"].tolist()
+        price_dates.reverse()
+        price_data = df_asin_detail_daily["price"].tolist()
+        price_data.reverse()
+        x = ""
+        y = ""
+        price_last = 0
+        for i, price in enumerate(price_data):
+            # set only new price data if its new (in relation to last price) and unequal to 404 or lower than 10
+            if price != price_last and price < 60 and price > 10:
+                x = x + price_dates[i].strftime("%d/%m/%Y") + ","
+                y = y + "%.2f" % price + ","
+            # update price_last only if price is real
+            if price < 60 and price > 10:
+                price_last = price
+        # reverse back to original order
+        x_list = x.strip(",").split(",")
+        y_list = y.strip(",").split(",")
+        x_list.reverse()
+        y_list.reverse()
+        x = ",".join(x_list)
+        y = ",".join(y_list)
+        return x, y
+
+    def get_takedown_data(self, df_shirts_row):
+        """
+            Return: is_takedown (bool), takedown_date (None if is_takedown is False)
+        """
+        df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+        price_dates = df_asin_detail_daily["date"].tolist()
+        price_data = df_asin_detail_daily["price"].tolist()
+        for i, price in enumerate(price_data):
+            if price == 404:
+                return True, price_dates[i]
+        return False, None
 
     def get_shirt_dataset_sql(self, marketplace, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -600,8 +662,10 @@ class DataHandler():
 
         keyword_text = " ".join([df_row["title"] + "."] + [df_row["brand"] + "."] + product_features_list)
         if language == None or language == "":
-            language = detect(keyword_text)
-
+            try:
+                language = detect(keyword_text)
+            except:
+                pass
         # extract type of token like NOUN or VERB etc.
         if language == "de":
             tr4w = self.tr4w_de
@@ -661,9 +725,7 @@ class DataHandler():
         # if keywords are already known use them
         if df_row["keywords"] != None:
             return df_row["keywords"].split(";")
-        keywords_filtered = [v for v in self.get_keywords_filtered(df_row)]
-        keywords_final = keywords_filtered
-        return keywords_final
+        return self.get_keywords_filtered(df_row)
 
     def was_takedown(self, df_row):
         if df_row["price_last"] == 404:
@@ -787,7 +849,7 @@ class DataHandler():
             return 0
 
     def get_firestore_data(self, df_row):
-        takedown = self.was_takedown(df_row)
+        #takedown = self.was_takedown(df_row)
         keywords = self.get_all_keywords(df_row)
         keywords_meaningful = self.create_keywords(df_row)
         keywords_stem = self.create_stem_keywords(df_row)
@@ -795,7 +857,7 @@ class DataHandler():
         price_last_range = self.get_price_last_range(df_row)
         bsr_last_range = self.get_bsr_last_range(df_row)
         score_last_rounded = self.get_score_last_rounded(df_row)
-        return takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded
+        return keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -813,11 +875,11 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            firestore_property_columns = ["takedown", "keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
+            firestore_property_columns = ["keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-            df_fs_data = pd.DataFrame([[takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded] for takedown, keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded in firestore_data_series.values], columns=firestore_property_columns)
+            df_fs_data = pd.DataFrame([[keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded] for keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
             df_chunk = df_chunk.reset_index(drop=True)
 

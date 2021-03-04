@@ -38,6 +38,10 @@ class Firestore():
                         df_dict["plot_x"] = df_dict["plot_x"].split(",")
                     if "plot_y" in df_dict and df_dict["plot_y"] != None:
                         df_dict["plot_y"] = df_dict["plot_y"].split(",") 
+                    if "plot_x_price" in df_dict and df_dict["plot_x_price"] != None:
+                        df_dict["plot_x_price"] = df_dict["plot_x_price"].split(",")
+                    if "plot_y_price" in df_dict and df_dict["plot_y_price"] != None:
+                        df_dict["plot_y_price"] = df_dict["plot_y_price"].split(",") 
                     document_id = df_dict[product_id_column]
                     
                     df_dict.update({'timestamp': datetime.datetime.now()})
