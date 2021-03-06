@@ -519,6 +519,8 @@ class DataHandler():
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
         # remove bsr with 0 or 404
         df_asin_detail_daily = df_asin_detail_daily[(df_asin_detail_daily["bsr"]!=0)&(df_asin_detail_daily["bsr"]!=404)]
+        # drop bsr data with same date (multiple times crawled on same day)
+        df_asin_detail_daily = df_asin_detail_daily.drop_duplicates(["date"])
         x=",".join(x.strftime("%d/%m/%Y") for x in df_asin_detail_daily["date"].tolist())
         y=",".join(str(y) for y in df_asin_detail_daily["bsr"].tolist())
         return x, y
