@@ -16,11 +16,11 @@ sys.path.append("..")
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
 from proxy.utils import get_random_headers, send_msg
 from proxy import proxy_handler
+from ..items import MbaCrawlerItem
 from urllib.parse import urlparse
 import dateparser
 from scrapy.exceptions import CloseSpider
 import mba_url_creator as url_creator
-
 import time
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
@@ -55,7 +55,14 @@ class MBASpider(scrapy.Spider):
     shirts_per_page = 48
 
     custom_settings = {
-        "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=True)
+        "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=True),
+
+        'ITEM_PIPELINES': {
+            'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
+        },
+
+        'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7_public/mba-shirts/',
+        'GCS_PROJECT_ID': 'mba-pipeline'
     }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, **kwargs):
@@ -322,7 +329,9 @@ class MBASpider(scrapy.Spider):
         proxy = self.get_proxy(response)
         url = response.url
         page = response.meta["page"]
-
+        image_urls = []
+        asins = []
+        
         if self.is_captcha_required(response):
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
@@ -394,9 +403,23 @@ class MBASpider(scrapy.Spider):
                 self.df_products = self.df_products.append(df_products)
                 self.df_mba_images = self.df_mba_images.append(df_mba_images)
                 self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
+
+                image_urls.append(url_image_hq)
+                asins.append(asin)
+
+            # crawl images
+            # TODO crawl only image if not already crawled
+            image_item = MbaCrawlerItem()
+            image_item["image_urls"] = image_urls
+            image_item["asins"] = asins
+            image_item["marketplace"] = self.marketplace
+            if self.marketplace == "com":
+                yield image_item
             
             self.page_count = self.page_count + 1
             self.status_update()
+
+
             #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
             
             '''

@@ -83,9 +83,12 @@ DOWNLOADER_MIDDLEWARES = {
 
 # Configure item pipelines
 # See https://docs.scrapy.org/en/latest/topics/item-pipeline.html
-#ITEM_PIPELINES = {
-#    'mba_crawler.pipelines.MbaCrawlerPipeline': 300,
-#}
+# ITEM_PIPELINES = {
+#    'mba_crawler.pipelines.MbaCrawlerImagePipeline': 300,
+# }
+
+# IMAGES_STORE = 'gs://5c0ae2727a254b608a4ee55a15a05fb7_public/mba-shirts/'
+# GCS_PROJECT_ID = 'mba-pipeline'
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
