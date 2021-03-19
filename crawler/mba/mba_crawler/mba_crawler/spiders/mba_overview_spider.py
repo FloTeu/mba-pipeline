@@ -55,7 +55,7 @@ class MBASpider(scrapy.Spider):
     shirts_per_page = 48
 
     custom_settings = {
-        "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list()
+        "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=True)
     }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, **kwargs):
@@ -288,7 +288,10 @@ class MBASpider(scrapy.Spider):
                 raise ValueError("Could not get all 5 img_urls information for crawler " + self.name)
 
     def get_price(self, response_shirt):
-        price = response_shirt.css("span.a-price-whole::text")[0].get()
+        if self.marketplace == "com":
+            price = response_shirt.css("span.a-price-whole::text")[0].get() + response_shirt.css("span.a-price-decimal::text")[0].get() + response_shirt.css("span.a-price-fraction::text")[0].get()
+        else:
+            price = response_shirt.css("span.a-price-whole::text")[0].get()
         if price == None:
             raise ValueError("Could not get price information for crawler " + self.name)
         else:
@@ -422,9 +425,12 @@ class MBASpider(scrapy.Spider):
             for proxy, data in self.was_banned.items():
                 proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
-            send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
-            send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
-            send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
+            print("Used ip addresses: \n{}".format(ip_addr_str))
+            print( "Ban count proxies: \n{}".format(proxy_str))
+            print( "Captcha response count: {}".format(self.captcha_count))
+            #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
+            #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
+            #send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
 

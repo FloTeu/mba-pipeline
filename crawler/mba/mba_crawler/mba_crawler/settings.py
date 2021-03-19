@@ -21,13 +21,14 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 ROBOTSTXT_OBEY = False
 use_public_proxies = False
 use_private_proxies = False
+only_usa = False
 
 if use_public_proxies:
-    ROTATING_PROXY_LIST = proxy_handler.get_public_http_proxy_list()
+    ROTATING_PROXY_LIST = proxy_handler.get_public_http_proxy_list(only_usa=only_usa)
 elif use_private_proxies:
-    ROTATING_PROXY_LIST = proxy_handler.get_private_http_proxy_list()
+    ROTATING_PROXY_LIST = proxy_handler.get_private_http_proxy_list(only_usa=only_usa)
 else:
-    ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list()
+    ROTATING_PROXY_LIST = proxy_handler.get_http_proxy_list(only_usa=only_usa)
 
 ROTATING_PROXY_BAN_POLICY = 'mba_crawler.policy.MyBanPolicy'
 ROTATING_PROXY_CLOSE_SPIDER = True

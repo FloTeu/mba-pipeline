@@ -49,15 +49,15 @@ def get_form_details(form):
 def get_main_url(marketplace):
     if marketplace == "com":
         return "https://www.amazon.com/s"
-    if marketplace == "uk":
+    elif marketplace == "uk":
         return "https://www.amazon.co.uk/s"
     else:
         return "https://www.amazon.de/s"
 
 def get_hidden_keywordys(marketplace):
     if marketplace == "com":
-        return "Solid colors: 100% Cotton; Heather Grey: 90% Cotton, 10% Polyester; All Other Heathers: Classic Fit -Sweatshirt"
-    if marketplace == "uk":
+        return "ORCA"
+    elif marketplace == "uk":
         return "Solid colors: 100% Cotton; Heather Grey: 90% Cotton, 10% Polyester; All Other Heathers: Classic Fit -Sweatshirt"
     else:
         return 'Unifarben: 100% Baumwolle; Grau meliert: 90% Baumwolle -Langarmshirt'
@@ -82,12 +82,22 @@ def get_sort_statement(sort):
 def get_bbn(marketplace):
     if marketplace == "com":
         return "12035955011"
-    if marketplace == "uk":
+    elif marketplace == "uk":
         return "83450031"
     else:
         return "77028031"
 
     
+def get_url_query_params(marketplace, keyword, sort):
+    if marketplace == "com":
+        params = {'i':'fashion-novelty','k':keyword,'s':get_sort_statement(sort), 'rh':'p_6:ATVPDKIKX0DER','hidden-keywords':get_hidden_keywordys(marketplace)}
+    elif marketplace == "uk":
+        params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
+    else:
+        params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
+    return params
+
+
 def main(argv):
     parser = argparse.ArgumentParser(description='')
     parser.add_argument('keyword', help='Keyword that you like to query in mba', type=str)
@@ -108,11 +118,8 @@ def main(argv):
 
     url = get_main_url(marketplace)
 
-    hidden = get_hidden_keywordys(marketplace)
-    #hidden = hidden.replace("+", "%2B")
-
     # rh set articles to prime
-    params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
+    params = get_url_query_params(marketplace, keyword, sort)
 
     url_parts = list(urlparse.urlparse(url))
     query = dict(urlparse.parse_qsl(url_parts[4]))
