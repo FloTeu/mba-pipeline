@@ -1,3 +1,10 @@
 opencv-python==4.2.0.34
 numpy==1.18.2
 google-cloud-storage==1.27.0
+google-cloud-bigquery==1.25.0
+opencv-python-headless<4.3
+setuptools==51.0.0
+piexif
+easydict
+matplotlib
+scipy

@@ -61,7 +61,7 @@ class MBASpider(scrapy.Spider):
             'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
         },
 
-        'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7_public/mba-shirts/',
+        'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/',
         'GCS_PROJECT_ID': 'mba-pipeline'
     }
 
