@@ -10,6 +10,8 @@ dateparser
 scrapy
 scrapy-rotating-proxies
 selenium
-opencv-python
+opencv-python-headless<4.3
+setuptools==51.0.0
 py3exiv2==0.9.3 
 piexif
+easydict

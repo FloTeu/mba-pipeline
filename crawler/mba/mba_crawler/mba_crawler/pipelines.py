@@ -77,6 +77,7 @@ class MbaCrawlerImagePipeline2(ImagesPipeline):
 class MbaCrawlerImagePipeline(ImagesPipeline):
 
     def get_media_requests(self, item, info):
+        # function 1
         assert len(item["asins"]) == len(item['image_urls']), "Length of asins and of image_urls need to be same"
         for i, image_url in enumerate(item['image_urls']):
             yield scrapy.Request(image_url, meta={"marketplace": item["marketplace"], "asin": item["asins"][i]})
@@ -85,6 +86,7 @@ class MbaCrawlerImagePipeline(ImagesPipeline):
         return self.image_downloaded(response, request, info)
 
     def image_downloaded(self, response, request, info, *, item=None):
+        # function 4
         checksum = None
         for path, image, buf, most_common in self.get_images(response, request, info, item=item):
             if checksum is None:
@@ -115,6 +117,7 @@ class MbaCrawlerImagePipeline(ImagesPipeline):
             return []
 
     def get_images(self, response, request, info, *, item=None):
+        # function 3
         path = self.file_path(request, response=response, info=info, item=item)
         orig_image = Image.open(BytesIO(response.body))
 
@@ -163,6 +166,7 @@ class MbaCrawlerImagePipeline(ImagesPipeline):
         return image, buf
 
     def file_path(self, request, response=None, info=None, *, item=None):
+        # function 2
         img_path = ""
         try:
             # HERE ARE CUSTOM CHANGES
@@ -262,16 +266,8 @@ class MbaCrawlerImagePipeline(ImagesPipeline):
         return most_common_dict_list 
 
     def item_completed(self, results, item, info):
-        if isinstance(item, ImageItem):
-            firestore = firestore_handler.Firestore(item["collection_name"])
-            image_paths = [x['path'] for ok, x in results if ok]
-            most_commons = [x['most_common'] for ok, x in results if ok]
-            most_common_dict_list = self.most_common_to_property(most_commons) 
-            if len(image_paths) > 0:
-                try:
-                    firestore.flag_have_images_been_crawled_true(item["product_id"], image_paths, item, most_common=most_common_dict_list)
-                except Exception as e:
-                    raise DropItem("Error when inserting images for product %s" % (item["product_id"]))
-            if not image_paths:
-                raise DropItem("Item contains no images")
+        image_paths = [x['path'] for ok, x in results if ok]
+        if not image_paths:
+            raise DropItem("Item contains no images")
+        item['image_paths'] = image_paths
         return item

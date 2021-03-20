@@ -1,0 +1,16 @@
+{
+  "eventType": "google.storage.object.finalize",
+  "resource": "FooBar",
+  "eventId": "B234-1234-1234",
+  "timestamp": "2020-06-20T17:31:00Z",
+  "data": {
+    "data": "__DATA_BASE64_PLACEHOLDER__",
+    "attributes": {
+      "foo": "bar",
+      "bar": "baz"
+    },
+    "name": "mba-shirts/de/B085CPT42Q.jpg",
+    "publishTime": "2020-06-20T17:35:00Z",
+    "bucket": "5c0ae2727a254b608a4ee55a15a05fb7"
+  }
+}
