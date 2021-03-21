@@ -12,3 +12,4 @@ class MbaCrawlerItem(scrapy.Item):
     image_urls = scrapy.Field()
     marketplace = scrapy.Field()
     asins = scrapy.Field()
+    url_mba_lowqs = scrapy.Field()

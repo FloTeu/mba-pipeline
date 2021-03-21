@@ -36,6 +36,7 @@ import piexif
 import json 
 import io 
 from pathlib import Path
+from google.cloud import bigquery
 
 
 # IMPORTS FROM FilesPipeline
@@ -266,8 +267,19 @@ class MbaCrawlerImagePipeline(ImagesPipeline):
         return most_common_dict_list 
 
     def item_completed(self, results, item, info):
-        image_paths = [x['path'] for ok, x in results if ok]
-        if not image_paths:
-            raise DropItem("Item contains no images")
-        item['image_paths'] = image_paths
+        # updating BQ
+        client = bigquery.Client()
+
+        marketplace = item._values["marketplace"]
+        bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
+        rows_to_insert = []
+        for i, image_url in enumerate(item._values["image_urls"]):
+            asin = item._values["asins"][i]
+            url_mba_lowq = item._values["url_mba_lowqs"][i]
+            url_gs = f"gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/{marketplace}/{asin}.jpg"
+            url = f"https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/{marketplace}/{asin}.jpg"
+            rows_to_insert.append({u"asin": asin, u"url": url, u"url_gs": url_gs, u"url_mba_lowq":url_mba_lowq , u"url_mba_hq":image_url, u"timestamp": str(datetime.datetime.now())})
+        
+        errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
+
         return item

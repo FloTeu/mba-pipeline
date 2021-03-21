@@ -74,7 +74,10 @@ class MBASpider(scrapy.Spider):
         self.start_page = int(start_page)
         self.allowed_domains = ['amazon.' + marketplace]
         self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace)
+        # all image quality url crawled
         self.products_mba_images_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace)
+        # all images which are already downloaded to storage
+        self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace)
         super().__init__(**kwargs)  # python3
 
     def start_requests(self):
@@ -162,7 +165,8 @@ class MBASpider(scrapy.Spider):
 
     def status_update(self):
         if self.page_count % 10 == 0:
-            send_msg(self.target, "Crawled {} pages".format(int(self.page_count)), self.api_key)
+            #send_msg(self.target, "Crawled {} pages".format(int(self.page_count)), self.api_key)
+            pass
 
     def get_ban_count(self, proxy):
         ban_count = 0
@@ -331,6 +335,7 @@ class MBASpider(scrapy.Spider):
         page = response.meta["page"]
         image_urls = []
         asins = []
+        url_mba_lowqs = []
         
         if self.is_captcha_required(response):
             #self.response_is_ban(request, response, is_ban=True)
@@ -404,14 +409,17 @@ class MBASpider(scrapy.Spider):
                 self.df_mba_images = self.df_mba_images.append(df_mba_images)
                 self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
 
-                image_urls.append(url_image_hq)
-                asins.append(asin)
+                # crawl only image if not already crawled
+                if asin not in self.products_images_already_downloaded:
+                    image_urls.append(url_image_hq)
+                    asins.append(asin)
+                    url_mba_lowqs.append(url_image_lowq)
 
             # crawl images
-            # TODO crawl only image if not already crawled
             image_item = MbaCrawlerItem()
             image_item["image_urls"] = image_urls
             image_item["asins"] = asins
+            image_item["url_mba_lowqs"] = url_mba_lowqs
             image_item["marketplace"] = self.marketplace
             if self.marketplace == "com":
                 yield image_item

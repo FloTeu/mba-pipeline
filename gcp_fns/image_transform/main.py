@@ -11,8 +11,17 @@ import piexif.helper
 import json
 from PIL import Image
 from matplotlib import cm
+from functions import grayscale2rgb, load_image_bytes, rgba2rbg
+from datetime import datetime
+import io
 
-def get_most_common_colors(img, n=10):
+def get_most_common_colors(img_bytes_io, n=10):
+    # bytes to numpy.
+    # Hint: numpy colors are changed from the original image like red becoming blue. Dont know exact background
+    if type(img_bytes_io) == io.BytesIO:
+        img = np.array(Image.open(img_bytes_io))
+    else:
+        img = load_image_bytes(img_bytes_io)
     try:
         counter = functions.CSS4Counter(img)
         return counter.most_common(n)
@@ -43,10 +52,68 @@ def most_common_to_property(most_commons):
 
     return most_common_dict_list 
 
-def crop_image(image, scale, width_less):
+def crop_image(image, scale):
+    """ MBA image designs have alwas 4500 * 5400 demension for shirt designs
+        Therfore, we want to keep dimension scale for cropping
+
+    """
     image_h, image_w = image.shape[0], image.shape[1]
     scale_l, scale_h = (1-scale)/2,scale + (1-scale)/2
-    return image[int(image_h*scale_l):int(image_h*scale_h), int(image_w*(scale_l+width_less)):int(image_w*(scale_h+-width_less))]
+    w_to_h = 4500/5400
+    h_1 = int(image_h*scale_l)
+    h_2 = int(image_h*scale_h)
+    image_w_center = int(image_w / 2)
+    w_px = (h_2-h_1) * w_to_h
+    w_1 = image_w_center - int(w_px / 2)
+    w_2 = image_w_center + int(w_px / 2)
+
+    return image[h_1:h_2, w_1:w_2]
+
+def load_data(bucket, file_path):
+    source_bucket = storage.Client().get_bucket(bucket)
+    source_blob = source_bucket.get_blob(file_path)
+    return np.array(
+        cv2.imdecode(
+            np.asarray(bytearray(source_blob.download_as_string()), dtype=np.uint8), 0
+        ))
+
+
+def download_blob(bucket_name, source_blob_name, destination_file_name):
+    """Downloads a blob from the bucket."""
+    # bucket_name = "your-bucket-name"
+    # source_blob_name = "storage-object-name"
+    # destination_file_name = "local/path/to/file"
+
+    storage_client = storage.Client()
+
+    bucket = storage_client.bucket(bucket_name)
+
+    # Construct a client side representation of a blob.
+    # Note `Bucket.blob` differs from `Bucket.get_blob` as it doesn't retrieve
+    # any content from Google Cloud Storage. As we don't need additional data,
+    # using `Bucket.blob` is preferred here.
+    blob = bucket.blob(source_blob_name)
+    blob.download_to_filename(destination_file_name)
+
+    print(
+        "Blob {} downloaded to {}.".format(
+            source_blob_name, destination_file_name
+        )
+    )
+
+
+def get_cropped_image_bytes_io(image, scale):
+    crop_img = crop_image(image, scale)
+    #crop_img_pil = Image.fromarray(np.uint8(cm.gist_earth(crop_img)*255))
+    #crop_img_pil = Image.fromarray(cm.gist_earth(bytearray(source_blob.download_as_string()), bytes=True))
+    crop_img_pil = Image.fromarray(np.uint8(crop_img)).convert('RGB')
+    # crop_img_pil = Image.fromarray(crop_img)
+    # crop_img_pil.save("test.jpg")
+    # crop_img_pil_np = np.array(crop_img_pil)
+    # cv2.imwrite("test.jpg", crop_img_pil_np)
+    crop_img_bytes = io.BytesIO()
+    crop_img_pil.save(crop_img_bytes, format='PNG')
+    return crop_img_bytes
 
 
 def crop_image2public(event, context):
@@ -84,26 +151,21 @@ def crop_image2public(event, context):
         source_bucket = client.get_bucket(bucket)
         source_blob = source_bucket.get_blob(file_path)
         image = np.asarray(bytearray(source_blob.download_as_string()), dtype="uint8")
-        image = cv2.imdecode(image, cv2.IMREAD_UNCHANGED)
+        image_right_color = cv2.imdecode(image, cv2.IMREAD_UNCHANGED)
+        # this loads image with different colors
+        image = load_image_bytes(source_blob.download_as_string())
 
         # crop image
         # TODO find out which setting are best suited for croping
         # how much percent should croped image have of original image size
         scale = 0.65
-        # home much less percent width shoul be croped in comparison to height
-        width_less = 0.05
-        crop_img = crop_image(image, scale, width_less)
-        crop_img_pil = Image.fromarray(np.uint8(cm.gist_earth(crop_img)*255))
-        #crop_img_pil = Image.fromarray(cm.gist_earth(bytearray(source_blob.download_as_string()), bytes=True))
-        #crop_img_pil = Image.fromarray(np.uint8(image)).convert('RGB')
-        # crop_img_pil = Image.fromarray(crop_img)
-        # crop_img_pil.save("test.jpg")
+        crop_img_bytes = get_cropped_image_bytes_io(image, scale)
+        crop_img = crop_image(image_right_color, scale)
 
         # calculate most common colors
-        # TODO: image counter does not work correctly (red is not detected as example)
-        tfile, tpath = tempfile.mkstemp("." + file_name.split(".")[-1])
-        most_common = get_most_common_colors(crop_img)
+        most_common = get_most_common_colors(crop_img_bytes)
         most_common_dict = most_common_to_property([most_common])[0]
+        tfile, tpath = tempfile.mkstemp("." + file_name.split(".")[-1])
 
         # store image file in temp path
         cv2.imwrite(tpath, crop_img)
@@ -122,11 +184,6 @@ def crop_image2public(event, context):
             tpath
         )
 
-        # meta = ImageMetadata(tpath)       
-        # meta.read()
-        # meta['Exif.Photo.UserComment']=json.dumps(most_common_dict)
-        # meta.write()
-
         # Uploading the temp image file to the bucket
         dest_bucket = client.get_bucket(dest_bucket_name)
         dest_blob = dest_bucket.blob(dest_file_path)
@@ -139,7 +196,7 @@ def crop_image2public(event, context):
         url_gs = f"gs://{dest_bucket_name}/{dest_file_path}"
         url = f"https://storage.cloud.google.com/{dest_bucket_name}/{dest_file_path}"
         rows_to_insert = [
-            {u"file_id": file_id, u"url": url, u"url_gs": url_gs, u"shop": shop},
+            {u"file_id": file_id, u"url": url, u"url_gs": url_gs, u"shop": shop, u"timestamp": str(datetime.now())},
         ]
         errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
         if errors == []:
