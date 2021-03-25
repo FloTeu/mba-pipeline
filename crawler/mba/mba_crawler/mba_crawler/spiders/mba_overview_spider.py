@@ -53,9 +53,17 @@ class MBASpider(scrapy.Spider):
     was_banned = {}
     page_count = 0
     shirts_per_page = 48
-
+    change_zip_code_post_data = {
+            'locationType': 'LOCATION_INPUT',
+            'zipCode': '90210',
+            'storeContext': 'apparel',
+            'deviceType': 'web',
+            'pageType': 'Search',
+            'actionSource': 'glow'
+            }
+ 
     custom_settings = {
-        "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=True),
+        "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
 
         'ITEM_PIPELINES': {
             'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
@@ -75,7 +83,7 @@ class MBASpider(scrapy.Spider):
         self.allowed_domains = ['amazon.' + marketplace]
         self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace)
         # all image quality url crawled
-        self.products_mba_images_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace)
+        self.products_mba_image_references_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace)
         # all images which are already downloaded to storage
         self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace)
         super().__init__(**kwargs)  # python3
@@ -95,8 +103,13 @@ class MBASpider(scrapy.Spider):
         headers = get_random_headers(self.marketplace)
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
+            # if self.marketplace == "com": 
+            #     url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
+            #     yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=headers, priority=i, data=self.change_zip_code_post_data,
+            #                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
+            # else:
             yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page})
+                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
 
     def errback_httpbin(self, failure):
         # log all errback failures,
@@ -255,6 +268,12 @@ class MBASpider(scrapy.Spider):
             proxy = response.meta["proxy"]
         return proxy
 
+    def is_perfect_privacy_proxy(self, response):
+        proxy = self.get_proxy(response)
+        if "perfect-privacy" in proxy:
+            return True
+        return False
+
     def get_title(self, response_shirt):
         title = response_shirt.css("a.a-link-normal.a-text-normal")[0].css("span::text").get()
         if title == None:
@@ -329,6 +348,57 @@ class MBASpider(scrapy.Spider):
         except:
             return False
 
+    def get_zip_code_location(self, response):
+        try:
+            return response.css('span#glow-ingress-line2::text').get().strip()
+        except:
+            return "unkown"
+
+    def get_count_results(self, response):
+        try:
+            count_results_bar_text = response.css('span.celwidget div.a-section span::text')[0].get()
+            return int(count_results_bar_text.split(" results")[0].split(" ")[-1].replace(',',''))
+        except:
+            return "unkown"
+
+    def should_zip_code_be_changed(self, response):
+        if self.marketplace == "com":
+            #zip_code_location = self.get_zip_code_location(response)
+            zip_code_location = "unkown"
+            if zip_code_location == "unkown":
+                count_results = self.get_count_results(response)
+                if count_results < 50000:
+                    return True
+                else:
+                    return False
+            else:
+                if zip_code_location.lower() in ["germany"]:
+                    test = 0
+        else:
+            return False
+
+    def change_zip_code(self, response):
+        proxy = self.get_proxy(response)
+        if self.is_perfect_privacy_proxy(response):
+            proxy = response.meta["proxy"]
+        print(proxy)
+        meta_dict = response.meta
+        meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
+        yield response.follow(url=response.meta["url"], callback=self.parse, headers=response.meta["headers"], priority=0,
+                                    errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
+        test = 0
+        # proxies = {
+        #     "http":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128",
+        #     "https":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
+        # }
+        # r = requests.get(response.meta["url"], headers=response.meta["headers"], proxies=proxies)
+        # return scrapy.FormRequest.from_response(
+        #     response,
+        #     formdata=form_dict,
+        #     callback=self.parse,
+        #     #meta=response.meta
+        # )
+
     def parse(self, response):
         proxy = self.get_proxy(response)
         url = response.url
@@ -336,7 +406,10 @@ class MBASpider(scrapy.Spider):
         image_urls = []
         asins = []
         url_mba_lowqs = []
-        
+
+        #self.get_zip_code_location(response)
+        #self.get_count_results(response)
+
         if self.is_captcha_required(response):
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
@@ -348,103 +421,121 @@ class MBASpider(scrapy.Spider):
                                     errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
             yield request
         else:
-            self.ip_addresses.append(response.ip_address.compressed)
-            shirts = response.css('div.sg-col-inner')
-            shirt_number_page = 0
-            for i, shirt in enumerate(shirts):
-                if not self.is_shirt(shirt):
-                    continue
-                shirt_number_page = shirt_number_page + 1
-                try:
-                    price = self.get_price(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    title = self.get_title(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    brand = self.get_brand(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    url_product = self.get_url_product(shirt, url)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    url_image_lowq,url_image_q2,url_image_q3,url_image_q4,url_image_hq = self.get_img_urls(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    asin = self.get_asin(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                try:
-                    uuid = self.get_uuid(shirt)
-                except Exception as e:
-                    self.save_content(response, url)
-                    send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                    raise e
-                    
-                crawlingdate = datetime.datetime.now()
-                # append to general crawler
-                df_products = pd.DataFrame(data={"title":[title],"brand":[brand],"url_product":[url_product],"url_image_lowq":[url_image_lowq],"url_image_hq":[url_image_hq],"price":[price],"asin":[asin],"uuid":[uuid], "timestamp":[crawlingdate]})
-                df_mba_images = pd.DataFrame(data={"asin":[asin],"url_image_lowq":[url_image_lowq],"url_image_q2":[url_image_q2], "url_image_q3":[url_image_q3], "url_image_q4":[url_image_q4],"url_image_hq":[url_image_hq], "timestamp":[crawlingdate]})
-                shirt_number = int(shirt_number_page + ((int(page)-1)*self.shirts_per_page))
-                df_mba_relevance = pd.DataFrame(data={"asin":[asin],"sort":[self.sort],"number":[shirt_number],"timestamp":[crawlingdate]})
-
-                self.df_products = self.df_products.append(df_products)
-                self.df_mba_images = self.df_mba_images.append(df_mba_images)
-                self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
-
-                # crawl only image if not already crawled
-                if asin not in self.products_images_already_downloaded:
-                    image_urls.append(url_image_hq)
-                    asins.append(asin)
-                    url_mba_lowqs.append(url_image_lowq)
-
-            # crawl images
-            image_item = MbaCrawlerItem()
-            image_item["image_urls"] = image_urls
-            image_item["asins"] = asins
-            image_item["url_mba_lowqs"] = url_mba_lowqs
-            image_item["marketplace"] = self.marketplace
-            if self.marketplace == "com":
-                yield image_item
             
-            self.page_count = self.page_count + 1
-            self.status_update()
-
-
-            #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
-            
-            '''
-            if int(self.pages) != 0 and int(self.pages) == self.page_count:
-                raise CloseSpider(reason='Max number of Pages achieved')
-            else:
-                self.page_count = self.page_count + 1
+            if self.should_zip_code_be_changed(response):
+                print("Proxy does not get all .com results: " + proxy)
+                self.update_ban_count(proxy)   
                 headers = get_random_headers(self.marketplace)
-                yield scrapy.Request(url=url_next, callback=self.parse, headers=headers, priority=self.page_count,
-                                            errback=self.errback_httpbin, meta={"max_proxies_to_try": 30}) 
-            '''
-            #if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
-            #    raise CloseSpider(reason='To many captchas received')
+                # send new request with high priority
+                request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                        errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
+                yield request
+                # change zip code
+                # meta_dict = {"max_proxies_to_try": 30, 'page': page, "url": url, "headers": response.meta["headers"]}
+                # url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
+                # if self.is_perfect_privacy_proxy(response):
+                #     proxy = "http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
+                # meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
+                # yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=response.meta["headers"], priority=0, data=self.change_zip_code_post_data,
+                #                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
+            else:
+                self.ip_addresses.append(response.ip_address.compressed)
+                shirts = response.css('div.sg-col-inner')
+                shirt_number_page = 0
+                for i, shirt in enumerate(shirts):
+                    if not self.is_shirt(shirt):
+                        continue
+                    shirt_number_page = shirt_number_page + 1
+                    try:
+                        price = self.get_price(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        title = self.get_title(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        brand = self.get_brand(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        url_product = self.get_url_product(shirt, url)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        url_image_lowq,url_image_q2,url_image_q3,url_image_q4,url_image_hq = self.get_img_urls(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        asin = self.get_asin(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                    try:
+                        uuid = self.get_uuid(shirt)
+                    except Exception as e:
+                        self.save_content(response, url)
+                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        raise e
+                        
+                    crawlingdate = datetime.datetime.now()
+                    # append to general crawler
+                    df_products = pd.DataFrame(data={"title":[title],"brand":[brand],"url_product":[url_product],"url_image_lowq":[url_image_lowq],"url_image_hq":[url_image_hq],"price":[price],"asin":[asin],"uuid":[uuid], "timestamp":[crawlingdate]})
+                    df_mba_images = pd.DataFrame(data={"asin":[asin],"url_image_lowq":[url_image_lowq],"url_image_q2":[url_image_q2], "url_image_q3":[url_image_q3], "url_image_q4":[url_image_q4],"url_image_hq":[url_image_hq], "timestamp":[crawlingdate]})
+                    shirt_number = int(shirt_number_page + ((int(page)-1)*self.shirts_per_page))
+                    df_mba_relevance = pd.DataFrame(data={"asin":[asin],"sort":[self.sort],"number":[shirt_number],"timestamp":[crawlingdate]})
+
+                    self.df_products = self.df_products.append(df_products)
+                    self.df_mba_images = self.df_mba_images.append(df_mba_images)
+                    self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
+
+                    # crawl only image if not already crawled
+                    if asin not in self.products_images_already_downloaded:
+                        image_urls.append(url_image_hq)
+                        asins.append(asin)
+                        url_mba_lowqs.append(url_image_lowq)
+
+                # crawl images
+                image_item = MbaCrawlerItem()
+                image_item["image_urls"] = image_urls
+                image_item["asins"] = asins
+                image_item["url_mba_lowqs"] = url_mba_lowqs
+                image_item["marketplace"] = self.marketplace
+                if self.marketplace == "com":
+                    yield image_item
+                
+                self.page_count = self.page_count + 1
+                self.status_update()
+
+
+                #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
+                
+                '''
+                if int(self.pages) != 0 and int(self.pages) == self.page_count:
+                    raise CloseSpider(reason='Max number of Pages achieved')
+                else:
+                    self.page_count = self.page_count + 1
+                    headers = get_random_headers(self.marketplace)
+                    yield scrapy.Request(url=url_next, callback=self.parse, headers=headers, priority=self.page_count,
+                                                errback=self.errback_httpbin, meta={"max_proxies_to_try": 30}) 
+                '''
+                #if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
+                #    raise CloseSpider(reason='To many captchas received')
 
     def drop_asins_already_crawled(self):
         self.df_products = self.df_products[~self.df_products['asin'].isin(self.products_already_crawled)]
-        self.df_mba_images = self.df_mba_images[~self.df_mba_images['asin'].isin(self.products_mba_images_already_crawled)]
+        self.df_mba_images = self.df_mba_images[~self.df_mba_images['asin'].isin(self.products_mba_image_references_already_crawled)]
 
     def closed(self, reason):
         try:

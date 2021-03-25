@@ -69,6 +69,8 @@ COOKIES_ENABLED = False
 
 # Enable or disable downloader middlewares
 # See https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
+# TODO: ADD rotating user agent middleware
+# issue: https://stackoverflow.com/questions/56889999/how-to-rotate-proxies-and-user-agents
 DOWNLOADER_MIDDLEWARES = {
     #'mba_crawler.middlewares.MbaCrawlerDownloaderMiddleware': 543,
     'rotating_proxies.middlewares.RotatingProxyMiddleware': 610,

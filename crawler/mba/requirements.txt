@@ -9,6 +9,7 @@ proxy_requests
 dateparser
 scrapy
 scrapy-rotating-proxies
+scrapy-inline-requests
 selenium
 opencv-python-headless<4.3
 setuptools==51.0.0
