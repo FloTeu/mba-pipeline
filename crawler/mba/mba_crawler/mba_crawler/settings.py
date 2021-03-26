@@ -21,7 +21,7 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 ROBOTSTXT_OBEY = False
 use_public_proxies = False
 use_private_proxies = False
-only_usa = False
+only_usa = True
 
 if use_public_proxies:
     ROTATING_PROXY_LIST = proxy_handler.get_public_http_proxy_list(only_usa=only_usa)

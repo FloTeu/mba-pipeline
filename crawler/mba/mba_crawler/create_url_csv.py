@@ -60,6 +60,13 @@ def get_sql_exclude_asins(marketplace):
     '''.format(marketplace, today.year, today.month, today.day)
     return SQL_STATEMENT
 
+
+def get_sql_products_no_bsr(marketplace):
+    SQL_STATEMENT = '''
+    SELECT DISTINCT asin FROM mba_{0}.products_no_bsr
+    '''.format(marketplace)
+    return SQL_STATEMENT
+
 def get_sql_best_seller(marketplace):
     SQL_STATEMENT = '''
     SELECT asin FROM  `mba-pipeline.mba_{0}.products_mba_relevance` 
@@ -122,6 +129,11 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
     project_id = 'mba-pipeline'
     # get asins which should be excluded
     exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins(marketplace), project_id=project_id)["asin"].to_list()
+    # exclude asins with no bsr information
+    try:
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_bsr(marketplace), project_id=project_id)["asin"].to_list()
+    except:
+        pass
 
     # get 70% random best seller
     number_best_sellers = int(int(number_products) * 0.7)

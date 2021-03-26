@@ -37,25 +37,38 @@ def str2bool(v):
 
 class MBASpider(scrapy.Spider):
     name = "mba_general_de"
-    marketplace = "de"
-    allowed_domains = ['amazon.' + marketplace]
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products_details = pd.DataFrame(data={"asin":[],"title":[],"brand":[],"url_brand":[],"price":[], "fit_types": [], "color_names": [],"color_count":[],"product_features": [],"description":[],"weight": [],"upload_date_str": [],"upload_date": [],"customer_review_score": [],"customer_review_count": [],"mba_bsr_str": [],"mba_bsr": [],"mba_bsr_categorie": [],"timestamp": []})
     df_products_details_daily = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
+    df_products_no_bsr = pd.DataFrame(data={"asin":[],"url":[], "timestamp":[]})
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
     captcha_count = 0
     was_banned = {}
 
-    def __init__(self, daily=True, **kwargs):
-        self.daily = str2bool(daily)
-        if self.daily:
-            self.url_data_path = "mba_crawler/url_data/urls_mba_daily_de.csv"
-        else:
-            self.url_data_path = "mba_crawler/url_data/urls_mba_general_de.csv"
+    # HINT: should be calles ba settings, since settings will be changed with file string replace
+    # custom_settings = {
+    #     "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
+    # }
 
-        super().__init__(**kwargs)  # python3
+    def __init__(self, marketplace, daily=True, *args, **kwargs):
+        self.marketplace = marketplace
+        self.daily = str2bool(daily)
+        self.allowed_domains = ['amazon.' + marketplace]
+        if self.daily:
+            self.url_data_path = f"mba_crawler/url_data/urls_mba_daily_{self.marketplace}.csv"
+        else:
+            self.url_data_path = f"mba_crawler/url_data/urls_mba_general_{self.marketplace}.csv"
+
+        # does not work currently
+        # if self.marketplace == "com":
+        #     self.custom_settings.update({
+        #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
+        #     })
+        # self.settings.attributes["ROTATING_PROXY_LIST"] = proxy_handler.get_http_proxy_list(only_usa=True)
+        super().__init__(*args, **kwargs)  # python3
+        
 
     def start_requests(self):
         self.reset_was_banned_every_hour()
@@ -138,13 +151,16 @@ class MBASpider(scrapy.Spider):
 
     def status_update(self):
         if len(self.df_products_details_daily) % 100 == 0:
-            send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
+            #send_msg(self.target, "Crawled {} pages".format(len(self.df_products_details_daily)), self.api_key)
+            print("Crawled {} pages".format(len(self.df_products_details_daily)))
+
 
     def reset_was_banned_every_hour(self):
         self.reset_ban = threading.Timer(1 * 60 * 60, self.reset_was_banned_every_hour)
         self.reset_ban.start()
         if self.was_banned:
-            send_msg(self.target, "Reset banned proxies", self.api_key)
+            pass
+            #send_msg(self.target, "Reset banned proxies", self.api_key)
         self.was_banned = {}
 
     def get_ban_count(self, proxy):
@@ -225,14 +241,45 @@ class MBASpider(scrapy.Spider):
             raise ValueError("Could not get price information for crawler " + self.name)
         else:
             try:
-                price = float(price_str.split("\xa0")[0].replace(",","."))
+                if self.marketplace == "de":
+                    price = float(price_str.split("\xa0")[0].replace(",","."))
+                else:
+                    price = float(price_str.split("$")[1])
             except:
                 print("Could not get price as float for crawler " + self.name)
 
         return price_str, price
 
+    def mba_bsr_str_to_mba_data(self, mba_bsr_str):
+        mba_bsr = 0
+        array_mba_bsr = []
+        array_mba_bsr_categorie = []
+
+        if self.marketplace == "de":
+            bsr_iterator = mba_bsr_str.split("Nr. ")
+            bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
+            for bsr_str in bsr_iterator:
+                bsr = int(bsr_str.split("in")[0].replace(".", ""))
+                array_mba_bsr.append(bsr)
+                bsr_categorie = bsr_str.split("(")[0].replace("\xa0", "").split("in ")[1].strip()
+                array_mba_bsr_categorie.append(bsr_categorie)
+            mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", ""))
+        elif self.marketplace == "com":
+            bsr_iterator = mba_bsr_str.split("#")
+            bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
+            for bsr_str in bsr_iterator:
+                bsr = int(bsr_str.split("in")[0].replace(".", "").replace(",",""))
+                array_mba_bsr.append(bsr)
+                bsr_categorie = bsr_str.split("(")[0].replace("\xa0", " ").split("in ")[1].strip()
+                array_mba_bsr_categorie.append(bsr_categorie)
+            mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", "").replace(",",""))
+        else:
+            raise ValueError("BSR data filtering not defined for marketplace %s" % self.marketplace)
+
+        return mba_bsr, array_mba_bsr, array_mba_bsr_categorie
+
     def get_bsr(self, response):
-        product_information = response.css('div#dpx-detail-bullets_feature_div')
+        product_information = response.css('div#detailBullets')
         bsr_li = product_information.css("li#SalesRank")
         mba_bsr_str = ""
         mba_bsr = 0
@@ -241,21 +288,18 @@ class MBASpider(scrapy.Spider):
         if bsr_li != None and bsr_li != []:
             try:
                 mba_bsr_str = "".join(bsr_li.css("::text").getall()).replace("\n", "")
-                bsr_iterator = mba_bsr_str.split("Nr. ")
-                bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
-                for bsr_str in bsr_iterator:
-                    bsr = int(bsr_str.split("in")[0].replace(".", ""))
-                    array_mba_bsr.append(bsr)
-                    bsr_categorie = bsr_str.split("(")[0].split("in")[1].replace("\xa0", "").strip()
-                    array_mba_bsr_categorie.append(bsr_categorie)
-                mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", ""))
+                mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.mba_bsr_str_to_mba_data(mba_bsr_str)
             except:
                 raise ValueError("Could not get bsr information for crawler " + self.name)
+        else:
+            customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
+            if customer_review_score_mean > 0:
+                raise ValueError("Designs has reviews but no bsr (impossible)" + self.name)
 
         return mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie
         
     def get_customer_review(self, response):
-        product_information = response.css('div#dpx-detail-bullets_feature_div')
+        product_information = response.css('div#detailBullets')
         customer_review_div = product_information.css("div#detailBullets_averageCustomerReviews")
         customer_review_score_mean = 0.0
         customer_review_score = ""
@@ -271,7 +315,10 @@ class MBASpider(scrapy.Spider):
                 except:
                     customer_review_count = 0
                 try:
-                    customer_review_score_mean = float(customer_review_score.split(" von")[0].replace(",","."))
+                    if self.marketplace == "com":
+                        customer_review_score_mean = float(customer_review_score.split(" out of")[0])
+                    elif self.marketplace == "de":
+                        customer_review_score_mean = float(customer_review_score.split(" von")[0].replace(",","."))
                 except:
                     customer_review_score_mean = 0.0
             except:
@@ -352,23 +399,24 @@ class MBASpider(scrapy.Spider):
 
     def get_weight(self, response):
         weight = "not found"
-        product_information = response.css('div#detail-bullets_feature_div li')
+        product_information = response.css('div#detailBullets li')
         if product_information == None or product_information == []:
             product_information = response.css('div#dpx-detail-bullets_feature_div li')
         if product_information != None:
             for li in product_information:
                 try:
                     info_text = li.css("span span::text").getall()[0].lower()
-                    if "gewicht" in info_text or "weight" in info_text or "abmessung" in info_text:
+                    if "gewicht" in info_text or "weight" in info_text or "abmessung" in info_text or "dimension" in info_text:
                         weight = li.css("span span::text").getall()[1]
                         return weight.strip()
-                except:
+                except Exception as e:
+                    print(str(e))
                     raise ValueError("Could not get weight for crawler " + self.name)
         else:
             raise ValueError("Could not get weight for crawler " + self.name)
 
     def get_upload_date(self, response):
-        product_information = response.css('div#detail-bullets_feature_div li')
+        product_information = response.css('div#detailBullets li')
         if product_information == None or product_information == []:
             product_information = response.css('div#dpx-detail-bullets_feature_div li')
         if product_information != None:
@@ -377,8 +425,9 @@ class MBASpider(scrapy.Spider):
                     info_text = li.css("span span::text").getall()[0].lower()
                     if "seit" in info_text or "available" in info_text:
                         upload_date_str = li.css("span span::text").getall()[1]
-                        upload_date = dateparser.parse(upload_date_str).strftime('%Y-%m-%d')
-                        return upload_date.strip(), upload_date
+                        upload_date_obj = dateparser.parse(upload_date_str)
+                        upload_date = upload_date_obj.strftime('%Y-%m-%d')
+                        return upload_date.strip(), upload_date_obj
                 except:
                     raise ValueError("Could not get upload date for crawler " + self.name)
         else:
@@ -445,14 +494,20 @@ class MBASpider(scrapy.Spider):
             except Exception as e:
                 self.save_content(response, asin)
                 send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                raise e
+                self.df_products_no_bsr = self.df_products_no_bsr.append(pd.DataFrame(data={"asin":[asin],"url":[url], "timestamp": [datetime.datetime.now()]}))
+                if self.daily:
+                    raise e
+                else:
+                    # Cases exists like https://www.amazon.com/dp/B0855BCBZ6, which should have BSR but dont contain it on html
+                    # Therefore, we want to crawl it just once (if not daily crawl)
+                    mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = "", 0, [], []
             try:
                 customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
             except Exception as e:
                 self.save_content(response, asin)
                 send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 raise e
-            # if not daily crawler not everything of website need to be crawled
+            # if not daily crawler more data of website need to be crawled
             if not self.daily:
                 try:
                     title = self.get_title(response)
@@ -536,6 +591,8 @@ class MBASpider(scrapy.Spider):
             proxy_str=""
             for proxy, data in self.was_banned.items():
                 proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
+            print(ip_addr_str)
+            print(proxy_str)
             #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
             #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
             #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
@@ -543,7 +600,7 @@ class MBASpider(scrapy.Spider):
         except:
             pass
         send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
-        
+        print("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
         if not self.daily:
             # change types to fit with big query datatypes
             self.df_products_details['color_count'] = self.df_products_details['color_count'].astype('int')
@@ -576,3 +633,7 @@ class MBASpider(scrapy.Spider):
                 self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
+
+        print(self.df_products_no_bsr)
+        if not self.df_products_no_bsr.empty:
+            self.df_products_no_bsr.to_gbq("mba_" + self.marketplace + ".products_no_bsr",project_id="mba-pipeline", if_exists="append")

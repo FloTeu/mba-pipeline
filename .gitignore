@@ -78,3 +78,4 @@ mba-page/merchwatch/merchwatch/settings.py
 /gcp_fns/updateMBADatasets/data/*
 
 nohup.out
+*.out
