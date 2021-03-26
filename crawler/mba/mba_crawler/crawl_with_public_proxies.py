@@ -6,6 +6,7 @@ from shutil import move, copymode
 from os import fdopen, remove
 import datetime
 import time
+import os
 
 DAY, NIGHT = 1, 2
 def check_time(time_to_check, on_time, off_time):
@@ -49,20 +50,24 @@ def main(argv):
     number_products = args.number_products
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
     project_id = 'mba-pipeline'
-
-    replace("mba_crawler/settings.py", "use_public_proxies = False", "use_public_proxies = True")
-    replace("mba_crawler/settings.py", "CONCURRENT_REQUESTS = 5", "CONCURRENT_REQUESTS = 10")
+    print(os.getcwd())
 
     on_time = datetime.time(16,00)
     off_time = datetime.time(10,00)
 
     while True:    
+        replace("mba_crawler/settings.py", "use_public_proxies = False", "use_public_proxies = True")
+        replace("mba_crawler/settings.py", "CONCURRENT_REQUESTS = 5", "CONCURRENT_REQUESTS = 10")
+        if marketplace == "de":
+            replace("mba_crawler/settings.py", "only_usa = True", "only_usa = False")
+        if marketplace == "com":
+            replace("mba_crawler/settings.py", "only_usa = False", "only_usa = True")
         current_time = datetime.datetime.now().time()
         when, matching = check_time(current_time, on_time, off_time)
         # execute function only between on_time and off_time
         if matching:
-            command = """python3 create_url_csv.py {0} True --number_products={1} --proportion_priority_low_bsr_count={2}
-            scrapy crawl mba_general_de -a daily=True
+            command = """sudo python3 create_url_csv.py {0} True --number_products={1} --proportion_priority_low_bsr_count={2}
+            sudo scrapy crawl mba_general_de -a marketplace={0} -a daily=True
             """.format(marketplace, number_products, proportion_priority_low_bsr_count)
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             process.wait()

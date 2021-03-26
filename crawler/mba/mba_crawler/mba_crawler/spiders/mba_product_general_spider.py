@@ -261,7 +261,7 @@ class MBASpider(scrapy.Spider):
             for bsr_str in bsr_iterator:
                 bsr = int(bsr_str.split("in")[0].replace(".", ""))
                 array_mba_bsr.append(bsr)
-                bsr_categorie = bsr_str.split("(")[0].replace("\xa0", "").split("in ")[1].strip()
+                bsr_categorie = bsr_str.split("(")[0].replace("\xa0", " ").split("in ")[1].strip()
                 array_mba_bsr_categorie.append(bsr_categorie)
             mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", ""))
         elif self.marketplace == "com":
@@ -540,7 +540,7 @@ class MBASpider(scrapy.Spider):
                     send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
-                    description = self.get_description(response)
+                    description = self.get_description(response)                    
                 except Exception as e:
                     #self.save_content(response, asin)
                     #send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
