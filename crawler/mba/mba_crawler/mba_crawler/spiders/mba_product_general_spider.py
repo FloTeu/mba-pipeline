@@ -41,6 +41,7 @@ class MBASpider(scrapy.Spider):
     df_products_details = pd.DataFrame(data={"asin":[],"title":[],"brand":[],"url_brand":[],"price":[], "fit_types": [], "color_names": [],"color_count":[],"product_features": [],"description":[],"weight": [],"upload_date_str": [],"upload_date": [],"customer_review_score": [],"customer_review_count": [],"mba_bsr_str": [],"mba_bsr": [],"mba_bsr_categorie": [],"timestamp": []})
     df_products_details_daily = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
     df_products_no_bsr = pd.DataFrame(data={"asin":[],"url":[], "timestamp":[]})
+    df_products_no_mba_shirt = pd.DataFrame(data={"asin":[],"url":[], "timestamp":[]})
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
@@ -453,6 +454,10 @@ class MBASpider(scrapy.Spider):
                                 errback=self.errback_httpbin, meta={"asin": asin})
         yield request
 
+    def is_mba_shirt(self, response):
+        # mba shirts have always fit type (Herren, Damen, Kinder)
+        return len(response.css('div#variation_fit_type span.a-size-base')) > 0
+
     def parse(self, response):
         asin = response.meta["asin"]
         proxy = self.get_proxy(response)
@@ -481,6 +486,9 @@ class MBASpider(scrapy.Spider):
                 raise CloseSpider(reason='To many catchas received')
             raise Exception("Captcha required")
             '''
+        # do not proceed if its not a mba shirt
+        elif not self.is_mba_shirt(response):
+            self.df_products_no_mba_shirt = self.df_products_no_mba_shirt.append(pd.DataFrame(data={"asin":[asin],"url":[url], "timestamp": [datetime.datetime.now()]}))
         else:
             self.ip_addresses.append(response.ip_address.compressed)
             try:
@@ -633,6 +641,9 @@ class MBASpider(scrapy.Spider):
                 self.df_products_details_daily.to_gbq("mba_" + self.marketplace + ".products_details_daily",project_id="mba-pipeline", if_exists="append")
             except:
                 self.store_df()
+
+        if not self.df_products_no_mba_shirt.empty:
+            self.df_products_no_mba_shirt.to_gbq("mba_" + self.marketplace + ".products_no_mba_shirt",project_id="mba-pipeline", if_exists="append")
 
         print(self.df_products_no_bsr)
         if not self.df_products_no_bsr.empty:
