@@ -16,3 +16,4 @@ setuptools==51.0.0
 py3exiv2==0.9.3 
 piexif
 easydict
+matplotlib
