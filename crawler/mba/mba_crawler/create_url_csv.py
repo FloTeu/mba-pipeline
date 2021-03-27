@@ -67,6 +67,12 @@ def get_sql_products_no_bsr(marketplace):
     '''.format(marketplace)
     return SQL_STATEMENT
 
+def get_sql_products_no_mba_shirt(marketplace):
+    SQL_STATEMENT = '''
+    SELECT DISTINCT asin FROM mba_{0}.products_no_mba_shirt
+    '''.format(marketplace)
+    return SQL_STATEMENT
+
 def get_sql_best_seller(marketplace):
     SQL_STATEMENT = '''
     SELECT asin FROM  `mba-pipeline.mba_{0}.products_mba_relevance` 
@@ -132,6 +138,11 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
     # exclude asins with no bsr information
     try:
         exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_bsr(marketplace), project_id=project_id)["asin"].to_list()
+    except:
+        pass
+    # exclude asins with no mba shirt
+    try:
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(marketplace), project_id=project_id)["asin"].to_list()
     except:
         pass
 
@@ -282,6 +293,12 @@ def main(argv):
     , "B08P761ZZ7", "B08P72GHH8", "B08PBPR798", "B08PBHYMTT", "B08NJMYW38", "B07X9H69QR","B08PGXQHHB", "B08PFJ28B3", "B08PGRSQKT",
     "B08PM69M79", "B08PGX58MF", "B08PGL55LR"]
     exclude_asins = exclude_asins + strange_layout
+    
+    # exclude asins with no mba shirt
+    try:
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(marketplace), project_id=project_id)["asin"].to_list()
+    except:
+        pass
 
     filename = "urls"
     if niches != "":
@@ -332,7 +349,7 @@ def main(argv):
         number_products = len(df_product_details_tocrawl)
 
     Path("mba_crawler/url_data/").mkdir(parents=True, exist_ok=True)
-    print(str(number_products) + " number of products stored in csv")
+    print(str(len(df_product_details_tocrawl.iloc[0:number_products])) + " number of products stored in csv")
     df_product_details_tocrawl[["url", "asin"]].iloc[0:number_products].to_csv("mba_crawler/url_data/" + filename + ".csv",index=False)
 
 if __name__ == '__main__':
