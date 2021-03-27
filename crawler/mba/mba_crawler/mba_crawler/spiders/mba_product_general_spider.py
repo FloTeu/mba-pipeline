@@ -456,7 +456,7 @@ class MBASpider(scrapy.Spider):
 
     def is_mba_shirt(self, response):
         # mba shirts have always fit type (Herren, Damen, Kinder)
-        return len(response.css('div#variation_fit_type span.a-size-base')) > 0
+        return len(response.css('div#variation_fit_type span')) > 0
 
     def parse(self, response):
         asin = response.meta["asin"]
