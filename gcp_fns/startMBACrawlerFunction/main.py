@@ -83,8 +83,10 @@ sudo cp /home/flo_t_1995/proxy_handler.py .
 sudo cp /home/flo_t_1995/utils.py .
 cd ..
 {5}
+wait
 sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=700
 {9}
+wait
 # daily crawler with public proxies handles this task
 # sudo /usr/bin/python3 create_url_csv.py de True --number_products={6}  --proportion_priority_low_bsr_count=0.9
 # sudo scrapy crawl mba_general_de -a daiy=True
