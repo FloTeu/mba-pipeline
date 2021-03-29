@@ -377,6 +377,11 @@ class MBASpider(scrapy.Spider):
                 if type(count_results) == int and count_results < 50000:
                     return True
                 else:
+                    print("Count shirts overview unkown or to small")
+                    try:
+                        print(response.url, response.meta["proxy"])
+                    except:
+                        pass
                     return False
             else:
                 if zip_code_location.lower() in ["germany"]:
