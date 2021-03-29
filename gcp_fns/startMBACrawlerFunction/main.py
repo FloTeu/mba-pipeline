@@ -37,7 +37,7 @@ def is_daily_script():
         return False
 
 def parallel_crawling_cmd(start_crawl_de_cmd, start_crawl_com_cmd, sleep_between_cmds=5):
-    return """for cmd in "python3 change_spider_settings.py de" "%s" "python3 change_spider_settings.py com" "%s"; do
+    return """for cmd in "sudo python3 change_spider_settings.py de" "%s" "sudo python3 change_spider_settings.py com" "%s"; do
         eval ${cmd} &
         sleep %s
     done
