@@ -374,7 +374,7 @@ class MBASpider(scrapy.Spider):
             zip_code_location = "unkown"
             if zip_code_location == "unkown":
                 count_results = self.get_count_results(response)
-                if count_results < 50000:
+                if type(count_results) == int and count_results < 50000:
                     return True
                 else:
                     return False
