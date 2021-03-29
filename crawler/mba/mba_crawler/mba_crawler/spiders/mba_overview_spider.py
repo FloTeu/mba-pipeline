@@ -63,7 +63,8 @@ class MBASpider(scrapy.Spider):
             }
  
     custom_settings = {
-        "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
+        # Set by settings.py
+        #"ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
 
         'ITEM_PIPELINES': {
             'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
@@ -88,10 +89,10 @@ class MBASpider(scrapy.Spider):
         self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace)
 
         # does not work currently
-        if self.marketplace == "com":
-            self.custom_settings.update({
-                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
-            })
+        # if self.marketplace == "com":
+        #     self.custom_settings.update({
+        #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
+        #     })
         
         super().__init__(**kwargs)  # python3
 
