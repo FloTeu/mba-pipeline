@@ -70,7 +70,7 @@ class DataHandler():
 
         SQL_STATEMENT = """
         SELECT t_fin.* FROM (
-    SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
+    SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t3.url_image_hq as url_mba_hq, t3.url_image_lowq as url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
@@ -84,7 +84,7 @@ class DataHandler():
 
         union all 
         
-        SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t1.url_mba_hq, t1.url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
+        SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t3.url_image_hq as url_mba_hq, t3.url_image_lowq as url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
         SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
                 AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
                 AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
