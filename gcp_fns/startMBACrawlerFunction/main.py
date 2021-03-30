@@ -50,7 +50,8 @@ def get_startup_script(is_daily_script, region_space, instance_name, number_prod
 
     get_new_shirts = ""
     number_of_instances = 8
-    overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 100), get_overview_crawling_cmd("com", 100)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 100, start_page=300), get_overview_crawling_cmd("com", 100, start_page=300)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 10, sort="newest"), get_overview_crawling_cmd("com", 10, sort="newest"))
+    #overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 100), get_overview_crawling_cmd("com", 100)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 100, start_page=300), get_overview_crawling_cmd("com", 100, start_page=300)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 10, sort="newest"), get_overview_crawling_cmd("com", 10, sort="newest"))
+    overview_crawl = get_overview_crawling_cmd("de", 100) + "\n" + get_overview_crawling_cmd("de", 100, start_page=300) + "\n" + get_overview_crawling_cmd("de", 10, sort="newest")
     create_urls_for_general_crawl = ""
     stop_instance_by_itself = "--instance_name={} --stop_instance_by_itself=1".format(instance_name)
     # case sunday where we want to crawl all best sellers and newest
@@ -84,7 +85,7 @@ sudo cp /home/flo_t_1995/utils.py .
 cd ..
 {5}
 wait
-sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=700
+sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=200
 {9}
 wait
 # daily crawler with public proxies handles this task
