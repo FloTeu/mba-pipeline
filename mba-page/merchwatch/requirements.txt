@@ -5,7 +5,7 @@ certifi==2020.6.20
 chardet==3.0.4
 cryptography==2.6.1
 distro-info==0.21
-Django==3.0.7
+Django==3.0.12
 django-tailwind==0.9.0
 django-widget-tweaks
 entrypoints==0.3
