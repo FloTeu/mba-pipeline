@@ -396,7 +396,11 @@ class DataHandler():
             return "Clothing, Shoes & Jewelry"
 
     def get_bsr_category(self, df_row, marketplace):
-        bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[0].strip("'")
+        if self.marketplace == "de":
+            bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[0].strip("'")
+        else:
+            # does not split "," which does not work for "Clothing, Shoes & Jewelry"
+            bsr_category = re.findall("'([^']*)'", df_row["array_bsr_categorie"].strip("[]"))[0]
         if bsr_category == "404" or bsr_category == "":
             bsr_category = self.get_category_name(marketplace)
         return bsr_category
@@ -901,7 +905,10 @@ class DataHandler():
             #df_chunk["keywords_meaningful_count"] = df_chunk.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
             columns = list(df_chunk.columns.values)
             for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number", "score_min", "score_mean", "score_max"]:
-                columns.remove(column_to_drop)
+                try:
+                    columns.remove(column_to_drop)
+                except Exception as e:
+                    print(str(e))
             df_filtered = df_chunk[columns]
             #df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_keywords_filtered(x), axis=1)
             #df_filtered = df_filtered.iloc[124*250:len(df_filtered)]
@@ -1191,9 +1198,18 @@ class DataHandler():
 
     def update_language_code(self, marketplace):
         df = pd.read_gbq("SELECT DISTINCT asin, title, product_features FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        df = self.drop_asins_already_detected(df, marketplace)
+        try:
+            df = self.drop_asins_already_detected(df, marketplace)
+        except:
+            pass
         df = df.drop_duplicates(["asin"])
-        df["language"] = "de"
+        if marketplace == "de":
+            df["language"] = "de"
+        elif marketplace == "com":
+            df["language"] = "en"
+        else:
+            raise ValueError("Marketplace nto defined")
+
         df["product_features"] = df.apply(lambda x: list_str_to_list(x["product_features"]), axis=1)
 
         for i, df_row in df.iterrows():
@@ -1214,6 +1230,8 @@ class DataHandler():
             except:
                 continue
             if language == "en":
+                df.loc[i, "language"] = language
+            if language == "de":
                 df.loc[i, "language"] = language
         
         df[["asin", "language"]].to_gbq("mba_{}.products_language".format(marketplace), project_id="mba-pipeline", if_exists="append")
