@@ -290,7 +290,8 @@ class MBASpider(scrapy.Spider):
             try:
                 mba_bsr_str = "".join(bsr_li.css("::text").getall()).replace("\n", "")
                 mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.mba_bsr_str_to_mba_data(mba_bsr_str)
-            except:
+            except Exception as e:
+                print(str(e))
                 raise ValueError("Could not get bsr information for crawler " + self.name)
         else:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
