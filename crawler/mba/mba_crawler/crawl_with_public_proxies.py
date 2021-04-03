@@ -7,6 +7,7 @@ from os import fdopen, remove
 import datetime
 import time
 import os
+import random
 
 DAY, NIGHT = 1, 2
 def check_time(time_to_check, on_time, off_time):
@@ -39,6 +40,7 @@ def main(argv):
     parser.add_argument('marketplace', help='Shortcut of mba marketplace. I.e "com" or "de", "uk"', type=str)
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If -1, every image that is not already crawled will be crawled.')
     parser.add_argument('--proportion_priority_low_bsr_count', default=0, type=float, help='50% is the default proportion what means 50% should be design which were crawled least often')
+    parser.add_argument('--repeat', default=1, type=int, help='If crawling should be repeated')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -47,6 +49,7 @@ def main(argv):
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
+    repeat = args.repeat
     number_products = args.number_products
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
     project_id = 'mba-pipeline'
@@ -55,14 +58,15 @@ def main(argv):
     on_time = datetime.time(16,00)
     off_time = datetime.time(10,00)
     
-    replace("mba_crawler/settings.py", "use_public_proxies = False", "use_public_proxies = True")
     replace("mba_crawler/settings.py", "CONCURRENT_REQUESTS = 5", "CONCURRENT_REQUESTS = 10")
-
-    while True:    
+    while_condition = True
+    while while_condition:    
         current_time = datetime.datetime.now().time()
         when, matching = check_time(current_time, on_time, off_time)
         # execute function only between on_time and off_time
-        if matching:
+        if matching or not repeat:
+            # sleep random to prevent com crawler and de crawler change their settings
+            time.sleep(random.randint(0,60))
             # create crawling data csv
             command = """sudo python3 create_url_csv.py {0} True --number_products={1} --proportion_priority_low_bsr_count={2}
             """.format(marketplace, number_products, proportion_priority_low_bsr_count)
@@ -70,17 +74,19 @@ def main(argv):
             process.wait()
 
             # change settings for us 
-            if marketplace == "de":
-                replace("mba_crawler/settings.py", "only_usa = True", "only_usa = False")
-            if marketplace == "com":
-                replace("mba_crawler/settings.py", "only_usa = False", "only_usa = True")
+            command = """sudo python3 change_spider_settings.py de --use_public_proxies True
+            """.format(marketplace)
+            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            process.wait()
             
             # start crawling
             command = """sudo scrapy crawl mba_general_de -a marketplace={0} -a daily=True
             """.format(marketplace, number_products, proportion_priority_low_bsr_count)
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             process.wait()
-
+            
+            if not repeat:
+                while_condition = False
         else:
             print("Sleep for half an hour")
             time.sleep(30*60)
