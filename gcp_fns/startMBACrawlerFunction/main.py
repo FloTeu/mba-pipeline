@@ -50,8 +50,8 @@ def get_startup_script(is_daily_script, region_space, instance_name, number_prod
 
     get_new_shirts = ""
     number_of_instances = 8
-    #overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 100), get_overview_crawling_cmd("com", 100)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 100, start_page=300), get_overview_crawling_cmd("com", 100, start_page=300)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 10, sort="newest"), get_overview_crawling_cmd("com", 10, sort="newest"))
-    overview_crawl = get_overview_crawling_cmd("de", 100) + "\n" + get_overview_crawling_cmd("de", 100, start_page=300) + "\n" + get_overview_crawling_cmd("de", 10, sort="newest")
+    overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 100), get_overview_crawling_cmd("com", 50)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 100, start_page=300), get_overview_crawling_cmd("com", 50, start_page=300)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 10, sort="newest"), get_overview_crawling_cmd("com", 10, sort="newest"))
+    #overview_crawl = get_overview_crawling_cmd("de", 100) + "\n" + get_overview_crawling_cmd("de", 100, start_page=300) + "\n" + get_overview_crawling_cmd("de", 10, sort="newest")
     create_urls_for_general_crawl = ""
     stop_instance_by_itself = "--instance_name={} --stop_instance_by_itself=1".format(instance_name)
     # case sunday where we want to crawl all best sellers and newest
@@ -59,7 +59,7 @@ def get_startup_script(is_daily_script, region_space, instance_name, number_prod
         number_of_instances = 6
         get_new_shirts = '/usr/bin/python3 wc_mba.py "" PlhAyiU_2cQukrs_BZTuiQ de shirt newest'
         #overview_crawl = "/usr/bin/python3 wc_mba_detail_daily_preemptible_orga.py de True 3 --number_running_instances=4 --number_products 50 --number_products_total={} --time_break_sec 100 --seconds_between_crawl=40 --telegram_api_key 1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0 --telegram_chatid 869595848 --instance_name={} --stop_instance_by_itself=1".format(number_products_total_additional, instance_name)
-        overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 0), get_overview_crawling_cmd("com", 0)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 0, sort="newest"), get_overview_crawling_cmd("com", 0, sort="newest"))
+        overview_crawl = parallel_crawling_cmd(get_overview_crawling_cmd("de", 0), get_overview_crawling_cmd("com", 200, start_page=200)) + "\n" + parallel_crawling_cmd(get_overview_crawling_cmd("de", 0, sort="newest"), get_overview_crawling_cmd("com", 100, start_page=200, sort="newest"))
         create_urls_for_general_crawl = "sudo /usr/bin/python3 create_url_csv.py de False --number_products=-1"
         stop_instance_by_itself = ""
 
