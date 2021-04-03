@@ -501,8 +501,9 @@ class MBASpider(scrapy.Spider):
                 mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
             except Exception as e:
                 self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
-                self.df_products_no_bsr = self.df_products_no_bsr.append(pd.DataFrame(data={"asin":[asin],"url":[url], "timestamp": [datetime.datetime.now()]}))
+                #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                if "no bsr" in str(e):
+                    self.df_products_no_bsr = self.df_products_no_bsr.append(pd.DataFrame(data={"asin":[asin],"url":[url], "timestamp": [datetime.datetime.now()]}))
                 if self.daily:
                     raise e
                 else:
