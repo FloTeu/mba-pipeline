@@ -60,8 +60,9 @@ def main(argv):
     project_id = 'mba-pipeline'
     print(os.getcwd())
 
-    on_time = datetime.time(16,00)
-    off_time = datetime.time(10,00)
+    # 2 hours time difference to real german time 14 -> 16 hour
+    on_time = datetime.time(14,00)
+    off_time = datetime.time(9,00)
     
     replace("mba_crawler/settings.py", "CONCURRENT_REQUESTS = 5", "CONCURRENT_REQUESTS = 10")
     count = 0
