@@ -629,18 +629,31 @@ class DataHandler():
             raise e
         return df_shirts
 
-    def cut_product_feature_list(self, product_features_list):
-        # count number of bullets
-        count_feature_bullets = len(product_features_list)
-        # if 5 bullets exists choose only top two (user generated)
-        if count_feature_bullets >= 5:
-            product_features_list = product_features_list[0:2]
-        # if 4 bullets exists choose only top one
-        elif count_feature_bullets == 4:
-            product_features_list = product_features_list[0:1]
-        # if less than 4 choose no bullet
+    def is_product_feature_listing(self, product_feature):
+        """If on bullet point/ product feature is a listing created by user (contains relevant keywords)"""
+        if self.marketplace == "com":
+            if any(indicator in product_feature.lower() for indicator in ["solid color", "imported", "machine wash cold", "lightweight", "classic fit"]):
+                return False
+            else:
+                return True
         else:
-            product_features_list = []
+            raise ValueError("Not defined for marketplace %s" %self.marketplace)
+
+    def cut_product_feature_list(self, product_features_list):
+        if self.marketplace == "de":
+            # count number of bullets
+            count_feature_bullets = len(product_features_list)
+            # if 5 bullets exists choose only top two (user generated)
+            if count_feature_bullets >= 5:
+                product_features_list = product_features_list[0:2]
+            # if 4 bullets exists choose only top one
+            elif count_feature_bullets == 4:
+                product_features_list = product_features_list[0:1]
+            # if less than 4 choose no bullet
+            else:
+                product_features_list = []
+        if self.marketplace == "com":
+            product_features_list = [feature for feature in product_features_list if self.is_product_feature_listing(feature)]
         return product_features_list
 
     def get_keyword_text(self, df_row):
