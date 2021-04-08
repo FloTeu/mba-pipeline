@@ -397,10 +397,20 @@ class DataHandler():
 
     def get_bsr_category(self, df_row, marketplace):
         if self.marketplace == "de":
-            bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[0].strip("'")
+            try:
+                bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[0].strip("'")
+            except Exception as e:
+                print(df_row["array_bsr_categorie"])
+                print("Could not extract bsr_category",str(e))
+                bsr_category = ""
         else:
             # does not split "," which does not work for "Clothing, Shoes & Jewelry"
-            bsr_category = re.findall("'([^']*)'", df_row["array_bsr_categorie"].strip("[]"))[0]
+            try:
+                bsr_category = re.findall("'([^']*)'", df_row["array_bsr_categorie"].strip("[]"))[0]
+            except Exception as e:
+                print(df_row["array_bsr_categorie"])
+                print("Could not extract bsr_category",str(e))
+                bsr_category = ""
         if bsr_category == "404" or bsr_category == "":
             bsr_category = self.get_category_name(marketplace)
         return bsr_category
@@ -574,7 +584,7 @@ class DataHandler():
             dev_str = "_dev"
 
         ORDERBY_STATEMENT = "order by trend_nr"
-        WHERE_STATEMENT = "where bsr_category='{}'".format(self.get_category_name(marketplace))
+        WHERE_STATEMENT = "where bsr_category='{}' or bsr_category=''".format(self.get_category_name(marketplace))
         if not update_all:
             WHERE_STATEMENT = WHERE_STATEMENT + " and t_fin.should_be_updated"
         SQL_STATEMENT = """
@@ -869,14 +879,15 @@ class DataHandler():
 
     def get_firestore_data(self, df_row):
         #takedown = self.was_takedown(df_row)
-        keywords = self.get_all_keywords(df_row)
+        # not needed anymore, since search takes keywords_stem
+        #keywords = self.get_all_keywords(df_row)
         keywords_meaningful = self.create_keywords(df_row)
         keywords_stem = self.create_stem_keywords(df_row)
         price_last_ranges_array = self.get_price_last_ranges_array(df_row)
         price_last_range = self.get_price_last_range(df_row)
         bsr_last_range = self.get_bsr_last_range(df_row)
         score_last_rounded = self.get_score_last_rounded(df_row)
-        return keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded
+        return keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
@@ -894,11 +905,11 @@ class DataHandler():
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
         for df_chunk in df_chunks:
-            firestore_property_columns = ["keywords", "keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
+            firestore_property_columns = ["keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)
             print("elapsed time for all keyword creation %.2f min" % ((time.time() - time_start)/60))
-            df_fs_data = pd.DataFrame([[keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded] for keywords, keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded in firestore_data_series.values], columns=firestore_property_columns)
+            df_fs_data = pd.DataFrame([[keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded] for keywords_meaningful, keywords_stem, price_last_ranges_array, price_last_range, bsr_last_range, score_last_rounded in firestore_data_series.values], columns=firestore_property_columns)
             # merge data
             df_chunk = df_chunk.reset_index(drop=True)
 
