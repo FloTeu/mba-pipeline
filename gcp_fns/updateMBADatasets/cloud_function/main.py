@@ -3,25 +3,14 @@ import base64
 import json
 import logging
 import time
-from google.cloud import bigquery
-import pandas as pd
-from sklearn import preprocessing
 import os 
 from os.path import join
 from datetime import date
 import datetime 
 import time
-from plotly.offline import plot
-import plotly.graph_objs as go
-from plotly.graph_objs import Scatter 
-from plotly.graph_objs import Layout 
 import gc
-from data_handler import DataHandler
 import requests
 import googleapiclient.discovery
-
-
-
 
 def generate_startup(marketplace, instance_name, zone, chunk_size):
     # todo: delete instance at the end of the startup script
@@ -32,7 +21,7 @@ rm -rf mba-pipeline/
 git clone https://github.com/Flo95x/mba-pipeline.git
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
-/usr/bin/python3 execute_update.py --marketplace={0} --chunk_size={3}
+/usr/bin/python3 execute_update.py --marketplace=de --chunk_size={3} & /usr/bin/python3 execute_update.py --marketplace=com --chunk_size={3}
 yes Y | gcloud compute instances stop {1} --zone {2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
