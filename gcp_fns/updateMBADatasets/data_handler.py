@@ -146,7 +146,7 @@ class DataHandler():
             else:
                 x_scaled[i] = x_scaled[i] + add_value_newer
 
-    def make_trend_column(self, df_shirts, months_privileged=6, marketplace="de"):
+    def make_trend_column(self, df_shirts, months_privileged=6):
         df_shirts = df_shirts.sort_values("time_since_upload").reset_index(drop=True)
         # get list of integers with time since upload days
         x = df_shirts[["time_since_upload"]].values 
@@ -168,7 +168,8 @@ class DataHandler():
         x_power = self.power(x_scaled)
         df = pd.DataFrame(x_power)
         df_shirts["time_since_upload_power"] = df.iloc[:,0]
-        df_shirts.loc[(df_shirts['bsr_category'] != self.get_category_name(marketplace)), "bsr_last"] = 999999999
+        # change bsr_last to high number to prevent distort trend calculation
+        df_shirts.loc[(df_shirts['bsr_category'] != self.get_category_name(self.marketplace)), "bsr_last"] = 999999999
         df_shirts.loc[(df_shirts['bsr_last'] == 0.0), "bsr_last"] = 999999999
         df_shirts.loc[(df_shirts['bsr_last'] == 404.0), "bsr_last"] = 999999999
         df_shirts["trend"] = df_shirts["bsr_last"] * df_shirts["time_since_upload_power"]
@@ -896,7 +897,7 @@ class DataHandler():
             dev_str = "_dev"
 
         firestore = Firestore(collection + dev_str)
-        
+        # check: B07D7NX4RL com
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
         #print(df.shape)
