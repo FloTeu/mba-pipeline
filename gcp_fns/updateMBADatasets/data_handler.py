@@ -1179,11 +1179,11 @@ class DataHandler():
                 print(str(e), asin)
                 pass
         
-        if do_keywords_not_exist:
-            product_features = [v.strip("'").strip('"') for v in df_row["product_features"]]
-            
+        if do_keywords_not_exist:          
             # create text with keyword
-            product_features = self.cut_product_feature_list(product_features)
+            product_features_list = list_str_to_list(df_row["product_features"])
+            product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+            product_features = self.cut_product_feature_list(product_features_list)
 
             try:
                 text = " ".join([title + "."] + [brand + "."] + product_features + [description])
