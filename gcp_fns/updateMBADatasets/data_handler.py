@@ -585,7 +585,7 @@ class DataHandler():
             dev_str = "_dev"
 
         ORDERBY_STATEMENT = "order by trend_nr"
-        WHERE_STATEMENT = "where bsr_category='{}' or bsr_category=''".format(self.get_category_name(marketplace))
+        WHERE_STATEMENT = "where (bsr_category='{}' or bsr_category='')".format(self.get_category_name(marketplace))
         if not update_all:
             WHERE_STATEMENT = WHERE_STATEMENT + " and t_fin.should_be_updated"
         SQL_STATEMENT = """
@@ -929,7 +929,7 @@ class DataHandler():
         
             #df_chunk["keywords_meaningful_count"] = df_chunk.apply(lambda x: len(x["keywords_meaningful"]), axis=1)
             columns = list(df_chunk.columns.values)
-            for column_to_drop in ["should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number", "score_min", "score_mean", "score_max"]:
+            for column_to_drop in ["keywords","should_be_updated", "product_features", "trend_nr_old", "bsr_last_old", "description", "row_number", "score_min", "score_mean", "score_max"]:
                 try:
                     columns.remove(column_to_drop)
                 except Exception as e:
