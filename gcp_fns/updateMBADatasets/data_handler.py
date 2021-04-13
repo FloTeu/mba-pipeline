@@ -265,7 +265,7 @@ class DataHandler():
         project_id = 'mba-pipeline'
         bq_client = bigquery.Client(project=project_id)
         df_shirts = pd.read_gbq(self.get_sql_shirts(marketplace, None, None), project_id="mba-pipeline").drop_duplicates(["asin"])
-        #df_shirts = df_shirts[df_shirts["asin"]== "B08XPGNNVP"]
+        #df_shirts = df_shirts[df_shirts["asin"]== "B08BYLWZCC"]
         #df_shirts = bq_client.query(self.get_sql_shirts(marketplace, None, None)).to_dataframe().drop_duplicates()
         # This dataframe is expanded with additional information with every chunk 
         df_shirts_with_more_info = df_shirts.copy()
@@ -480,15 +480,14 @@ class DataHandler():
         days = 30
         date_N_weeks_ago = datetime.now() - timedelta(days=days)
         try:
-            occ_4w = df_occ[df_occ['date'] <= date_N_weeks_ago.date()]
+            # make sure that occ_4w contains an value unequal to zero if existent
+            df_occ_4w = df_occ[(df_occ['date'] < date_N_weeks_ago.date()) & (df_occ['bsr'] != 0)]
             if len(occ_4w) == 0:
                 occ_4w = first_occ_ue_zero
-            # make sure that occ_4w contains an value unequal to zero if existent
-            elif occ_4w.iloc[0]["bsr"] == 0:
-                occ_4w = first_occ_ue_zero
             else:
-                occ_4w = occ_4w.iloc[0]
-        except:
+                occ_4w = df_occ_4w.iloc[0]
+        except Exception as e:
+            print(str(e))
             occ_4w = first_occ_ue_zero
 
         if last_occ_price["price"] == 0:
