@@ -483,12 +483,14 @@ class DataHandler():
             # make sure that occ_4w contains an value unequal to zero if existent
             df_occ_4w = df_occ[(df_occ['date'] < date_N_weeks_ago.date()) & (df_occ['bsr'] != 0)]
             if len(occ_4w) == 0:
-                occ_4w = first_occ_ue_zero
+                # case we have no new bsr data crawled in last month. Therefore bsr_change should be prevented to contain multiple months between first and last bsr
+                # results in bsr_change = 0
+                occ_4w = last_occ
             else:
                 occ_4w = df_occ_4w.iloc[0]
         except Exception as e:
             print(str(e))
-            occ_4w = first_occ_ue_zero
+            occ_4w = last_occ
 
         if last_occ_price["price"] == 0:
             try:
