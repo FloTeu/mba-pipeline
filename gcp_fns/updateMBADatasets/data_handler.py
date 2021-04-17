@@ -903,6 +903,9 @@ class DataHandler():
         #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
         #print(df.shape)
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
+        
+        # filter all rows which do not contain image reference data
+        df = df[~(df["url_mba_lowq"].isnull()|df["url_image_q2"].isnull()|df["url_image_q3"].isnull())]
 
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
