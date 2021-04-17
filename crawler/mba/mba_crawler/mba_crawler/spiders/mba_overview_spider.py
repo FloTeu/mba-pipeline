@@ -46,6 +46,7 @@ class MBASpider(scrapy.Spider):
     df_products = pd.DataFrame(data={"title":[],"brand":[],"url_product":[],"url_image_lowq":[],"url_image_hq":[],"price":[],"asin":[],"uuid":[], "timestamp":[]})
     df_mba_images = pd.DataFrame(data={"asin":[],"url_image_lowq":[],"url_image_q2":[], "url_image_q3":[], "url_image_q4":[],"url_image_hq":[], "timestamp":[]})
     df_mba_relevance = pd.DataFrame(data={"asin":[],"sort":[],"number":[],"timestamp":[]})
+    df_search_terms = pd.DataFrame()
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
@@ -74,7 +75,7 @@ class MBASpider(scrapy.Spider):
         'GCS_PROJECT_ID': 'mba-pipeline'
     }
 
-    def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, **kwargs):
+    def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", **kwargs):
         self.marketplace = marketplace
         self.pod_product = pod_product
         self.sort = sort
@@ -88,6 +89,9 @@ class MBASpider(scrapy.Spider):
         # all images which are already downloaded to storage
         self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace)
 
+        if csv_path != "":
+            self.df_search_terms = pd.read_csv(csv_path)
+
         # does not work currently
         # if self.marketplace == "com":
         #     self.custom_settings.update({
@@ -97,18 +101,27 @@ class MBASpider(scrapy.Spider):
         super().__init__(**kwargs)  # python3
 
     def start_requests(self):
-        url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
-        send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
-        # if start_page is other than one, crawler should start from differnt page
         urls_mba = []
-        until_page = 401
-        if self.pages != 0:
-            until_page = self.start_page + self.pages
-        for page_number in np.arange(self.start_page, until_page, 1):
-            if page_number <= 400:
-                url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
-                urls_mba.append(url_mba_page)
         headers = get_random_headers(self.marketplace)
+        # case use a csv with search terms
+        if not self.df_search_terms.empty:
+            for i, df_row in self.df_search_terms.iterrows():
+                search_term = df_row["search_term"]
+                url_mba = url_creator.main([search_term, self.marketplace, self.pod_product, self.sort])
+                url_mba_page = url_mba + "&page=1"#+"&ref=sr_pg_"+str(page_number)
+                urls_mba.append(url_mba_page)
+        else:
+            url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
+            send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
+            # if start_page is other than one, crawler should start from differnt page
+            until_page = 401
+
+            if self.pages != 0:
+                until_page = self.start_page + self.pages
+            for page_number in np.arange(self.start_page, until_page, 1):
+                if page_number <= 400:
+                    url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
+                    urls_mba.append(url_mba_page)
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
             # if self.marketplace == "com": 
