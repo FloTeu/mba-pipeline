@@ -325,7 +325,7 @@ class MBASpider(scrapy.Spider):
                 r'(?::\d+)?' # optional port
                 r'(?:/?|[/?]\S+)$', re.IGNORECASE)
 
-        urls = response_shirt.css("div.a-section.a-spacing-none.s-image-overlay-black a img::attr(srcset)").get()
+        urls = response_shirt.css("div.a-section a img::attr(srcset)").get()
         if urls == None:
             raise ValueError("Could not get img_urls information for crawler " + self.name)
         else:
@@ -487,9 +487,12 @@ class MBASpider(scrapy.Spider):
                     try:
                         brand = self.get_brand(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
+                        print("Could not get brand of shirt: ",title)
+                        brand = None
+                        # its possible that amazon does not show brand on overview page. Therefore raise is not neccessary.
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        #raise e
                     try:
                         url_product = self.get_url_product(shirt, url)
                     except Exception as e:
