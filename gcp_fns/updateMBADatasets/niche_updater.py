@@ -217,3 +217,93 @@ class NicheUpdater():
         
         return firestore_dict
 
+import re
+from nltk import ngrams
+KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
+        "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
+        "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
+        , "Überraschung"]
+
+KEYWORDS_TO_REMOVE_EN = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
+    "childreen", "present", "boys", "girls"]
+
+# function that converts tuple to string
+def join_tuple_string(strings_tuple) -> str:
+   return ' '.join(strings_tuple)
+
+class NicheAnalyser():
+    
+    def __init__(self, marketplace="de", dev=False, project="mba-pipeline"):
+        dev_str = ""
+        if dev:
+            dev_str = "_dev"
+
+        self.marketplace = marketplace
+        self.project = project
+        self.bq_table_id = f"{project}.mba_{marketplace}.merchwatch_shirts{dev_str}"
+        self.trademarks = pd.read_gbq(f"SELECT brand FROM `{project}.mba_{marketplace}.products_trademark`", project_id=project)["brand"].to_list()
+        self.df = pd.DataFrame()
+        if self.marketplace == "de":
+            self.banned_words = [keyword.lower() for keyword in KEYWORDS_TO_REMOVE_DE]
+        elif self.marketplace == "com":
+            self.banned_words = [keyword.lower() for keyword in KEYWORDS_TO_REMOVE_EN]
+        else:
+            raise ValueError("Marketplace not known")
+        self.banned_words = self.banned_words + ["t"]
+        
+    def get_raw_design_data_sql(self, limit=1000):
+        SQL_STATEMENT = """
+        SELECT price_last, asin, title, brand, product_features, upload_date FROM `{0}` 
+        where not takedown and title IS NOT NULL
+        order by trend_nr 
+        LIMIT {1}
+        """.format(self.bq_table_id, limit)
+        return SQL_STATEMENT
+
+    def set_df(self):
+        SQL_STATEMENT = self.get_raw_design_data_sql()
+        self.df = pd.read_gbq(SQL_STATEMENT, project_id=self.project)
+
+    def extract_keywords(self, df_row):
+        print(df_row.name)
+        keywords_list = []
+        try:
+            title = df_row["title"]
+            brand = df_row["brand"]
+            if brand in self.trademarks:
+                print("Found trademark", brand)
+                return []
+
+            # extract unbanned keywords
+            keywords_text = title + ". " + brand
+            keywords = re.findall(r'\w+', keywords_text)
+            keywords = [k for k in keywords if k.lower() not in self.banned_words]
+
+
+            n = 2
+            n_grams = ngrams(keywords, n)
+            for grams in n_grams:
+                print(join_tuple_string(grams))
+                keywords_list = keywords_list + [join_tuple_string(grams)]
+
+            return list(set(keywords_list))
+        except Exception as e:
+            print(str(e))
+        return list(set(keywords_list))
+
+    def analyze(self):
+        df_row = self.df.iloc[93]
+        print(self.extract_keywords(df_row))
+        self.df["keywords"] = self.df.apply(lambda x: self.extract_keywords(x), axis=1)
+        keywords_dict = {}
+        for i, df_row in self.df.iterrows():
+            keywords = df_row["keywords"]
+            for keyword in keywords:
+                if keyword in keywords_dict:
+                    keywords_dict[keyword] = keywords_dict[keyword] + 1
+                else:
+                    keywords_dict[keyword] = 1
+        keywords_dict_sorted = {k: v for k, v in sorted(keywords_dict.items(), key=lambda item: item[1], reverse=True)}
+        test = 0
+    

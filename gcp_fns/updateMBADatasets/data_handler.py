@@ -30,12 +30,30 @@ import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
 
+KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
+        "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
+        "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
+        , "Überraschung"]
+
+KEYWORDS_TO_REMOVE_EN = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
+    "childreen", "present", "boys", "girls"]
+
+# def get_keywords_to_remove(language="de"):
+#     if language == "de":
+#         return KEYWORDS_TO_REMOVE_DE
+#     elif language == "en":
+#         return KEYWORDS_TO_REMOVE_EN
+#     else:
+#         return []
+
 class DataHandler():
     def __init__(self, marketplace="de"):
         self.filePath = None
         self.df_shirts_detail_daily = None
         # keyword to filter (To often used and are not related to niche)
         self.marketplace = marketplace
+        # TODO Replace with global variable or take it from json file or something were multiple files can share list
         self.keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
