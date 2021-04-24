@@ -1,5 +1,5 @@
 from data_handler import DataHandler
-from niche_updater import NicheUpdater
+from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
 import requests
 import argparse
@@ -83,6 +83,9 @@ def main(args):
         today_weekday = datetime.datetime.now(tz).weekday()
         DataHandlerModel = DataHandler(marketplace=marketplace)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
+        #NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
+        #NicheAnalyserModel.set_df()
+        #NicheAnalyserModel.analyze()
         keywords="Schleich di du Oaschloch" #"Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)

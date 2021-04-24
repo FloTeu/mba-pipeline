@@ -1287,7 +1287,7 @@ class DataHandler():
         df = pd.read_gbq("SELECT DISTINCT brand FROM mba_{}.products_details group by brand".format(marketplace), project_id="mba-pipeline")
         df["trademark"] = True
         df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        trademarks = ["disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
+        trademarks = ["Visit the", "disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
         "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
         "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
         , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
@@ -1315,7 +1315,7 @@ class DataHandler():
         df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
         
         # FIRESTORE
-        firestore_trademark = Firestore("de_trademarks")
+        firestore_trademark = Firestore(f"{marketplace}_trademarks")
         for trademark in trademarks:
             df_firestore = df_trademarks[df_trademarks["trademark"]==trademark]
             brands = df_firestore["brand"].tolist()
