@@ -48,7 +48,7 @@ KEYWORDS_TO_REMOVE_EN = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift
 #         return []
 
 class DataHandler():
-    def __init__(self, marketplace="de"):
+    def __init__(self, marketplace="de", bigquery_handler=None):
         self.filePath = None
         self.df_shirts_detail_daily = None
         # keyword to filter (To often used and are not related to niche)
@@ -64,6 +64,8 @@ class DataHandler():
         self.keywords_to_remove_dict = {"de": self.keywords_to_remove_de, "com": self.keywords_to_remove_en}
         self.keywords_to_remove = self.keywords_to_remove_dict[marketplace]
         self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove_dict[marketplace]]
+        
+        self.bigquery_handler = bigquery_handler
 
         self.tr4w_de = TextRank4Keyword(language="de")
         self.tr4w_en = TextRank4Keyword(language="en")
@@ -306,7 +308,9 @@ class DataHandler():
                 if_exists="replace"
             print("Start to get chunk from bigquery")
             try:
-                self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit), project_id="mba-pipeline", verbose=True).drop_duplicates()
+                # new cost effective method with local file
+                self.df_shirts_detail_daily = self.bigquery_handler.get_product_details_daily_data_by_asin(asin_list,chunksize=chunk_size).drop_duplicates()
+                #self.df_shirts_detail_daily_old = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 #self.df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit)).to_dataframe().drop_duplicates()
             #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: datetime.datetime.strptime(re.search(r'\d{4}-\d{2}-\d{2}', x["timestamp"]).group(), '%Y-%m-%d').date(), axis=1)
             except Exception as e:
@@ -500,7 +504,7 @@ class DataHandler():
         try:
             # make sure that occ_4w contains an value unequal to zero if existent
             df_occ_4w = df_occ[(df_occ['date'] < date_N_weeks_ago.date()) & (df_occ['bsr'] != 0)]
-            if len(occ_4w) == 0:
+            if len(df_occ_4w) == 0:
                 # case we have no new bsr data crawled in last month. Therefore bsr_change should be prevented to contain multiple months between first and last bsr
                 # results in bsr_change = 0
                 occ_4w = last_occ

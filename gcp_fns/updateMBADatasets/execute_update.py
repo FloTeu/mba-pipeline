@@ -1,6 +1,7 @@
 from data_handler import DataHandler
 from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
+from bigquery_handler import BigqueryHandler
 import requests
 import argparse
 import time
@@ -81,7 +82,8 @@ def main(args):
         tz = pytz.timezone('Europe/Berlin')
         today_day = datetime.datetime.now(tz).day
         today_weekday = datetime.datetime.now(tz).weekday()
-        DataHandlerModel = DataHandler(marketplace=marketplace)
+        BigQueryHandlerModel = BigqueryHandler(marketplace=marketplace, dev=args.dev)
+        DataHandlerModel = DataHandler(marketplace=marketplace, bigquery_handler=BigQueryHandlerModel)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
         #NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
         #NicheAnalyserModel.set_df()
@@ -90,6 +92,7 @@ def main(args):
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
+        BigQueryHandlerModel.product_details_daily_data2file()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         # niches are updated once a week every sunday
