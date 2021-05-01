@@ -219,6 +219,10 @@ class NicheUpdater():
 
 import re
 from nltk import ngrams
+from shirt_handler import MerchwatchShirt
+from text_rank import TextRank4Keyword
+import difflib
+
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
@@ -251,6 +255,8 @@ class NicheAnalyser():
         else:
             raise ValueError("Marketplace not known")
         self.banned_words = self.banned_words + ["t"]
+        self.tr4w_de = TextRank4Keyword(language="de")
+        self.tr4w_en = TextRank4Keyword(language="en")
         
     def get_raw_design_data_sql(self, limit=1000):
         SQL_STATEMENT = """
@@ -292,18 +298,58 @@ class NicheAnalyser():
             print(str(e))
         return list(set(keywords_list))
 
+
+    def extract_keywords_with_textrank(self, df_row):
+        print(df_row.name)
+        MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
+        MerchwatchShirtModel.load_by_dict(df_row.to_dict())
+        if MerchwatchShirtModel.language == "en":
+            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_en)
+        else:
+            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_de)
+
+        return list(set(keywords))
+
+    def jaccard_similarity(self, list1, list2):
+        intersection = len(list(set(list1).intersection(list2)))
+        union = (len(list1) + len(list2)) - intersection
+        return float(intersection) / union
+    
+    def is_cluster_unique_enough(self, keyword_asins, threshold=0.5):
+        for asin_cluster in self.asin_clusters:
+            js = self.jaccard_similarity(asin_cluster, keyword_asins)
+            if js > threshold:
+                return False
+        return True
+
     def analyze(self):
         df_row = self.df.iloc[93]
+        MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
+        MerchwatchShirtModel.load_by_dict(df_row.to_dict())
+        if MerchwatchShirtModel.language == "en":
+            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_en)
+        else:
+            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_de)
         print(self.extract_keywords(df_row))
-        self.df["keywords"] = self.df.apply(lambda x: self.extract_keywords(x), axis=1)
+        self.df["keywords"] = self.df.apply(lambda x: self.extract_keywords_with_textrank(x), axis=1)
         keywords_dict = {}
         for i, df_row in self.df.iterrows():
             keywords = df_row["keywords"]
             for keyword in keywords:
-                if keyword in keywords_dict:
-                    keywords_dict[keyword] = keywords_dict[keyword] + 1
-                else:
-                    keywords_dict[keyword] = 1
+                if len(keyword.split(" "))>1:
+                    if keyword in keywords_dict:
+                        keywords_dict[keyword] = keywords_dict[keyword] + 1
+                    else:
+                        keywords_dict[keyword] = 1
         keywords_dict_sorted = {k: v for k, v in sorted(keywords_dict.items(), key=lambda item: item[1], reverse=True)}
+        self.asin_clusters = []
+        for keyword, count in keywords_dict_sorted.items():
+            if count > 20:
+                mask = self.df.keywords.apply(lambda x: print(keyword))
+                keyword_asins = self.df[mask].asin.tolist()
+                print(keyword_asins, keyword)
+                if self.is_cluster_unique_enough(keyword_asins, threshold=0.5):
+                    self.asin_clusters.append(keyword_asins)
+
         test = 0
     
