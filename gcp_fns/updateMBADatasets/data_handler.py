@@ -359,11 +359,12 @@ class DataHandler():
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
 
         # try to calculate trend change
-        df_shirts_old=pd.read_gbq("SELECT DISTINCT asin, trend_nr, bsr_last FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
+        df_shirts_old=pd.read_gbq("SELECT DISTINCT asin, trend_nr, bsr_last, bsr_change FROM mba_" + str(marketplace) +".merchwatch_shirts" + dev_str, project_id="mba-pipeline")
         df_shirts_old["trend_nr_old"] = df_shirts_old["trend_nr"].astype(int)
         df_shirts_old["bsr_last_old"] = df_shirts_old["bsr_last"].astype(int)
+        df_shirts_old["bsr_change_old"] = df_shirts_old["bsr_change"].astype(int)
         # transform older trend nr (yesterday) in same dimension as new trend nr
-        df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old", "bsr_last_old"]],how='left', on='asin')
+        df_shirts_with_more_info = df_shirts_with_more_info.merge(df_shirts_old[["asin", "trend_nr_old", "bsr_last_old", "bsr_change_old"]],how='left', on='asin')
         try:
 
             df_shirts_with_more_info['trend_nr_old'] = df_shirts_with_more_info['trend_nr_old'].fillna(value=0).astype(int)
@@ -378,7 +379,7 @@ class DataHandler():
             date_one_week_ago = (datetime.now() - timedelta(days = 7)).date()
             bsr_change_threshold = df_shirts_with_more_info.sort_values(by=['bsr_change']).iloc[1000]["bsr_change"]
             # filter df which should always be updated (update newer than 7 days + bsr_count equals 1 or 2 or trend_nr lower or equal to 2000 or bsr_change is within top 1000) 
-            df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000) | (df_shirts_with_more_info["bsr_change"]<bsr_change_threshold)]
+            df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000) | (df_shirts_with_more_info["bsr_change"]<bsr_change_threshold) | (df_shirts_with_more_info["bsr_change_old"]<bsr_change_threshold)]
             # change bsr_last_change to 1 for those how should be updated independent of bsr_last
             df_shirts_with_more_info.loc[df_should_update.index, "bsr_last_change"] = 1
             df_shirts_with_more_info['should_be_updated'] = df_shirts_with_more_info['bsr_last_change'] != 0
