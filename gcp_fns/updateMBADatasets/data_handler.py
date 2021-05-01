@@ -376,8 +376,9 @@ class DataHandler():
             df_shirts_with_more_info['bsr_last_change'] = (df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]).astype(int)
             # get the date one week ago
             date_one_week_ago = (datetime.now() - timedelta(days = 7)).date()
-            # filter df which should always be updated (update newer than 7 days + bsr_count equals 1 or 2 or trend_nr lower or equal to 2000) 
-            df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000)]
+            bsr_change_threshold = df_shirts_with_more_info.sort_values(by=['bsr_change']).iloc[1000]["bsr_change"]
+            # filter df which should always be updated (update newer than 7 days + bsr_count equals 1 or 2 or trend_nr lower or equal to 2000 or bsr_change is within top 1000) 
+            df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000) | (df_shirts_with_more_info["bsr_change"]<bsr_change_threshold)]
             # change bsr_last_change to 1 for those how should be updated independent of bsr_last
             df_shirts_with_more_info.loc[df_should_update.index, "bsr_last_change"] = 1
             df_shirts_with_more_info['should_be_updated'] = df_shirts_with_more_info['bsr_last_change'] != 0
