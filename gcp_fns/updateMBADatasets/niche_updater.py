@@ -222,6 +222,8 @@ from nltk import ngrams
 from shirt_handler import MerchwatchShirt
 from text_rank import TextRank4Keyword
 import difflib
+from sklearn.feature_extraction.text import TfidfVectorizer
+from sklearn.cluster import DBSCAN
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -298,17 +300,20 @@ class NicheAnalyser():
             print(str(e))
         return list(set(keywords_list))
 
-
     def extract_keywords_with_textrank(self, df_row):
         print(df_row.name)
         MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
         MerchwatchShirtModel.load_by_dict(df_row.to_dict())
         if MerchwatchShirtModel.language == "en":
-            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_en)
+            MerchwatchShirtModel.set_keywords(self.tr4w_en)
         else:
-            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_de)
-
-        return list(set(keywords))
+            MerchwatchShirtModel.set_keywords(self.tr4w_de)
+        keywords = MerchwatchShirtModel.get_keywords()
+        #self.df.loc[df_row.name, "keywords"] = keywords
+        MerchwatchShirtModel.set_stem_keywords()
+        stem_keywords = MerchwatchShirtModel.get_stem_keywords() 
+        #self.df.loc[df_row.name, "stem_keywords"] = stem_keywords
+        return list(set(keywords)), stem_keywords  
 
     def jaccard_similarity(self, list1, list2):
         intersection = len(list(set(list1).intersection(list2)))
@@ -322,16 +327,34 @@ class NicheAnalyser():
                 return False
         return True
 
+    def set_keyword_cluster(self):
+        labellist = self.df["asin"].to_list()
+        textlist = [" ".join(stem_keyword) for stem_keyword in self.df["stem_keywords"].to_list()]
+        LANGUAGE = 'english' # used for snowball stemmer
+        SENSITIVITY = 0.2 # The Lower the more clusters
+        MIN_CLUSTERSIZE = 2
+        tfidf_vectorizer = TfidfVectorizer(max_df=0.2, max_features=10000,min_df=0.01,use_idf=True, ngram_range=(1,2))
+        tfidf_matrix = tfidf_vectorizer.fit_transform(textlist)
+        ds = DBSCAN(eps=SENSITIVITY, min_samples=MIN_CLUSTERSIZE).fit(tfidf_matrix)
+        clusters = ds.labels_.tolist()
+            
+        cluster_df = pd.DataFrame(clusters, columns=['Cluster'])
+        self.df = pd.merge(cluster_df, self.df, left_index=True, right_index=True)
+        #keywords_df =  pd.DataFrame(labellist, columns=['Keyword'])
+        #result = pd.merge(cluster_df, keywords_df, left_index=True, right_index=True)
+        #grouping = result.groupby(['Cluster'])['Keyword'].apply(' | '.join).reset_index()
+        #grouping.to_csv("clustered_queries.csv",index=False)
+
     def analyze(self):
         df_row = self.df.iloc[93]
         MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
         MerchwatchShirtModel.load_by_dict(df_row.to_dict())
-        if MerchwatchShirtModel.language == "en":
-            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_en)
-        else:
-            keywords = MerchwatchShirtModel.extract_keywords(self.tr4w_de)
-        print(self.extract_keywords(df_row))
-        self.df["keywords"] = self.df.apply(lambda x: self.extract_keywords_with_textrank(x), axis=1)
+        MerchwatchShirtModel.set_keywords(self.tr4w_de)
+        keywords = MerchwatchShirtModel.get_keywords()
+        series_keyword_tuple = self.df.apply(lambda x: self.extract_keywords_with_textrank(x), axis=1)
+        df_keywords = pd.DataFrame(series_keyword_tuple.tolist(),index=series_keyword_tuple.index)
+        self.df["keywords"] = df_keywords.iloc[:,0]
+        self.df["stem_keywords"] = df_keywords.iloc[:,1]
         keywords_dict = {}
         for i, df_row in self.df.iterrows():
             keywords = df_row["keywords"]
@@ -345,6 +368,8 @@ class NicheAnalyser():
         self.asin_clusters = []
         for keyword, count in keywords_dict_sorted.items():
             if count > 20:
+                # TODO: keyword is wrong and not the one from iteration
+                # keyword in x
                 mask = self.df.keywords.apply(lambda x: print(keyword))
                 keyword_asins = self.df[mask].asin.tolist()
                 print(keyword_asins, keyword)

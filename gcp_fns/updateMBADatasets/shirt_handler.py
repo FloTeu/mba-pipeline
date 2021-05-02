@@ -1,3 +1,5 @@
+from nltk.stem.snowball import SnowballStemmer
+from nltk.corpus import stopwords
 
 def list_str_to_list(list_str):
     list_str = list_str.strip("[]")
@@ -37,6 +39,7 @@ class MerchwatchShirt():
         self.tags = tags
         self.asin = asin
         self.description = description
+        self.keywords = ""
 
         self.keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -106,7 +109,39 @@ class MerchwatchShirt():
                 keywords_filtered.append(keyword_in_text)
         return keywords_filtered
 
-    def extract_keywords(self, textRankModel):
+    def set_keywords(self, textRankModel):
         text = " ".join([self.title + "."] + [self.brand + "."] + self.listings + [self.description])
-        keywords = textRankModel.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
-        return self.filter_keywords(keywords)
+        self.keywords = textRankModel.get_unsorted_keywords(text, candidate_pos = ['NOUN', 'PROPN'], lower=False)
+        self.keywords = self.filter_keywords(self.keywords)
+
+    def get_keywords(self):
+        return self.keywords
+
+    def set_stem_keywords(self):
+        self.stem_words = []
+        
+        # drop keywords with more than 1 word
+        keywords_single = [keyword for keyword in self.keywords if len(keyword.split(" ")) == 1]
+
+        # keywords are not stemped related to the language of the text but of the marketplace they are uploaded to
+        # Background: user searches for data in marketplace and might write english keyword but want german designs
+        # Use Case: User searches for "home office". keyword text is german but includes keyword "home office".
+        # Solution: stem dependend on marketplace not language of keyword text
+        if self.marketplace == "de":
+            stop_words = set(stopwords.words('german'))  
+            keywords_filtered = [w for w in keywords_single if not w in stop_words]
+            snowball_stemmer = SnowballStemmer("german")
+
+            for keyword in keywords_filtered:
+                self.stem_words.append(snowball_stemmer.stem(keyword))
+        # other marketplaces which might only be the american in future
+        else:
+            stop_words = set(stopwords.words('english'))
+            keywords_filtered = [w for w in keywords_single if not w in stop_words]  
+            snowball_stemmer = SnowballStemmer("english")
+
+            for keyword in keywords_filtered:
+                self.stem_words.append(snowball_stemmer.stem(keyword))
+
+    def get_stem_keywords(self):
+        return self.stem_words
