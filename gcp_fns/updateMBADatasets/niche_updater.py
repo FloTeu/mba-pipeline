@@ -223,7 +223,10 @@ from shirt_handler import MerchwatchShirt
 from text_rank import TextRank4Keyword
 import difflib
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.cluster import DBSCAN
+from sklearn.cluster import DBSCAN, KMeans
+from sklearn.metrics import adjusted_rand_score
+import requests
+from api_keys import API_KEYS
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -262,46 +265,23 @@ class NicheAnalyser():
         
     def get_raw_design_data_sql(self, limit=1000):
         SQL_STATEMENT = """
-        SELECT price_last, asin, title, brand, product_features, upload_date FROM `{0}` 
-        where not takedown and title IS NOT NULL
+        SELECT price_last, asin, title, t0.brand, product_features, upload_date FROM `{0}` t0
+        LEFT JOIN `{1}.mba_{2}.products_trademark` t1 on t0.brand = t1.brand
+        where not takedown and title IS NOT NULL and t1.trademark IS NULL
         order by trend_nr 
-        LIMIT {1}
-        """.format(self.bq_table_id, limit)
+        LIMIT {3}
+        """.format(self.bq_table_id, self.project, self.marketplace, limit)
         return SQL_STATEMENT
 
     def set_df(self):
         SQL_STATEMENT = self.get_raw_design_data_sql()
         self.df = pd.read_gbq(SQL_STATEMENT, project_id=self.project)
 
-    def extract_keywords(self, df_row):
-        print(df_row.name)
-        keywords_list = []
-        try:
-            title = df_row["title"]
-            brand = df_row["brand"]
-            if brand in self.trademarks:
-                print("Found trademark", brand)
-                return []
-
-            # extract unbanned keywords
-            keywords_text = title + ". " + brand
-            keywords = re.findall(r'\w+', keywords_text)
-            keywords = [k for k in keywords if k.lower() not in self.banned_words]
-
-
-            n = 2
-            n_grams = ngrams(keywords, n)
-            for grams in n_grams:
-                print(join_tuple_string(grams))
-                keywords_list = keywords_list + [join_tuple_string(grams)]
-
-            return list(set(keywords_list))
-        except Exception as e:
-            print(str(e))
-        return list(set(keywords_list))
-
     def extract_keywords_with_textrank(self, df_row):
-        print(df_row.name)
+        """Use MerchwatchShirt model to sxtract keyword from title brand and listings
+        """
+        if df_row.name % 100 == 0:
+            print(df_row.name)
         MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
         MerchwatchShirtModel.load_by_dict(df_row.to_dict())
         if MerchwatchShirtModel.language == "en":
@@ -327,54 +307,121 @@ class NicheAnalyser():
                 return False
         return True
 
-    def set_keyword_cluster(self):
-        labellist = self.df["asin"].to_list()
-        textlist = [" ".join(stem_keyword) for stem_keyword in self.df["stem_keywords"].to_list()]
-        LANGUAGE = 'english' # used for snowball stemmer
-        SENSITIVITY = 0.2 # The Lower the more clusters
-        MIN_CLUSTERSIZE = 2
-        tfidf_vectorizer = TfidfVectorizer(max_df=0.2, max_features=10000,min_df=0.01,use_idf=True, ngram_range=(1,2))
-        tfidf_matrix = tfidf_vectorizer.fit_transform(textlist)
-        ds = DBSCAN(eps=SENSITIVITY, min_samples=MIN_CLUSTERSIZE).fit(tfidf_matrix)
-        clusters = ds.labels_.tolist()
-            
-        cluster_df = pd.DataFrame(clusters, columns=['Cluster'])
-        self.df = pd.merge(cluster_df, self.df, left_index=True, right_index=True)
-        #keywords_df =  pd.DataFrame(labellist, columns=['Keyword'])
-        #result = pd.merge(cluster_df, keywords_df, left_index=True, right_index=True)
-        #grouping = result.groupby(['Cluster'])['Keyword'].apply(' | '.join).reset_index()
-        #grouping.to_csv("clustered_queries.csv",index=False)
-
-    def analyze(self):
-        df_row = self.df.iloc[93]
-        MerchwatchShirtModel = MerchwatchShirt(self.marketplace)
-        MerchwatchShirtModel.load_by_dict(df_row.to_dict())
-        MerchwatchShirtModel.set_keywords(self.tr4w_de)
-        keywords = MerchwatchShirtModel.get_keywords()
+    def set_keywords(self):
         series_keyword_tuple = self.df.apply(lambda x: self.extract_keywords_with_textrank(x), axis=1)
         df_keywords = pd.DataFrame(series_keyword_tuple.tolist(),index=series_keyword_tuple.index)
         self.df["keywords"] = df_keywords.iloc[:,0]
         self.df["stem_keywords"] = df_keywords.iloc[:,1]
-        keywords_dict = {}
-        for i, df_row in self.df.iterrows():
-            keywords = df_row["keywords"]
-            for keyword in keywords:
-                if len(keyword.split(" "))>1:
+
+    def set_keywords_cluster(self):
+        label_list = self.df["asin"].to_list()
+        text_list = [" ".join(stem_keyword) for stem_keyword in self.df["stem_keywords"].to_list()]
+        # LANGUAGE = 'english' # used for snowball stemmer
+        # SENSITIVITY = 0.2 # The Lower the more clusters
+        # MIN_CLUSTERSIZE = 2
+        tfidf_vectorizer = TfidfVectorizer(max_df=0.2, max_features=10000,min_df=0.01,use_idf=True, ngram_range=(1,2))
+        tfidf_matrix = tfidf_vectorizer.fit_transform(text_list)
+        
+        # other cluster alorithm DBSCAN where no number of clusters need to be provided 
+        #ds_model = DBSCAN(eps=SENSITIVITY, min_samples=MIN_CLUSTERSIZE).fit(tfidf_matrix)
+        #clusters = ds.labels_.tolist()
+        true_k = 50
+        km_model = KMeans(n_clusters=true_k, init='k-means++', max_iter=100, n_init=1)
+        km_model.fit(tfidf_matrix)
+        clusters = km_model.labels_.tolist()
+
+        # distortions = []
+        # K = range(1,200)
+        # for true_k in K:
+        #     km_model = KMeans(n_clusters=true_k, init='k-means++', max_iter=100, n_init=1)
+        #     km_model.fit(tfidf_matrix)
+        #     clusters = km_model.labels_.tolist()
+        #     distortions.append(km_model.inertia_)
+
+        cluster_df = pd.DataFrame(clusters, columns=['cluster'])
+        columns = [c for c in self.df.columns.values if not "cluster" in c.lower()]
+        self.df = pd.merge(cluster_df, self.df[columns], left_index=True, right_index=True)
+        #keywords_df =  pd.DataFrame(label_list, columns=['Keyword'])
+        #result = pd.merge(cluster_df, keywords_df, left_index=True, right_index=True)
+        #grouping = result.groupby(['Cluster'])['Keyword'].apply(' | '.join).reset_index()
+        #grouping.to_csv("clustered_queries.csv",index=False)
+
+    def plot_kmeans(self, K, distortions):
+        import matplotlib.pyplot as plt
+        plt.figure(figsize=(16,8))
+        plt.plot(K, distortions, 'bx-')
+        plt.xlabel('k')
+        plt.ylabel('Distortion')
+        plt.title('The Elbow Method showing the optimal k')
+        plt.savefig("kmeans.png",dpi=100)
+
+    def get_trending_niches(self):
+        keyword_cluster = {}
+        for cluster, df_cluster in self.df.groupby("cluster"):
+            keywords_dict = {}
+            for i, df_row in df_cluster.iterrows():
+                keywords = df_row["keywords"]
+                for keyword in keywords:
+                    #if len(keyword.split(" "))>1:
                     if keyword in keywords_dict:
                         keywords_dict[keyword] = keywords_dict[keyword] + 1
                     else:
                         keywords_dict[keyword] = 1
-        keywords_dict_sorted = {k: v for k, v in sorted(keywords_dict.items(), key=lambda item: item[1], reverse=True)}
-        self.asin_clusters = []
-        for keyword, count in keywords_dict_sorted.items():
-            if count > 20:
-                # TODO: keyword is wrong and not the one from iteration
-                # keyword in x
-                mask = self.df.keywords.apply(lambda x: print(keyword))
-                keyword_asins = self.df[mask].asin.tolist()
-                print(keyword_asins, keyword)
-                if self.is_cluster_unique_enough(keyword_asins, threshold=0.5):
-                    self.asin_clusters.append(keyword_asins)
+            keywords_dict_sorted = {k: v for k, v in sorted(keywords_dict.items(), key=lambda item: item[1], reverse=True)}
+            keyword_cluster[cluster] = {"count": len(df_cluster), 
+                        "cluster_keyword": next(iter(keywords_dict_sorted.keys())), 
+                        #"asins": df_cluster["asin"].to_list(),
+                        "keywords": keywords_dict_sorted
+            }
+        return keyword_cluster
 
-        test = 0
-    
+    def get_best_niches(self, keyword_cluster):
+        best_niches = []
+        for cluster, keyword_data in keyword_cluster.items():
+            cluster_total_count = keyword_data["count"]
+            best_keywords = []
+            for keyword, count in keyword_data["keywords"].items():
+                proportion_in_cluster = count / cluster_total_count
+                # if proportion_in_cluster of single keyword is in less than half of all designs break
+                if proportion_in_cluster < 0.3:
+                    break
+                # prioritise keywords which have more than one word
+                if len(keyword.split(" ")) > 1:
+                    #print(proportion_in_cluster, keyword)
+                    best_keywords.append(keyword)
+                    pass
+            # for keyword in list(keyword_data["keywords"].keys())[0:10]:
+            #     # prioritise keywords which have more than one word
+            #     if len(keyword.split(" ")) > 1:
+            #         #print(proportion_in_cluster, keyword)
+            #         best_keywords.append(keyword)
+
+            best_keywords = best_keywords + list(keyword_data["keywords"].keys())[0:3]
+            best_niches.append(best_keywords[0])
+            #print(cluster, )
+        return best_niches
+
+    def analyze(self):
+        #df_row = self.df.iloc[10]
+
+        self.set_keywords()
+        self.set_keywords_cluster()
+
+        keyword_cluster = self.get_trending_niches()
+        best_niches = self.get_best_niches(keyword_cluster)
+
+        headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
+        for niche_keyword in best_niches:
+            post_data_dict = {
+                "marketplace": self.marketplace,
+                "key": niche_keyword,
+                "admin": True,
+                "is_authenticated": True,
+                "type": "trend_niche"
+            }
+            post_data_dict.update({"api_key": API_KEYS[0]})
+            try:
+                r = requests.post('https://europe-west3-merchwatch.cloudfunctions.net/dev_watch_meta_data_rest', json=post_data_dict, headers=headers, timeout=1)
+            except Exception as e:
+                print(str(e))
+                pass

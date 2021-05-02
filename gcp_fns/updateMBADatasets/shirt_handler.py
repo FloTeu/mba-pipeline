@@ -41,17 +41,28 @@ class MerchwatchShirt():
         self.description = description
         self.keywords = ""
 
-        self.keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
+        self.keywords_to_remove_de = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenke", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
         "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
-        , "Überraschung"]
+        , "Überraschung", "Männer", "Enkel", "Enkelin", "Deine", "Deiner", "Irgendwas", "Irgendetwas", "Idee"]
         self.keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
-         "childreen", "present", "boys", "girls"]
+         "childreen", "present", "boys", "girls", "women", "woman", "men"]
         self.keywords_to_remove_dict = {"de": self.keywords_to_remove_de, "com": self.keywords_to_remove_en}
-        self.keywords_to_remove = self.keywords_to_remove_dict[marketplace]
-        self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove_dict[marketplace]]
+        self.keywords_to_remove = self.keywords_to_remove_de + self.keywords_to_remove_en + stopwords.words('german') + stopwords.words('english')
+        self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove]
 
+
+        # keywords are not stemped related to the language of the text but of the marketplace they are uploaded to
+        # Background: user searches for data in marketplace and might write english keyword but want german designs
+        # Use Case: User searches for "home office". keyword text is german but includes keyword "home office".
+        # Solution: stem dependend on marketplace not language of keyword text
+        if self.marketplace == "de":
+            self.stop_words = set(stopwords.words('german'))  
+            self.stemmer = SnowballStemmer("german")
+        else:
+            self.stop_words = set(stopwords.words('english'))
+            self.stemmer = SnowballStemmer("english")
 
     def is_product_feature_listing(self, product_feature):
         """If on bullet point/ product feature is a listing created by user (contains relevant keywords)"""
@@ -101,10 +112,17 @@ class MerchwatchShirt():
             if len(keyword_in_text) < 3:
                 filter_keyword = True
             else:
-                for keyword_to_remove in self.keywords_to_remove:
-                    if keyword_to_remove.lower() in keyword_in_text.lower() or keyword_in_text.lower() in single_words_to_filter:
+                #keyword_to_remove_stemmed = self.stem_keyword(keyword_to_remove)
+                #keyword_in_text_stemmed = self.stem_keyword(keyword_in_text)
+                if keyword_in_text.lower() in self.keywords_to_remove_lower or keyword_in_text.lower() in single_words_to_filter:
+                    filter_keyword = True
+
+                # case geschenk in keyword_in_text = Geschenk T-shirt
+                for keyword_to_remove_lower in self.keywords_to_remove_lower:
+                    if keyword_to_remove_lower in keyword_in_text.lower().split(" "):
                         filter_keyword = True
                         break
+
             if not filter_keyword:
                 keywords_filtered.append(keyword_in_text)
         return keywords_filtered
@@ -117,31 +135,18 @@ class MerchwatchShirt():
     def get_keywords(self):
         return self.keywords
 
+    def stem_keyword(self, keyword):
+        return self.stemmer.stem(keyword)
+
     def set_stem_keywords(self):
         self.stem_words = []
         
         # drop keywords with more than 1 word
         keywords_single = [keyword for keyword in self.keywords if len(keyword.split(" ")) == 1]
 
-        # keywords are not stemped related to the language of the text but of the marketplace they are uploaded to
-        # Background: user searches for data in marketplace and might write english keyword but want german designs
-        # Use Case: User searches for "home office". keyword text is german but includes keyword "home office".
-        # Solution: stem dependend on marketplace not language of keyword text
-        if self.marketplace == "de":
-            stop_words = set(stopwords.words('german'))  
-            keywords_filtered = [w for w in keywords_single if not w in stop_words]
-            snowball_stemmer = SnowballStemmer("german")
-
-            for keyword in keywords_filtered:
-                self.stem_words.append(snowball_stemmer.stem(keyword))
-        # other marketplaces which might only be the american in future
-        else:
-            stop_words = set(stopwords.words('english'))
-            keywords_filtered = [w for w in keywords_single if not w in stop_words]  
-            snowball_stemmer = SnowballStemmer("english")
-
-            for keyword in keywords_filtered:
-                self.stem_words.append(snowball_stemmer.stem(keyword))
+        keywords_filtered = [w for w in keywords_single if not w in self.stop_words]
+        for keyword in keywords_filtered:
+            self.stem_words.append(self.stem_keyword(keyword))
 
     def get_stem_keywords(self):
         return self.stem_words
