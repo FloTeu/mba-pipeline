@@ -155,8 +155,9 @@ def updateBqShirtTables(event, context):
 
     # [START parse_message]
 
+    # does not matter at the moment
     marketplace = "de"
 
     #create_instance(marketplace, "cron-daily", "us-west1-b", 500)
-    start_cron_daily(marketplace)
+    start_cron_daily(marketplace, chunk_size=10000)
 test = 0

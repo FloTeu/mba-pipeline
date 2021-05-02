@@ -302,11 +302,13 @@ class DataHandler():
         df_shirts_asin_chunks = [df_shirts_asin[i:i+chunk_size] for i in range(0,df_shirts_asin.shape[0],chunk_size)]
         for i, df_shirts_asin_chunk in enumerate(df_shirts_asin_chunks):
             print("Chunk %s of %s" %(i, len(df_shirts_asin_chunks)))
+            start_time_chunk = time.time()
             asin_list = df_shirts_asin_chunk["asin"].tolist()
             if_exists = "append"
             if i == 0:
                 if_exists="replace"
             print("Start to get chunk from bigquery")
+            start_time = time.time()
             try:
                 # new cost effective method with local file
                 self.df_shirts_detail_daily = self.bigquery_handler.get_product_details_daily_data_by_asin(asin_list,chunksize=chunk_size).drop_duplicates()
@@ -316,7 +318,7 @@ class DataHandler():
             except Exception as e:
                 print(str(e))
                 raise ValueError
-            print("Got bigquery chunk")
+            print("Got bigquery chunk. elapsed time: %.2f sec" %((time.time() - start_time)))
             self.df_shirts_detail_daily["date"] = self.df_shirts_detail_daily.apply(lambda x: x["timestamp"].date(), axis=1)
 
             # get plot data
@@ -355,6 +357,7 @@ class DataHandler():
             #df_shirts_asin_chunk.to_gbq("mba_" + str(marketplace) +".plots" + dev_str, project_id="mba-pipeline", if_exists=if_exists)
             '''
             gc.collect()
+            print("elapsed time: %.2f sec" %((time.time() - start_time_chunk)))
         
         df_shirts_with_more_info = self.make_trend_column(df_shirts_with_more_info)
 
@@ -1454,7 +1457,8 @@ class DataHandler():
                 asin_list = df_shirts_asin_chunk["asin"].tolist()
                 print("Start to get chunk from bigquery")
                 try:
-                    self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, until_date=next_day), project_id="mba-pipeline", verbose=True).drop_duplicates()
+                    self.df_shirts_detail_daily = self.bigquery_handler.get_product_details_daily_data_by_asin(asin_list,chunksize=chunk_size).drop_duplicates()
+                    #self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, until_date=next_day), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 except Exception as e:
                     print(str(e))
                     raise e
