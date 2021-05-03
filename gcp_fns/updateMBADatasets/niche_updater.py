@@ -226,7 +226,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import adjusted_rand_score
 import requests
-from api_keys import API_KEYS
+# TODO make sure api_keys is provided in instance which executes this code
+#from api_keys import API_KEYS
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
