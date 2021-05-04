@@ -21,7 +21,9 @@ rm -rf mba-pipeline/
 git clone https://github.com/Flo95x/mba-pipeline.git
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
-/usr/bin/python3 execute_update.py --marketplace=de --chunk_size={3} & /usr/bin/python3 execute_update.py --marketplace=com --chunk_size={3}
+/usr/bin/python3 execute_update.py --marketplace=de --chunk_size={3} 
+/usr/bin/python3 execute_update.py --marketplace=com --chunk_size={3}
+wait
 yes Y | gcloud compute instances stop {1} --zone {2}
     '''.format(marketplace, instance_name, zone,chunk_size)
     return startup_script
