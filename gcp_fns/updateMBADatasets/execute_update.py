@@ -85,6 +85,7 @@ def main(args):
         BigQueryHandlerModel = BigqueryHandler(marketplace=marketplace, dev=args.dev)
         DataHandlerModel = DataHandler(marketplace=marketplace, bigquery_handler=BigQueryHandlerModel)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
+        #NicheUpdaterModel.delete_all_niches_by_type("trend_niche")
         #NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
         #NicheAnalyserModel.set_df()
         #NicheAnalyserModel.analyze()

@@ -217,6 +217,16 @@ class NicheUpdater():
         
         return firestore_dict
 
+    def delete_all_niches_by_type(self, niche_type):
+        # blog_niches never should be deleted
+        if niche_type != "blog_niche":
+            doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
+            count = 0
+            for doc in doc_iter:
+                doc.reference.delete()
+                count += 1
+            print(f"Deleted {count} docuemnt with niche type {niche_type}")
+
 import re
 from nltk import ngrams
 from shirt_handler import MerchwatchShirt
@@ -226,8 +236,6 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import adjusted_rand_score
 import requests
-# TODO make sure api_keys is provided in instance which executes this code
-#from api_keys import API_KEYS
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -402,7 +410,15 @@ class NicheAnalyser():
             #print(cluster, )
         return best_niches
 
+    def drop_duplicates(self, data_list):
+        df=pd.DataFrame(data_list)
+        df['lower']=df[0].apply(lambda x: x.lower())
+        return df.groupby('lower',sort=0)[0].first().tolist()
+
     def analyze(self):
+        
+        # TODO make sure api_keys is provided in instance which executes this code
+        from api_keys import API_KEYS
         #df_row = self.df.iloc[10]
 
         self.set_keywords()
@@ -410,6 +426,7 @@ class NicheAnalyser():
 
         keyword_cluster = self.get_trending_niches()
         best_niches = self.get_best_niches(keyword_cluster)
+        best_niches = self.drop_duplicates(best_niches)
 
         headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
         for niche_keyword in best_niches:
@@ -418,7 +435,8 @@ class NicheAnalyser():
                 "key": niche_keyword,
                 "admin": True,
                 "is_authenticated": True,
-                "type": "trend_niche"
+                "type": "trend_niche",
+                "shirt_count": 150
             }
             post_data_dict.update({"api_key": API_KEYS[0]})
             try:
@@ -426,3 +444,5 @@ class NicheAnalyser():
             except Exception as e:
                 print(str(e))
                 pass
+    
+            
