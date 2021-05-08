@@ -121,7 +121,9 @@ def start_cron_daily(marketplace, chunk_size=500):
     from oauth2client.client import GoogleCredentials
 
     credentials = GoogleCredentials.get_application_default()
-    service = discovery.build('compute', 'v1', credentials=credentials)
+    # cache_discovery=False is important for oauth2client >= 4.0.0
+    # See: https://stackoverflow.com/questions/40154672/importerror-file-cache-is-unavailable-when-using-python-client-for-google-ser
+    service = discovery.build('compute', 'v1', credentials=credentials, cache_discovery=False)
 
     # Project ID for this request.
     project = 'mba-pipeline' 
