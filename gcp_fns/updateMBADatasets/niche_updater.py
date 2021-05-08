@@ -415,6 +415,19 @@ class NicheAnalyser():
         df['lower']=df[0].apply(lambda x: x.lower())
         return df.groupby('lower',sort=0)[0].first().tolist()
 
+    def get_keywords_already_in_fs(self, niche_type):
+        keywords = []
+        self.firestore = Firestore(self.marketplace + "_niches")
+        # blog_niches never should be deleted
+        if niche_type != "blog_niche":
+            doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
+            count = 0
+            for doc in doc_iter:
+                keywords.append(doc._data["keyword"].lower())
+                count += 1
+            print(f"Got {count} docuemnts with niche type {niche_type}")
+        return keywords
+
     def analyze(self):
         
         # TODO make sure api_keys is provided in instance which executes this code
@@ -427,6 +440,9 @@ class NicheAnalyser():
         keyword_cluster = self.get_trending_niches()
         best_niches = self.get_best_niches(keyword_cluster)
         best_niches = self.drop_duplicates(best_niches)
+        niche_type = "trend_niche"
+        keywords_already_in_fs = self.get_keywords_already_in_fs(niche_type)
+        best_niches = [niche for niche in best_niches if niche.lower() not in keywords_already_in_fs]
 
         headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
         for niche_keyword in best_niches:
@@ -435,7 +451,7 @@ class NicheAnalyser():
                 "key": niche_keyword,
                 "admin": True,
                 "is_authenticated": True,
-                "type": "trend_niche",
+                "type": niche_type,
                 "shirt_count": 150
             }
             post_data_dict.update({"api_key": API_KEYS[0]})
