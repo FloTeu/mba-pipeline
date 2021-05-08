@@ -22,13 +22,13 @@ git clone https://github.com/Flo95x/mba-pipeline.git
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
  
-for cmd in "/usr/bin/python3 execute_update.py --marketplace=de --chunk_size={3}" "/usr/bin/python3 execute_update.py --marketplace=com --chunk_size={3}"; do
+for cmd in "/usr/bin/python3 execute_update.py --marketplace=de --chunk_size=%s" "/usr/bin/python3 execute_update.py --marketplace=com --chunk_size=%s"; do
         eval ${cmd} &
         sleep 300
     done
 wait
-yes Y | gcloud compute instances stop {1} --zone {2}
-    '''.format(marketplace, instance_name, zone,chunk_size)
+yes Y | gcloud compute instances stop %s --zone %s
+    ''' % (chunk_size, chunk_size, instance_name, zone)
     return startup_script
 
 def generate_startup_sql_update(instance_name, instance_zone):
