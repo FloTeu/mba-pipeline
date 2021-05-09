@@ -375,6 +375,7 @@ class DataHandler():
         except Exception as e:
             df_shirts_with_more_info["trend_change"] = 0
         # try to create should_be_updated column
+        # TODO: Find out why designs which got taken down do not get flag should_be_updated
         try:
             df_shirts_with_more_info['bsr_last_old'] = df_shirts_with_more_info['bsr_last_old'].fillna(value=0).astype(int)
             df_shirts_with_more_info['bsr_last_change'] = (df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]).astype(int)
@@ -928,9 +929,14 @@ class DataHandler():
         # check: B07D7NX4RL com
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
+        #df = df[(df["product_features"].str.lower().str.contains("brawl")) | (df["title"].str.lower().str.contains("brawl"))]
         #print(df.shape)
         #df_unequal_normal_bsr = pd.read_gbq(self.get_shirt_dataset_unequal_normal_bsr_sql(marketplace, dev=dev), project_id="mba-pipeline").drop_duplicates(["asin"])
         
+        # drop duplicates
+        # TODO: find out why duplicates exists
+        df = df.drop_duplicates(["asin"])
+
         # filter all rows which do not contain image reference data
         df = df[~(df["url_mba_lowq"].isnull()|df["url_image_q2"].isnull()|df["url_image_q3"].isnull())]
 
