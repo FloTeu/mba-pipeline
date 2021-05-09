@@ -1499,6 +1499,7 @@ class DataHandler():
         SQL_STATEMENT = """SELECT keyword, t1.asin, t1.upload_date, DATE_DIFF(current_date(), Date(t1.upload_date), DAY) as time_since_upload, t1.timestamp FROM (SELECT * FROM `mba-pipeline.mba_{0}.niches`  where keyword in {1}) t0
         CROSS JOIN  `mba-pipeline.mba_{0}.products_details` t1 WHERE t0.asin LIKE CONCAT('%', t1.asin, '%')
             order by t1.timestamp desc""".format(marketplace, keywords_str)
+        
         # read data from bigquery
         df_keyword_data = pd.read_gbq(SQL_STATEMENT, project_id=project_id)#.drop_duplicates(["asin"])
 

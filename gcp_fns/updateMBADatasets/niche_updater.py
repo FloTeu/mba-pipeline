@@ -47,7 +47,7 @@ class NicheUpdater():
         shell_command = '''cd .. 
         cd ..
         cd crawler/mba/mba_crawler
-        sudo /usr/bin/python3 create_url_csv.py {0} True --number_products=0  --niches="{1}"
+        sudo /usr/bin/python3 create_url_csv.py {0} True --number_products=0 --niches="{1}"
         sudo scrapy crawl mba_general_de -a marketplace={0} -a daiy=True
         '''.format(self.marketplace, list_niches_str)
         subprocess.call(shell_command, shell=True)

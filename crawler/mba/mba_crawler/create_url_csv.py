@@ -38,18 +38,19 @@ def get_asin_product_detail_crawled(marketplace):
     bq_client = bigquery.Client(project=project_id)
     df_product_details = bq_client.query(
         "SELECT t0.asin, t0.url_product FROM mba_" + marketplace + ".products t0 LEFT JOIN mba_" + marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(["asin"])
-    if does_table_exist(project_id, dataset_id, table_id):
-        # get reservation logs
-        df_reservation = bq_client.query(
-            "SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates(["asin"])
-        df_reservation_status = df_reservation.drop_duplicates("asin")
-        # get list of asins that are currently blocked by preemptible instances
-        asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
-        # filter asins for those which are not blocked
-        matching_asins = df_product_details["asin"].isin(asins_blocked)
-        print("%s asins are currently blocked and will not be crawled" % str(
-            len([i for i in matching_asins if i == True])))
-        df_product_details = df_product_details[~matching_asins]
+    # code is old and from deprecated crawling worklfow
+    # if does_table_exist(project_id, dataset_id, table_id):
+    #     # get reservation logs
+    #     df_reservation = bq_client.query(
+    #         "SELECT * FROM " + reservation_table_id + " t0 order by t0.timestamp DESC").to_dataframe().drop_duplicates(["asin"])
+    #     df_reservation_status = df_reservation.drop_duplicates("asin")
+    #     # get list of asins that are currently blocked by preemptible instances
+    #     asins_blocked = df_reservation_status[df_reservation_status["status"] == "blocked"]["asin"].tolist()
+    #     # filter asins for those which are not blocked
+    #     matching_asins = df_product_details["asin"].isin(asins_blocked)
+    #     print("%s asins are currently blocked and will not be crawled" % str(
+    #         len([i for i in matching_asins if i == True])))
+    #     df_product_details = df_product_details[~matching_asins]
 
     return df_product_details
 
@@ -254,6 +255,16 @@ def get_sql_asins_by_niches(marketplace, list_niches):
     WHERE t1.keyword IS NOT NULL
     and date = last_date
     """.format(marketplace, list_niches_str)
+    
+    # QUICKFIX if niches is not up to date or not used anymore
+    SQL_STATEMENT = """SELECT * FROM `mba-pipeline.mba_de.products_details` where 
+    """.format(marketplace, list_niches[0])
+    for i, niche in enumerate(list_niches):
+        niche_lower = niche.lower()
+        if i != 0:
+            SQL_STATEMENT = SQL_STATEMENT + " or "
+        SQL_STATEMENT = SQL_STATEMENT + f" lower(product_features) LIKE '%{niche_lower}%' or lower(title) LIKE '%{niche_lower}%' or lower(brand) LIKE '%{niche_lower}%'"
+    print(SQL_STATEMENT)
     return SQL_STATEMENT
 
 def main(argv):

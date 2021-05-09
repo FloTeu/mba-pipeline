@@ -89,10 +89,11 @@ def main(args):
         #NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
         #NicheAnalyserModel.set_df()
         #NicheAnalyserModel.analyze()
-        keywords="Schleich di du Oaschloch" #"Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
+        keywords="brawl" #"Schleich di du Oaschloch; Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
+
         BigQueryHandlerModel.product_details_daily_data2file()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
