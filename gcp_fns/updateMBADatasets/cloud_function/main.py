@@ -19,6 +19,7 @@ def generate_startup(marketplace, instance_name, zone, chunk_size):
 cd home/
 rm -rf mba-pipeline/
 git clone https://github.com/Flo95x/mba-pipeline.git
+sudo cp "privacy files/api_keys.py" mba-pipeline/gcp_fns/updateMBADatasets
 cd mba-pipeline/gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
  
