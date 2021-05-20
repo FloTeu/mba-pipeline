@@ -85,10 +85,13 @@ def main(args):
         BigQueryHandlerModel = BigqueryHandler(marketplace=marketplace, dev=args.dev)
         DataHandlerModel = DataHandler(marketplace=marketplace, bigquery_handler=BigQueryHandlerModel)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
-        #NicheUpdaterModel.delete_all_niches_by_type("trend_niche")
-        #NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
-        #NicheAnalyserModel.set_df()
-        #NicheAnalyserModel.analyze()
+        try:
+            from api_keys import API_KEYS
+            NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
+            NicheAnalyserModel.set_df()
+            NicheAnalyserModel.update_fs_trend_niches()
+        except Exception as e:
+            print("Could not load API key", str(e))
         keywords="brawl" #"Schleich di du Oaschloch; Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
@@ -102,7 +105,8 @@ def main(args):
             DataHandlerModel.update_trademark(marketplace)
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_language_code(marketplace)
-            DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
+            #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
+            NicheUpdaterModel.delete_all_niches_by_type("trend_niche")
 
     except Exception as e:
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")

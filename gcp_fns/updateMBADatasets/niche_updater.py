@@ -229,6 +229,8 @@ class NicheUpdater():
 
 import re
 from nltk import ngrams
+from nltk.stem.snowball import SnowballStemmer
+from nltk.corpus import stopwords
 from shirt_handler import MerchwatchShirt
 from text_rank import TextRank4Keyword
 import difflib
@@ -271,6 +273,14 @@ class NicheAnalyser():
         self.banned_words = self.banned_words + ["t"]
         self.tr4w_de = TextRank4Keyword(language="de")
         self.tr4w_en = TextRank4Keyword(language="en")
+
+        if self.marketplace == "de":
+            self.stop_words = set(stopwords.words('german'))  
+            self.stemmer = SnowballStemmer("german")
+        else:
+            self.stop_words = set(stopwords.words('english'))
+            self.stemmer = SnowballStemmer("english")
+
         
     def get_raw_design_data_sql(self, limit=1000):
         SQL_STATEMENT = """
@@ -368,8 +378,10 @@ class NicheAnalyser():
         keyword_cluster = {}
         for cluster, df_cluster in self.df.groupby("cluster"):
             keywords_dict = {}
+            asins = []
             for i, df_row in df_cluster.iterrows():
                 keywords = df_row["keywords"]
+                asins.append(df_row["asin"])
                 for keyword in keywords:
                     #if len(keyword.split(" "))>1:
                     if keyword in keywords_dict:
@@ -380,18 +392,21 @@ class NicheAnalyser():
             keyword_cluster[cluster] = {"count": len(df_cluster), 
                         "cluster_keyword": next(iter(keywords_dict_sorted.keys())), 
                         #"asins": df_cluster["asin"].to_list(),
-                        "keywords": keywords_dict_sorted
+                        "keywords": keywords_dict_sorted,
+                        "asins": asins
             }
         return keyword_cluster
 
     def get_best_niches(self, keyword_cluster):
         best_niches = []
-        for cluster, keyword_data in keyword_cluster.items():
+        for cluster_nr, keyword_data in keyword_cluster.items():
             cluster_total_count = keyword_data["count"]
             best_keywords = []
+            #keyword_count = {}
             for keyword, count in keyword_data["keywords"].items():
                 proportion_in_cluster = count / cluster_total_count
                 # if proportion_in_cluster of single keyword is in less than half of all designs break
+                # Only keywords with more than 1 word should be added to best_niches if it represents the cluster
                 if proportion_in_cluster < 0.3:
                     break
                 # prioritise keywords which have more than one word
@@ -399,13 +414,16 @@ class NicheAnalyser():
                     #print(proportion_in_cluster, keyword)
                     best_keywords.append(keyword)
                     pass
-            # for keyword in list(keyword_data["keywords"].keys())[0:10]:
-            #     # prioritise keywords which have more than one word
-            #     if len(keyword.split(" ")) > 1:
-            #         #print(proportion_in_cluster, keyword)
-            #         best_keywords.append(keyword)
+
+            #     keyword_stem = self.stemmer.stem(keyword)
+            #     if keyword_stem in keyword_count:
+            #         keyword_count[keyword_stem] += 1
+            #     else:
+            #         keyword_count[keyword_stem] = 1
+            # keyword_data.update({"keyword_stem_count": keyword_count})
 
             best_keywords = best_keywords + list(keyword_data["keywords"].keys())[0:3]
+            best_keywords = [keyword for keyword in best_keywords if keyword.lower() not in ["official", "licensed"]]
             best_niches.append(best_keywords[0])
             #print(cluster, )
         return best_niches
@@ -423,27 +441,55 @@ class NicheAnalyser():
             doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
             count = 0
             for doc in doc_iter:
-                keywords.append(doc._data["keyword"].lower())
+                keywords.append({"keyword": doc._data["keyword"], "asins": doc._data["asins"]})
                 count += 1
             print(f"Got {count} docuemnts with niche type {niche_type}")
         return keywords
 
-    def analyze(self):
+    def get_best_trend_niches(self):
+        self.set_keywords()
+        self.set_keywords_cluster()
+
+        keyword_cluster = self.get_trending_niches()
+
+        best_niches = self.get_best_niches(keyword_cluster)
+        for i, best_niche in enumerate(best_niches):
+            keyword_cluster[i]["best_niche_keyword"] = best_niche
+        
+        # drop duplicate keywords
+        best_niche_keyword_list = []
+        for key,value in keyword_cluster.items():
+            if value["best_niche_keyword"] in best_niche_keyword_list:
+                print("Found duplicate for keyword:", value["best_niche_keyword"])
+                # drop niche from dict
+                del keyword_cluster[key]
+            best_niche_keyword_list.append([value["best_niche_keyword"]])
+
+        return keyword_cluster
+
+    def is_not_to_similar_as_fs_data(self, asins, niches_in_fs, threshold=50):
+        setA = set(asins)
+        for fs_niche_data in niches_in_fs:
+            setB = set(fs_niche_data["asins"])
+            overlap = setA & setB
+            percentage_overlap = float(len(overlap)) / len(setA) * 100
+            # if more than threshold % of asins is already existent in fs niche we want to drop it
+            if percentage_overlap > threshold:
+                print("asins do overlap by", percentage_overlap, fs_niche_data["keyword"])
+                return False
+        return True
+
+    def update_fs_trend_niches(self):
         
         # TODO make sure api_keys is provided in instance which executes this code
         from api_keys import API_KEYS
         #df_row = self.df.iloc[10]
 
-        self.set_keywords()
-        self.set_keywords_cluster()
-
-        keyword_cluster = self.get_trending_niches()
-        best_niches = self.get_best_niches(keyword_cluster)
-        best_niches = self.drop_duplicates(best_niches)
+        best_niches_dict = self.get_best_trend_niches()
         niche_type = "trend_niche"
-        keywords_already_in_fs = self.get_keywords_already_in_fs(niche_type)
-        best_niches = [niche for niche in best_niches if niche.lower() not in keywords_already_in_fs]
-
+        niches_in_fs = self.get_keywords_already_in_fs(niche_type)
+        keywords_already_in_fs = [niche["keyword"].lower() for niche in niches_in_fs]
+        best_niches = [niche_data["best_niche_keyword"] for niche_nr, niche_data in best_niches_dict.items() if niche_data["best_niche_keyword"].lower() not in keywords_already_in_fs and self.is_not_to_similar_as_fs_data(niche_data["asins"], niches_in_fs, threshold=50)]
         headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
         for niche_keyword in best_niches:
             post_data_dict = {
@@ -460,5 +506,6 @@ class NicheAnalyser():
             except Exception as e:
                 print(str(e))
                 pass
-    
-            
+
+    def analyze(self):
+        pass

@@ -45,9 +45,10 @@ class MerchwatchShirt():
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
         "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
-        , "Überraschung", "Männer", "Enkel", "Enkelin", "Deine", "Deiner", "Irgendwas", "Irgendetwas", "Idee"]
+        , "Überraschung", "Männer", "Enkel", "Enkelin", "Deine", "Deiner", "Irgendwas", "Irgendetwas", "Idee", "Tolles", "Edition", "Deko", "Geburtstags Deko", 
+        "Bestellen", "Lustiges", "Designs", "super", "Witziges", "witzig"]
         self.keywords_to_remove_en = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
-         "childreen", "present", "boys", "girls", "women", "woman", "men"]
+         "childreen", "present", "boys", "girls", "women", "woman", "men", "Funny", "great", "Last", "perfect", "Trying"]
         self.keywords_to_remove_dict = {"de": self.keywords_to_remove_de, "com": self.keywords_to_remove_en}
         self.keywords_to_remove = self.keywords_to_remove_de + self.keywords_to_remove_en + stopwords.words('german') + stopwords.words('english')
         self.keywords_to_remove_lower = [v.lower() for v in self.keywords_to_remove]
