@@ -163,7 +163,7 @@ class MBAProducts(object):
                 print(f"Resource {resource_name} is not defined to extract data from response")
                 return None
         except Exception as e:
-            print(f"Something went wrong while trying to get data of resource {resource_name}", str(e))
+            #print(f"Something went wrong while trying to get data of resource {resource_name}", str(e))
             return None
         
     def response2MWData(self, response_dict):
@@ -193,10 +193,10 @@ class MBAProducts(object):
         try:
             """ Sending request """
             response = self.api.get_items(get_items_request)
-            print("API called Successfully")
+            #print("API called Successfully")
             if response.errors is not None:
                 try:
-                    print("Found errors/ ASINS have takedows")
+                    #print("Found errors/ ASINS have takedows")
                     for error in response.errors:
                         asin = error.message.split("ItemId")[1:2][0].strip().split(" ")[0]
                         mw_data_takedown = {RESOURCE_ASIN: asin, RESOURCE_BSR: 404, RESOURCE_BSR_CATEGORY: "404", RESOURCE_BSR_NODES: [404], RESOURCE_BSR_NODES_CATEGORIES: ["404"], RESOURCE_PRICE: 404.0, RESOURCE_PRICE_CURRENCY: "404"}
@@ -329,22 +329,29 @@ class MBADataUpdater(object):
         self.asins_to_update = []
         self.max_requests = max_requests
         self.max_parallel_item_ids = max_parallel_item_ids
+        self.max_asins_to_request = max_requests * max_parallel_item_ids
         self.requests_per_second = requests_per_second
         self.seconds_sleep_between_requests = 1 / requests_per_second
         self.exclude_asins = []
         self.bq_daily_table_id = f"mba_{self.marketplace}.products_details_daily_api"
+        self.bq_mba_images_table_id = f"mba_{self.marketplace}.products_mba_images"
 
-    def set_asins_to_update(self):
-        df_product_details_tocrawl = get_asins_daily_to_crawl(self.marketplace, self.exclude_asins, self.max_requests)
-        # make sure max requests are not outreached
-        df_product_details_tocrawl.iloc[0:self.max_requests]
-        self.asins_to_update = df_product_details_tocrawl["asin"].to_list()
+    def set_asins_to_update(self, proportions=[0.7,0.2,0.1], file_path=None):
+        if file_path:
+            df_tocrawl = pd.read_csv(file_path)
+        else:
+            df_tocrawl = get_asins_daily_to_crawl(self.marketplace, self.exclude_asins, self.max_asins_to_request, proportions=proportions)
+            # make sure max requests are not outreached
+            df_tocrawl = df_tocrawl.iloc[0:self.max_asins_to_request]
+        self.asins_to_update = df_tocrawl["asin"].to_list()
 
     def update_daily_table(self, batch_size=1000):
+        batch_count = 1
+        batches = int(len(self.asins_to_update) / batch_size)
         for update_batch in batch(self.asins_to_update, n=batch_size):
+            print(f"Batch {batch_count} of {batches}")
             df_update_batch = pd.DataFrame()
             for api_batch in batch(update_batch, n=self.max_parallel_item_ids):
-                print(len(api_batch))
                 time.sleep(self.seconds_sleep_between_requests)
                 mw_data = self.mbaProduct.get_mw_data(api_batch)
                 if len(mw_data) == 0:
@@ -358,10 +365,47 @@ class MBADataUpdater(object):
             df_update_batch_clean.to_gbq(self.bq_daily_table_id, if_exists="append", project_id=self.project_id)
             if len(mw_data) == 0:
                 break
+            batch_count = batch_count + 1
+
+    def update_mba_images_table(self, batch_size=1000):
+        batch_count = 1
+        batches = int(len(self.asins_to_update) / batch_size)
+        for update_batch in batch(self.asins_to_update, n=batch_size):
+            print(f"Batch {batch_count} of {batches}")
+            df_update_batch = pd.DataFrame()
+            for api_batch in batch(update_batch, n=self.max_parallel_item_ids):
+                time.sleep(self.seconds_sleep_between_requests)
+                mw_data = self.mbaProduct.get_mw_data(api_batch)
+                if len(mw_data) == 0:
+                    print("Max Request Limit reached!")
+                    break
+                df_api_batch = pd.DataFrame(mw_data)
+                df_update_batch = df_update_batch.append(df_api_batch)
+            df_update_batch_clean = df_update_batch[[RESOURCE_ASIN, RESOURCE_IMAGE_URLS]]
+            df_update_batch_clean["url_image_lowq"] = df_update_batch_clean[RESOURCE_IMAGE_URLS]
+            df_update_batch_clean["url_image_q2"] = df_update_batch_clean[RESOURCE_IMAGE_URLS]
+            df_update_batch_clean["url_image_q3"] = df_update_batch_clean[RESOURCE_IMAGE_URLS]
+            df_update_batch_clean["url_image_q4"] = df_update_batch_clean[RESOURCE_IMAGE_URLS]
+            df_update_batch_clean["url_image_hq"] = df_update_batch_clean[RESOURCE_IMAGE_URLS]
+            df_update_batch_clean["timestamp"] = datetime.now()
+            df_update_batch_clean = df_update_batch_clean[~df_update_batch_clean["url_image_lowq"].isna()]
+            df_update_batch_clean = df_update_batch_clean[[RESOURCE_ASIN, "url_image_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "url_image_hq", "timestamp"]]
+            df_update_batch_clean.to_gbq(self.bq_mba_images_table_id, if_exists="append", project_id=self.project_id)
+            
+            # update daily data
+            df_update_batch__daily_clean = df_update_batch[[RESOURCE_ASIN, RESOURCE_BSR, RESOURCE_BSR_CATEGORY, RESOURCE_BSR_NODES, RESOURCE_BSR_NODES_CATEGORIES, RESOURCE_PRICE, RESOURCE_PRICE_CURRENCY]]
+            df_update_batch__daily_clean[RESOURCE_BSR] = df_update_batch__daily_clean[RESOURCE_BSR].astype('Int64')
+            df_update_batch__daily_clean["timestamp"] = datetime.now()
+            df_update_batch__daily_clean.to_gbq(self.bq_daily_table_id, if_exists="append", project_id=self.project_id)
+
+            if len(mw_data) == 0:
+                break
+            batch_count = batch_count + 1
 
 if __name__ == '__main__':
     mbaProduct = MBAProducts("/home/f_teutsch/paapi5-python-sdk-example/PAAPICredentials.csv", "merchwatch0f-21", marketplace="de")
-    mbaUpdater = MBADataUpdater(mbaProduct)
-    mbaUpdater.set_asins_to_update()
-    mbaUpdater.update_daily_table()
+    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=6900)
+    mbaUpdater.set_asins_to_update(proportions=[0.1,0.5,0.4], file_path="~/no_images.csv")
+    mbaUpdater.update_mba_images_table()
+    #mbaUpdater.update_daily_table()
     #mw_data = mbaProduct.get_mw_data(["B08NWKWLYZ","B07K9SS7L2", "B086DFZBRM", "B0868557JQ"])

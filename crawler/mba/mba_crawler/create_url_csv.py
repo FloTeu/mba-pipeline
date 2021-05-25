@@ -131,7 +131,7 @@ def get_sql_top_categories(marketplace, top_n=10):
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
 
-def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=60):
+def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=60, proportions=[0.7,0.2,0.1]):
     '''
         Logic of daily crawling:
         70% random pick of best sellers (Last crawled date in table products_mba_relevance)
@@ -139,6 +139,9 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
         10% random 
         4 * top n best_seller + trend + bsr_change + bsr_last
     '''
+    assert len(proportions) == 3, "proportions must have length 3"
+    assert sum(proportions) > 0.99 and sum(proportions) < 1.01, "Sum of proportions must be 1"
+
     project_id = 'mba-pipeline'
     # get asins which should be excluded
     exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins(marketplace), project_id=project_id)["asin"].to_list()
@@ -158,7 +161,7 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
         pass
 
     # get 70% random best seller
-    number_best_sellers = int(int(number_products) * 0.7)
+    number_best_sellers = int(int(number_products) * proportions[0])
     df_best_seller = pd.read_gbq(get_sql_best_seller(marketplace), project_id=project_id)
     df_best_seller = df_best_seller[~df_best_seller['asin'].isin(exclude_asins)]
     if df_best_seller.shape[0] > number_best_sellers:
@@ -168,7 +171,7 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
     exclude_asins = exclude_asins + df_best_seller["asin"].to_list()
 
     # get 20% lowest bsr_count
-    number_lowest_bsr_count = int(int(number_products) * 0.2)
+    number_lowest_bsr_count = int(int(number_products) * proportions[1])
     df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(marketplace), project_id=project_id)
     df_lowest_bsr_count = df_lowest_bsr_count[~df_lowest_bsr_count['asin'].isin(exclude_asins)]
     if df_lowest_bsr_count.shape[0] > number_lowest_bsr_count:
@@ -178,7 +181,7 @@ def get_asins_daily_to_crawl(marketplace, exclude_asins, number_products, top_n=
     exclude_asins = exclude_asins + df_lowest_bsr_count["asin"].to_list()
 
     # get 10 % random 
-    number_random_count = int(int(number_products) * 0.1)
+    number_random_count = int(int(number_products) * proportions[2])
     # get two times more to filter alreay existent asins later
     df_random = pd.read_gbq(get_sql_random(marketplace, number_random_count*4), project_id=project_id)
     df_random = df_random[~df_random['asin'].isin(exclude_asins)]
