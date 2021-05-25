@@ -28,10 +28,13 @@ class BigqueryHandler():
             SQL_STATEMENT_API = """
             UNION ALL
             (
-            SELECT asin, price, 
+            SELECT asin, 
+            CASE WHEN price IS NULL THEN 0.0 ELSE price
+            END as price, 
             CASE WHEN bsr IS NULL THEN 0 ELSE bsr
             END as bsr,
-            price as price_overview, 
+            CASE WHEN price IS NULL THEN 0.0 ELSE price
+            END as price_overview, 
             CASE WHEN bsr_category IS NULL THEN "[]" ELSE CONCAT("['", bsr_category, "']")
             END as array_bsr_categorie,
             0.0 as customer_review_score_mean, 0 as customer_review_count, timestamp FROM `mba-pipeline.mba_{0}.products_details_daily_api` 
