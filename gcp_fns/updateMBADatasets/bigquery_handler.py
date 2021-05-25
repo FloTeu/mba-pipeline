@@ -14,15 +14,37 @@ class BigqueryHandler():
         else:
             assert False, "limit is not correctly set"
 
-        SQL_STATEMENT = """
+        SQL_STATEMENT_CRAWLING = """
         SELECT t0.asin, t0.price, t0.bsr, CAST(REPLACE(t1.price, ',', '.') as FLOAT64) as price_overview, t0.array_bsr_categorie,
          t0.customer_review_score_mean, t0.customer_review_count, t0.timestamp
         FROM `mba-pipeline.mba_{0}.products_details_daily` t0
         LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{0}.products`) t1 on t1.asin = t0.asin
-        order by t0.asin, t0.timestamp desc
         {1}
         """.format(self.marketplace, SQL_LIMIT)
-        return SQL_STATEMENT
+
+        SQL_STATEMENT_API = ""
+        # append api data
+        if self.marketplace == "de":
+            SQL_STATEMENT_API = """
+            UNION ALL
+            (
+            SELECT asin, price, 
+            CASE WHEN bsr IS NULL THEN 0 ELSE bsr
+            END as bsr,
+            price as price_overview, 
+            CASE WHEN bsr_category IS NULL THEN "[]" ELSE CONCAT("['", bsr_category, "']")
+            END as array_bsr_categorie,
+            0.0 as customer_review_score_mean, 0 as customer_review_count, timestamp FROM `mba-pipeline.mba_{0}.products_details_daily_api` 
+            {1}
+            )
+            """.format(self.marketplace, SQL_LIMIT)
+            
+        SQL_STATEMENT_BASE = """SELECT * FROM ({})
+        {}
+        order by asin, timestamp desc
+        """.format(SQL_STATEMENT_CRAWLING, SQL_STATEMENT_API)
+
+        return SQL_STATEMENT_BASE
 
     def product_details_daily_data2file(self, file_name="products_details_daily.csv"):
         df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(), project_id="mba-pipeline", verbose=True).drop_duplicates()
