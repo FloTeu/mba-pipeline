@@ -109,6 +109,7 @@ def main(args):
             NicheUpdaterModel.delete_all_niches_by_type("trend_niche")
 
     except Exception as e:
+        print(str(e))
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
 
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
