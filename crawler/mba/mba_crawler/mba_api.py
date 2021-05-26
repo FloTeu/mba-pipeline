@@ -1,4 +1,5 @@
 from datetime import time
+from datetime import date, timedelta
 from paapi5_python_sdk.api.default_api import DefaultApi
 from paapi5_python_sdk.models.condition import Condition
 from paapi5_python_sdk.models.get_items_request import GetItemsRequest
@@ -11,8 +12,16 @@ import pandas as pd
 import re
 import time
 from datetime import datetime
+import sys
+from pathlib import Path
 
-from create_url_csv import get_asins_daily_to_crawl
+file = Path(__file__).resolve()
+parent, root = file.parent, file.parents[1]
+sys.path.append("..")
+sys.path.append(str(root))
+
+import create_url_csv
+#from create_url_csv import get_asins_daily_to_crawl
 
 # constants
 RESOURCE_ASIN = "asin"
@@ -359,7 +368,7 @@ class MBADataUpdater(object):
         if file_path:
             df_tocrawl = pd.read_csv(file_path)
         else:
-            df_tocrawl = get_asins_daily_to_crawl(self.marketplace, self.exclude_asins, self.max_asins_to_request, proportions=proportions)
+            df_tocrawl = create_url_csv.get_asins_daily_to_crawl(self.marketplace, self.exclude_asins, self.max_asins_to_request, proportions=proportions)
             # make sure max requests are not outreached
         df_tocrawl = df_tocrawl.iloc[0:self.max_asins_to_request]
         self.asins_to_update = df_tocrawl["asin"].to_list()
@@ -423,8 +432,9 @@ class MBADataUpdater(object):
 
 if __name__ == '__main__':
     mbaProduct = MBAProducts("/home/f_teutsch/paapi5-python-sdk-example/PAAPICredentials.csv", "merchwatch0f-21", marketplace="de")
-    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=3000)
+    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=1000)
     mbaUpdater.set_asins_to_update(proportions=[0.1,0.5,0.4])#, file_path="~/no_images.csv")
     #mbaUpdater.update_mba_images_table()
     mbaUpdater.update_daily_table()
     #mw_data = mbaProduct.get_mw_data(["B08NWKWLYZ","B07K9SS7L2", "B086DFZBRM", "B0868557JQ"])
+    

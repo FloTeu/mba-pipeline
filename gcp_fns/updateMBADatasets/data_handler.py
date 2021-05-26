@@ -937,8 +937,8 @@ class DataHandler():
         # TODO: find out why duplicates exists
         df = df.drop_duplicates(["asin"])
 
-        # filter all rows which do not contain image reference data
-        df = df[~(df["url_mba_lowq"].isnull()|df["url_image_q2"].isnull()|df["url_image_q3"].isnull())]
+        # filter all rows which do not contain image reference data, but dont filter those which got takedown (Otherwise takedown shirts are not updated)
+        df = df[~((df["url_mba_lowq"].isnull()|df["url_image_q2"].isnull()|df["url_image_q3"].isnull())&(~df["takedown"]))]
 
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]

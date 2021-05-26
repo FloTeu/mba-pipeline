@@ -79,3 +79,7 @@ mba-page/merchwatch/merchwatch/settings.py
 
 nohup.out
 *.out
+
+*.csv
+
+api_keys.py
