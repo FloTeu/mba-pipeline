@@ -10,10 +10,10 @@ from os.path import join
 from datetime import date, datetime, timedelta
 import re
 import time
-from plotly.offline import plot
-import plotly.graph_objs as go
-from plotly.graph_objs import Scatter 
-from plotly.graph_objs import Layout 
+# from plotly.offline import plot
+# import plotly.graph_objs as go
+# from plotly.graph_objs import Scatter 
+# from plotly.graph_objs import Layout 
 import gc
 from django.conf import settings
 import logging
@@ -534,30 +534,30 @@ class DataHandler():
         else:
             return last_occ["bsr"], price_last, first_occ["bsr"], first_occ_price_ue_zero["price"], self.get_change_total(last_occ["bsr"], occ_4w["bsr"]), self.get_change_total(last_occ["bsr"], first_occ["bsr"]), self.get_change_total(last_occ["price"], first_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category
 
-    def create_plot_html(self, df_shirts_row):
-        config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
-        df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
-        # remove bsr with 0 
-        df_asin_detail_daily = df_asin_detail_daily[df_asin_detail_daily["bsr"]!=0]
-        marker_color = "black"
-        if df_shirts_row["bsr_change"] > 0:
-            marker_color = "red"
-        elif df_shirts_row["bsr_change"] < 0:
-            marker_color = "green"
+    # def create_plot_html(self, df_shirts_row):
+    #     config = {'displayModeBar': False, 'responsive': True}#{"staticPlot": True}
+    #     df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]
+    #     # remove bsr with 0 
+    #     df_asin_detail_daily = df_asin_detail_daily[df_asin_detail_daily["bsr"]!=0]
+    #     marker_color = "black"
+    #     if df_shirts_row["bsr_change"] > 0:
+    #         marker_color = "red"
+    #     elif df_shirts_row["bsr_change"] < 0:
+    #         marker_color = "green"
 
-        #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
-        #                mode='lines', name='plot_' + df_shirts_row["asin"],
-        #                opacity=0.8, marker_color='green', showlegend=False, yaxis="y"
-        #                )
-        #        ],
-        #        output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
+    #     #plot_div = plot([Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
+    #     #                mode='lines', name='plot_' + df_shirts_row["asin"],
+    #     #                opacity=0.8, marker_color='green', showlegend=False, yaxis="y"
+    #     #                )
+    #     #        ],
+    #     #        output_type='div', include_plotlyjs=False, show_link=False, link_text="",image_width=400, image_height=300, config=config)
 
-        plot_div = plot({"data": [go.Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
-                        mode='lines', name='plot_' + df_shirts_row["asin"],
-                        opacity=0.8, marker_color=marker_color, showlegend=False, yaxis="y")],
-                     "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"), autosize=True, margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
-                output_type='div', include_plotlyjs=False, show_link=False, link_text="", config=config)
-        return plot_div
+    #     plot_div = plot({"data": [go.Scatter(x=df_asin_detail_daily["date"].tolist(), y=df_asin_detail_daily["bsr"].tolist(),
+    #                     mode='lines', name='plot_' + df_shirts_row["asin"],
+    #                     opacity=0.8, marker_color=marker_color, showlegend=False, yaxis="y")],
+    #                  "layout": go.Layout(yaxis = dict(visible=True, autorange="reversed"), autosize=True, margin={'t': 0,'b': 0,'r': 0,'l': 0} )},
+    #             output_type='div', include_plotlyjs=False, show_link=False, link_text="", config=config)
+    #     return plot_div
 
     def create_plot_data(self, df_shirts_row):
         df_asin_detail_daily = self.df_shirts_detail_daily[self.df_shirts_detail_daily["asin"]==df_shirts_row["asin"]]

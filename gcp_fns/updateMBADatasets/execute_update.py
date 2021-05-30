@@ -85,13 +85,6 @@ def main(args):
         BigQueryHandlerModel = BigqueryHandler(marketplace=marketplace, dev=args.dev)
         DataHandlerModel = DataHandler(marketplace=marketplace, bigquery_handler=BigQueryHandlerModel)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
-        try:
-            from api_keys import API_KEYS
-            NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
-            NicheAnalyserModel.set_df()
-            NicheAnalyserModel.update_fs_trend_niches()
-        except Exception as e:
-            print("Could not load API key", str(e))
         keywords="brawl" #"Schleich di du Oaschloch; Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
@@ -100,6 +93,7 @@ def main(args):
         BigQueryHandlerModel.product_details_daily_data2file()
         DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
+
         # niches are updated once a week every sunday
         if today_weekday == 6:
             DataHandlerModel.update_trademark(marketplace)
@@ -107,6 +101,16 @@ def main(args):
             DataHandlerModel.update_language_code(marketplace)
             #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
             NicheUpdaterModel.delete_all_niches_by_type("trend_niche")
+
+        # update trend_niches after deletion process
+        try:
+            from api_keys import API_KEYS
+            NicheAnalyserModel = NicheAnalyser(marketplace=marketplace, dev=args.dev)
+            NicheAnalyserModel.set_df()
+            NicheAnalyserModel.update_fs_trend_niches()
+        except Exception as e:
+            print("Could not load API key", str(e))
+            
 
     except Exception as e:
         print(str(e))
