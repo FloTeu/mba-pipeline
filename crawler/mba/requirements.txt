@@ -18,3 +18,4 @@ piexif
 easydict
 matplotlib
 olefile
+../../paapi5-python-sdk/dist/paapi5-python-sdk-1.0.0.tar.gz
