@@ -9,7 +9,7 @@ grpcio==1.31.0
 scikit-learn==0.23.1
 plotly==4.9.0
 requests==2.24.0 
-Django==3.1.6 
+Django
 tqdm==4.48.2
 google-api-python-client==1.10.0
 spacy==2.3.2
