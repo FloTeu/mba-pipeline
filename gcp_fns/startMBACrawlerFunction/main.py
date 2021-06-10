@@ -84,7 +84,6 @@ sudo mkdir data
 sudo mkdir data/shirts
 sudo chmod 777 data/
 sudo chmod 777 data/shirts
-/usr/bin/python3 wc_mba_images.py de --number_chunks 0
 cd mba_crawler 
 sudo mkdir proxy
 cd proxy
@@ -97,11 +96,8 @@ wait
 sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=500
 {9}
 wait
-# daily crawler with public proxies handles this task
-# sudo /usr/bin/python3 create_url_csv.py de True --number_products={6}  --proportion_priority_low_bsr_count=0.9
-# sudo scrapy crawl mba_general_de -a daiy=True
 cd ..
-/usr/bin/python3 wc_mba_images.py de --number_chunks 0
+#/usr/bin/python3 wc_mba_images.py de --number_chunks 0
 yes Y | gcloud compute instances stop crawler-mba-auto-daily --zone us-west1-b
     '''.format(get_new_shirts, is_daily_script, region_space, number_of_instances, stop_instance_by_itself, overview_crawl, number_products_total, instance_name, create_urls_for_general_crawl, general_start_crawler_script)
 
