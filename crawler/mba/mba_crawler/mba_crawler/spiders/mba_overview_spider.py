@@ -541,7 +541,7 @@ class MBASpider(scrapy.Spider):
                 image_item["asins"] = asins
                 image_item["url_mba_lowqs"] = url_mba_lowqs
                 image_item["marketplace"] = self.marketplace
-                if self.marketplace == "com":
+                if self.marketplace in ["com", "de"]:
                     yield image_item
                 
                 self.page_count = self.page_count + 1
