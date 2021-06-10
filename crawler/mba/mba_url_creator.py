@@ -94,7 +94,7 @@ def get_url_query_params(marketplace, keyword, sort):
     elif marketplace == "uk":
         params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
     else:
-        params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace),'hidden-keywords':get_hidden_keywordys(marketplace)}
+        params = {'i':'clothing','k':keyword,'s':get_sort_statement(sort), 'rh':'p_76:419122031,p_6:A3JWKAKR8XB7XF', 'bbn':get_bbn(marketplace), 'dc':"", 'hidden-keywords':get_hidden_keywordys(marketplace)}
     return params
 
 
