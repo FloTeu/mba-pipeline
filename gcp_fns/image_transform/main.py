@@ -145,7 +145,7 @@ def crop_image2public(event, context):
 
     # only crop image if its a shirt image
     # TODO: open this function for de marketplace
-    if "shirt" in file_path and marketplace == "com":
+    if "shirt" in file_path and marketplace in ["com", "de"]:
         # read image from storage
         client = storage.Client()
         source_bucket = client.get_bucket(bucket)
