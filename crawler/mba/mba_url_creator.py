@@ -1,24 +1,9 @@
-from bs4 import BeautifulSoup
 import requests 
-import pandas as pd
 import argparse
 import sys
 import urllib.parse as urlparse
 from urllib.parse import urlencode
 from urllib.parse import urljoin
-
-
-
-def get_all_forms(url):
-    # initialize an HTTP session
-    session = HTMLSession()
-    """Returns all form tags found on a web page's `url` """
-    # GET request
-    res = session.get(url)
-    # for javascript driven website
-    # res.html.render()
-    soup = BeautifulSoup(res.html.html, "html.parser")
-    return soup.find_all("form")
 
 def get_form_details(form):
     """Returns the HTML details of a form,
