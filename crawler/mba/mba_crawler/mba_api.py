@@ -1,11 +1,14 @@
 from datetime import time
 from datetime import date, timedelta
-from paapi5_python_sdk.api.default_api import DefaultApi
-from paapi5_python_sdk.models.condition import Condition
-from paapi5_python_sdk.models.get_items_request import GetItemsRequest
-from paapi5_python_sdk.models.get_items_resource import GetItemsResource
-from paapi5_python_sdk.models.partner_type import PartnerType
-from paapi5_python_sdk.rest import ApiException
+try:
+    from paapi5_python_sdk.api.default_api import DefaultApi
+    from paapi5_python_sdk.models.condition import Condition
+    from paapi5_python_sdk.models.get_items_request import GetItemsRequest
+    from paapi5_python_sdk.models.get_items_resource import GetItemsResource
+    from paapi5_python_sdk.models.partner_type import PartnerType
+    from paapi5_python_sdk.rest import ApiException
+except Exception as e:
+    print("Error while importing paapi5",str(e))
 #from amazon.paapi import AmazonAPI
 
 import pandas as pd
@@ -431,8 +434,8 @@ class MBADataUpdater(object):
             batch_count = batch_count + 1
 
 if __name__ == '__main__':
-    mbaProduct = MBAProducts("/home/f_teutsch/paapi5-python-sdk-example/PAAPICredentials.csv", "merchwatch0f-21", marketplace="de")
-    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=1000)
+    mbaProduct = MBAProducts("/home/f_teutsch/PAAPICredentials.csv", "merchwatch0f-21", marketplace="de")
+    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=4000)
     mbaUpdater.set_asins_to_update(proportions=[0.1,0.5,0.4])#, file_path="~/no_images.csv")
     #mbaUpdater.update_mba_images_table()
     mbaUpdater.update_daily_table()
