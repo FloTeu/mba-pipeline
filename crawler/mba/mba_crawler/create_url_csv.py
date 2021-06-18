@@ -82,8 +82,9 @@ def get_sql_products_no_bsr(marketplace):
     return SQL_STATEMENT
 
 def get_sql_products_no_mba_shirt(marketplace):
+    # urls which have no rigth url, i.e. amazon.{}/dp/ could not be crawled correctly and therefore should not be blacklisted
     SQL_STATEMENT = '''
-    SELECT DISTINCT asin FROM mba_{0}.products_no_mba_shirt
+    SELECT DISTINCT asin FROM mba_{0}.products_no_mba_shirt where url LIKE '%amazon.{0}/dp/%'
     '''.format(marketplace)
     return SQL_STATEMENT
 
