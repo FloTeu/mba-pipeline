@@ -13,6 +13,7 @@ import re
 from sklearn import preprocessing
 from datetime import datetime, timedelta
 
+ADDITIONAL_DATA_COLS = ["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category"]
 
 def get_sql_shirts(marketplace, limit=None, filter=None):
     if limit == None:
@@ -333,23 +334,18 @@ def get_last_price(df_asin_detail_daily, latest_occ_price_ue_zero):
 
     return price_last
 
-def get_default_additional_data_dict(marketplace):
+def extend_default_additional_data_dict(marketplace, additional_data_dict):
     category_name = get_default_category_name(marketplace)
-    return {"bsr_last": 0, 
-            "price_last": 0,
-            "bsr_first": 0,
-            "price_first": 0, 
-            "bsr_change": 0,
-            "bsr_change_total": 0, 
-            "price_change": 0, 
-            "update_last": 0, 
-            "score_last": 0, 
-            "score_count": 0, 
-            "bsr_category": category_name}
-                            
-def get_additional_data_dict(marketplace, df_asin_detail_daily):
+    for i, data_col in enumerate(ADDITIONAL_DATA_COLS):
+        # default value are 0 for all values except last one is bsr_category
+        if i != (len(ADDITIONAL_DATA_COLS) - 1):
+            additional_data_dict[data_col].append(0)
+        else:
+            additional_data_dict[data_col].append(category_name)
+                    
+def extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_data_dict):
     if len(df_asin_detail_daily) == 0:
-        return get_default_additional_data_dict(marketplace)
+        return extend_default_additional_data_dict(marketplace, additional_data_dict)
 
     #time_start = time.time()
     # last row in df is more in past and therefore the first time shirt was crawled/occured in database
@@ -364,18 +360,30 @@ def get_additional_data_dict(marketplace, df_asin_detail_daily):
     #print("elapsed time", (time.time()-time_start))
     price_last = get_last_price(df_asin_detail_daily, latest_occ_price_ue_zero)
     bsr_category = get_bsr_category(latest_occ_bsr_ue_zero, marketplace)
-    additional_data_dict = {"bsr_last": latest_occ_bsr_ue_zero["bsr"], 
-                            "price_last": price_last,
-                            "bsr_first": oldest_occ["bsr"],
-                            "price_first": oldest_occ_price_ue_zero["price"], 
-                            "bsr_change": get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]),
-                            "bsr_change_total": get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]), 
-                            "price_change": get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]), 
-                            "update_last": latest_occ_bsr_ue_zero["date"], 
-                            "score_last": latest_occ_bsr_ue_zero["customer_review_score_mean"], 
-                            "score_count": latest_occ_bsr_ue_zero["customer_review_count"], 
-                            "bsr_category": bsr_category}
-    return additional_data_dict
+
+    additional_data_dict["bsr_last"].append(latest_occ_bsr_ue_zero["bsr"])
+    additional_data_dict["price_last"].append(price_last)
+    additional_data_dict["bsr_first"].append(oldest_occ["bsr"])
+    additional_data_dict["price_first"].append(oldest_occ_price_ue_zero["price"])
+    additional_data_dict["bsr_change"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]))
+    additional_data_dict["bsr_change_total"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]))
+    additional_data_dict["price_change"].append(get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]))
+    additional_data_dict["update_last"].append(latest_occ_bsr_ue_zero["date"])
+    additional_data_dict["score_last"].append(latest_occ_bsr_ue_zero["customer_review_score_mean"])
+    additional_data_dict["score_count"].append(latest_occ_bsr_ue_zero["customer_review_count"])
+    additional_data_dict["bsr_category"].append(bsr_category)
+    # additional_data_dict = {"bsr_last": latest_occ_bsr_ue_zero["bsr"], 
+    #                         "price_last": price_last,
+    #                         "bsr_first": oldest_occ["bsr"],
+    #                         "price_first": oldest_occ_price_ue_zero["price"], 
+    #                         "bsr_change": get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]),
+    #                         "bsr_change_total": get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]), 
+    #                         "price_change": get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]), 
+    #                         "update_last": latest_occ_bsr_ue_zero["date"], 
+    #                         "score_last": latest_occ_bsr_ue_zero["customer_review_score_mean"], 
+    #                         "score_count": latest_occ_bsr_ue_zero["customer_review_count"], 
+    #                         "bsr_category": bsr_category}
+    #eturn additional_data_dict
 
 
 # def get_first_and_last_data(df_asin_detail_daily, marketplace="de"):
@@ -460,8 +468,7 @@ def get_additional_data_dict(marketplace, df_asin_detail_daily):
 #     bsr_category = get_bsr_category(last_occ, marketplace)
 
 #     return last_occ["bsr"], price_last, oldest_occ["bsr"], oldest_occ_price_ue_zero["price"], get_change_total(last_occ["bsr"], occ_4w["bsr"]), get_change_total(last_occ["bsr"], oldest_occ["bsr"]), get_change_total(last_occ["price"], oldest_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category
-
-def append_additional_data2df(df_asin_detail_daily, marketplace="de", times = [0, 0, 0, 0], *args, **kwargs):
+def extend_additional_data_total(additional_data_dict, df_asin_detail_daily, marketplace="de", times = [0, 0, 0, 0], *args, **kwargs):
     # get plot data
     #print("Start to get plot data of shirts")
     start_time = time.time()
@@ -480,38 +487,63 @@ def append_additional_data2df(df_asin_detail_daily, marketplace="de", times = [0
     # times[2] = times[2] + (time.time() - start_time)
     
     start_time = time.time()
-    additional_dict = get_additional_data_dict(marketplace, df_asin_detail_daily)
+    extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_data_dict)
     times[2] = times[2] + (time.time() - start_time)
 
-    additional_dict.update({"plot_x": plot_x, "plot_y": plot_y,
-                            "plot_x_price": plot_x_price, "plot_y_price": plot_y_price})
+    additional_data_dict["plot_x"].append(plot_x)
+    additional_data_dict["plot_y"].append(plot_y)
+    additional_data_dict["plot_x_price"].append(plot_x_price)
+    additional_data_dict["plot_y_price"].append(plot_y_price)
+    # additional_dict.update({"plot_x": plot_x, "plot_y": plot_y,
+    #                         "plot_x_price": plot_x_price, "plot_y_price": plot_y_price})
 
     # add takedown data
     start_time = time.time()
     is_takedown, takedown_date = get_takedown_data(df_asin_detail_daily)
-    additional_dict.update(
-        {"takedown": is_takedown, "takedown_date": takedown_date})
+    additional_data_dict["takedown"].append(is_takedown)
+    additional_data_dict["takedown_date"].append(takedown_date)
+    # additional_dict.update(
+    #     {"takedown": is_takedown, "takedown_date": takedown_date})
     times[3] = times[3] + (time.time() - start_time)
 
-    return additional_dict
-    df_additional_data = df_additional_data.append(
-        additional_dict, ignore_index=True)
+    # start_time = time.time()
+    # df_additional_data = df_additional_data.append(
+    #     additional_dict, ignore_index=True)
+    # times[0] = times[0] + (time.time() - start_time)
+    return additional_data_dict
 
+def is_additional_data_dict_valid(additional_data_dict, additional_cols):
+    init_length = len(additional_data_dict[additional_cols[0]])
+    for additional_col in additional_cols:
+        if init_length != len(additional_data_dict[additional_col]):
+            return False
+    return True
 
 def get_additional_data(marketplace, df_shirts_detail_daily, use_dask=False):
     start_time_total = time.time()
-    df_additional_data = pd.DataFrame()
+    times = [0, 0, 0, 0]
+    additional_data_dict = {}
+
+    additional_cols = ADDITIONAL_DATA_COLS + ["plot_x", "plot_y", "plot_x_price", "plot_y_price", "takedown", "takedown_date", "asin"]
+    for data_col in additional_cols:
+        additional_data_dict[data_col] = []
     
     #dask specific code
     if use_dask:
-        test = df_shirts_detail_daily.groupby('asin').apply(append_additional_data2df, meta={marketplace: "str"}).compute()
+        test = df_shirts_detail_daily.groupby('asin').apply(extend_additional_data_total, meta={marketplace: "str"}).compute()
     else:
-        #grouped_by_asin = df_shirts_detail_daily.groupby(["asin"])
-        times = [0, 0, 0, 0]
-        #for asin, df_asin_detail_daily in grouped_by_asin:
-        #    append_additional_data2df(marketplace, df_additional_data, df_asin_detail_daily, times=times)
-        print("Elapsed time for 1. df prepare, 2. plot data, 3. last/first, 4. takedown",
-            times, "total time: %.2f" % (time.time() - start_time_total))
+        start_time = time.time()
+        grouped_by_asin = df_shirts_detail_daily.groupby(["asin"])
+        for asin, df_asin_detail_daily in grouped_by_asin:
+            if start_time:
+                times[0] = times[0] + (time.time() - start_time)
+            additional_data_dict = extend_additional_data_total(additional_data_dict, df_asin_detail_daily, marketplace=marketplace, times=times)
+            additional_data_dict["asin"].append(asin)
+            start_time = time.time()
+    assert is_additional_data_dict_valid(additional_data_dict, additional_cols), "One column of additional_data_dict has different length to other one"
+    df_additional_data = pd.DataFrame(additional_data_dict)
+    print("Elapsed time for 1. df prepare, 2. plot data, 3. last/first, 4. takedown",
+        times, "total time: %.2f sec" % (time.time() - start_time_total))
     return df_additional_data
 
 
@@ -562,8 +594,8 @@ def append_df_shirts_with_more_info(marketplace, df_shirts, df_shirts_with_more_
     print("elapsed time for additional_data: %.2f sec" %
           ((time.time() - start_time_additional_data)))
 
-    df_shirts_with_more_info_append = df_shirts.merge(df_additional_data,
-                                                      left_index=True, right_index=True)
+    df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, left_on='asin', right_on='asin')
+    #                                                  left_index=True, right_index=True)
     df_shirts_with_more_info = df_shirts_with_more_info.append(
         df_shirts_with_more_info_append, ignore_index=True)
     return df_shirts_with_more_info
@@ -662,7 +694,7 @@ def create_should_be_updated_column(df_shirts_with_more_info):
     # TODO: Find out why designs which got taken down do not get flag should_be_updated
     # get the date one week ago
     date_one_week_ago = (datetime.now() - timedelta(days=7)).date()
-    if len(len(df_shirts_with_more_info)) <= 1000:
+    if len(df_shirts_with_more_info) <= 1000:
         bsr_change_threshold = df_shirts_with_more_info.sort_values(
             by=['bsr_change']).iloc[len(df_shirts_with_more_info)-1]["bsr_change"]
     else:
@@ -724,7 +756,7 @@ def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None,
     df_shirts_with_more_info = make_trend_column(
         marketplace, df_shirts_with_more_info)
     df_shirts_with_more_info = create_change_columns(
-        marketplace, df_shirts_with_more_info, dev_str=dev_str, project_id=project_id)
+        marketplace, df_shirts_with_more_info, dev_str="", project_id=project_id)
     df_shirts_with_more_info = create_should_be_updated_column(
         df_shirts_with_more_info)
 
