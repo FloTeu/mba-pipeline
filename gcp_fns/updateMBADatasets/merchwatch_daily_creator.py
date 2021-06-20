@@ -12,6 +12,9 @@ import gc
 import re
 from sklearn import preprocessing
 from datetime import datetime, timedelta
+from multiprocessing.dummy import Pool as ThreadPool 
+from functools import partial
+
 
 ADDITIONAL_DATA_COLS = ["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category"]
 
@@ -334,18 +337,20 @@ def get_last_price(df_asin_detail_daily, latest_occ_price_ue_zero):
 
     return price_last
 
-def extend_default_additional_data_dict(marketplace, additional_data_dict):
+def get_default_initial_additional_data_dict(marketplace):
+    additional_data_dict = {}
     category_name = get_default_category_name(marketplace)
     for i, data_col in enumerate(ADDITIONAL_DATA_COLS):
         # default value are 0 for all values except last one is bsr_category
         if i != (len(ADDITIONAL_DATA_COLS) - 1):
-            additional_data_dict[data_col].append(0)
+            additional_data_dict[data_col] = 0
         else:
-            additional_data_dict[data_col].append(category_name)
+            additional_data_dict[data_col] = category_name
+    return additional_data_dict
                     
-def extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_data_dict):
+def get_initial_additional_data_dict(marketplace, df_asin_detail_daily):
     if len(df_asin_detail_daily) == 0:
-        return extend_default_additional_data_dict(marketplace, additional_data_dict)
+        return get_default_initial_additional_data_dict(marketplace)
 
     #time_start = time.time()
     # last row in df is more in past and therefore the first time shirt was crawled/occured in database
@@ -361,29 +366,29 @@ def extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_da
     price_last = get_last_price(df_asin_detail_daily, latest_occ_price_ue_zero)
     bsr_category = get_bsr_category(latest_occ_bsr_ue_zero, marketplace)
 
-    additional_data_dict["bsr_last"].append(latest_occ_bsr_ue_zero["bsr"])
-    additional_data_dict["price_last"].append(price_last)
-    additional_data_dict["bsr_first"].append(oldest_occ["bsr"])
-    additional_data_dict["price_first"].append(oldest_occ_price_ue_zero["price"])
-    additional_data_dict["bsr_change"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]))
-    additional_data_dict["bsr_change_total"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]))
-    additional_data_dict["price_change"].append(get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]))
-    additional_data_dict["update_last"].append(latest_occ_bsr_ue_zero["date"])
-    additional_data_dict["score_last"].append(latest_occ_bsr_ue_zero["customer_review_score_mean"])
-    additional_data_dict["score_count"].append(latest_occ_bsr_ue_zero["customer_review_count"])
-    additional_data_dict["bsr_category"].append(bsr_category)
-    # additional_data_dict = {"bsr_last": latest_occ_bsr_ue_zero["bsr"], 
-    #                         "price_last": price_last,
-    #                         "bsr_first": oldest_occ["bsr"],
-    #                         "price_first": oldest_occ_price_ue_zero["price"], 
-    #                         "bsr_change": get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]),
-    #                         "bsr_change_total": get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]), 
-    #                         "price_change": get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]), 
-    #                         "update_last": latest_occ_bsr_ue_zero["date"], 
-    #                         "score_last": latest_occ_bsr_ue_zero["customer_review_score_mean"], 
-    #                         "score_count": latest_occ_bsr_ue_zero["customer_review_count"], 
-    #                         "bsr_category": bsr_category}
-    #eturn additional_data_dict
+    # additional_data_dict["bsr_last"].append(latest_occ_bsr_ue_zero["bsr"])
+    # additional_data_dict["price_last"].append(price_last)
+    # additional_data_dict["bsr_first"].append(oldest_occ["bsr"])
+    # additional_data_dict["price_first"].append(oldest_occ_price_ue_zero["price"])
+    # additional_data_dict["bsr_change"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]))
+    # additional_data_dict["bsr_change_total"].append(get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]))
+    # additional_data_dict["price_change"].append(get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]))
+    # additional_data_dict["update_last"].append(latest_occ_bsr_ue_zero["date"])
+    # additional_data_dict["score_last"].append(latest_occ_bsr_ue_zero["customer_review_score_mean"])
+    # additional_data_dict["score_count"].append(latest_occ_bsr_ue_zero["customer_review_count"])
+    # additional_data_dict["bsr_category"].append(bsr_category)
+    additional_data_dict = {"bsr_last": latest_occ_bsr_ue_zero["bsr"], 
+                            "price_last": price_last,
+                            "bsr_first": oldest_occ["bsr"],
+                            "price_first": oldest_occ_price_ue_zero["price"], 
+                            "bsr_change": get_change_total(latest_occ_bsr_ue_zero["bsr"], occ_n_days["bsr"]),
+                            "bsr_change_total": get_change_total(latest_occ_bsr_ue_zero["bsr"], oldest_occ_bsr_ue_zero["bsr"]), 
+                            "price_change": get_change_total(latest_occ_price_ue_zero["price"], oldest_occ_price_ue_zero["price"]), 
+                            "update_last": latest_occ_bsr_ue_zero["date"], 
+                            "score_last": latest_occ_bsr_ue_zero["customer_review_score_mean"], 
+                            "score_count": latest_occ_bsr_ue_zero["customer_review_count"], 
+                            "bsr_category": bsr_category}
+    return additional_data_dict
 
 
 # def get_first_and_last_data(df_asin_detail_daily, marketplace="de"):
@@ -468,7 +473,8 @@ def extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_da
 #     bsr_category = get_bsr_category(last_occ, marketplace)
 
 #     return last_occ["bsr"], price_last, oldest_occ["bsr"], oldest_occ_price_ue_zero["price"], get_change_total(last_occ["bsr"], occ_4w["bsr"]), get_change_total(last_occ["bsr"], oldest_occ["bsr"]), get_change_total(last_occ["price"], oldest_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category
-def extend_additional_data_total(additional_data_dict, df_asin_detail_daily, marketplace="de", times = [0, 0, 0, 0], *args, **kwargs):
+
+def get_additional_data_dict(df_asin_detail_daily, marketplace="de", times = [0, 0, 0, 0], *args, **kwargs):
     # get plot data
     #print("Start to get plot data of shirts")
     start_time = time.time()
@@ -487,61 +493,83 @@ def extend_additional_data_total(additional_data_dict, df_asin_detail_daily, mar
     # times[2] = times[2] + (time.time() - start_time)
     
     start_time = time.time()
-    extend_additional_data_dict(marketplace, df_asin_detail_daily, additional_data_dict)
+    additional_data_dict = get_initial_additional_data_dict(marketplace, df_asin_detail_daily)
     times[2] = times[2] + (time.time() - start_time)
 
-    additional_data_dict["plot_x"].append(plot_x)
-    additional_data_dict["plot_y"].append(plot_y)
-    additional_data_dict["plot_x_price"].append(plot_x_price)
-    additional_data_dict["plot_y_price"].append(plot_y_price)
-    # additional_dict.update({"plot_x": plot_x, "plot_y": plot_y,
-    #                         "plot_x_price": plot_x_price, "plot_y_price": plot_y_price})
+    # additional_data_dict["plot_x"].append(plot_x)
+    # additional_data_dict["plot_y"].append(plot_y)
+    # additional_data_dict["plot_x_price"].append(plot_x_price)
+    # additional_data_dict["plot_y_price"].append(plot_y_price)
+    additional_data_dict.update({"plot_x": plot_x, "plot_y": plot_y,
+                             "plot_x_price": plot_x_price, "plot_y_price": plot_y_price})
 
     # add takedown data
     start_time = time.time()
     is_takedown, takedown_date = get_takedown_data(df_asin_detail_daily)
-    additional_data_dict["takedown"].append(is_takedown)
-    additional_data_dict["takedown_date"].append(takedown_date)
-    # additional_dict.update(
-    #     {"takedown": is_takedown, "takedown_date": takedown_date})
+    # additional_data_dict["takedown"].append(is_takedown)
+    # additional_data_dict["takedown_date"].append(takedown_date)
+    additional_data_dict.update(
+        {"takedown": is_takedown, "takedown_date": takedown_date})
+
+    additional_data_dict["asin"] = df_asin_detail_daily.iloc[0]["asin"]
+
     times[3] = times[3] + (time.time() - start_time)
 
     # start_time = time.time()
     # df_additional_data = df_additional_data.append(
     #     additional_dict, ignore_index=True)
     # times[0] = times[0] + (time.time() - start_time)
+
+    # test if dict is correct
+    additional_cols = ADDITIONAL_DATA_COLS + ["plot_x", "plot_y", "plot_x_price", "plot_y_price", "takedown", "takedown_date", "asin"]
+    assert is_additional_data_dict_valid(additional_data_dict, additional_cols), "One column of additional_data_dict has different length to other one"
+    
     return additional_data_dict
 
 def is_additional_data_dict_valid(additional_data_dict, additional_cols):
-    init_length = len(additional_data_dict[additional_cols[0]])
+    #init_length = len(additional_data_dict[additional_cols[0]])
     for additional_col in additional_cols:
-        if init_length != len(additional_data_dict[additional_col]):
+        if additional_col not in additional_data_dict:
             return False
     return True
 
-def get_additional_data(marketplace, df_shirts_detail_daily, use_dask=False):
+def get_df_additional_data(marketplace, df_shirts_detail_daily, use_dask=False, num_threads=20):
     start_time_total = time.time()
     times = [0, 0, 0, 0]
-    additional_data_dict = {}
+    additional_data_dicts = []
+    pool = ThreadPool(num_threads) 
 
-    additional_cols = ADDITIONAL_DATA_COLS + ["plot_x", "plot_y", "plot_x_price", "plot_y_price", "takedown", "takedown_date", "asin"]
-    for data_col in additional_cols:
-        additional_data_dict[data_col] = []
+    #for data_col in additional_cols:
+    #    additional_data_dict[data_col] = []
     
     #dask specific code
     if use_dask:
-        test = df_shirts_detail_daily.groupby('asin').apply(extend_additional_data_total, meta={marketplace: "str"}).compute()
+        test = df_shirts_detail_daily.groupby('asin').apply(get_additional_data_dict, meta={marketplace: "str"}).compute()
     else:
         start_time = time.time()
         grouped_by_asin = df_shirts_detail_daily.groupby(["asin"])
+        df_asin_detail_daily_list = []
+        thread_counter = 0
         for asin, df_asin_detail_daily in grouped_by_asin:
             if start_time:
                 times[0] = times[0] + (time.time() - start_time)
-            additional_data_dict = extend_additional_data_total(additional_data_dict, df_asin_detail_daily, marketplace=marketplace, times=times)
-            additional_data_dict["asin"].append(asin)
-            start_time = time.time()
-    assert is_additional_data_dict_valid(additional_data_dict, additional_cols), "One column of additional_data_dict has different length to other one"
-    df_additional_data = pd.DataFrame(additional_data_dict)
+            # additional_data_dict = get_additional_data_dict(df_asin_detail_daily, marketplace=marketplace, times=times)
+            # additional_data_dicts.append(additional_data_dict)
+
+            df_asin_detail_daily_list.append(df_asin_detail_daily)
+            thread_counter += 1
+            if thread_counter == num_threads:
+                get_additional_data_dict_fn = partial(get_additional_data_dict, marketplace=marketplace, times=times)
+                # additional_data_dict = get_additional_data_dict(df_asin_detail_daily, marketplace=marketplace, times=times)
+                additional_data_dict_list_by_threads = pool.map(get_additional_data_dict_fn, df_asin_detail_daily_list)
+                start_time = time.time()
+                additional_data_dicts.extend(additional_data_dict_list_by_threads)
+                
+                # set back to default
+                thread_counter = 0
+                df_asin_detail_daily_list = []
+
+    df_additional_data = pd.DataFrame(additional_data_dicts)
     print("Elapsed time for 1. df prepare, 2. plot data, 3. last/first, 4. takedown",
         times, "total time: %.2f sec" % (time.time() - start_time_total))
     return df_additional_data
@@ -568,7 +596,7 @@ def get_takedown_data(df_asin_detail_daily):
 #     return takedown_list, takedown_date_list
 
 
-def append_df_shirts_with_more_info(marketplace, df_shirts, df_shirts_with_more_info, df_shirts_asin_chunk, chunk_size_csv_file):
+def append_df_shirts_with_more_info(marketplace, df_shirts, df_shirts_with_more_info, df_shirts_asin_chunk, chunk_size_csv_file, num_threads):
     use_dask = False
     asin_list = df_shirts_asin_chunk["asin"].tolist()
     print("Start to get chunk from bigquery")
@@ -589,8 +617,8 @@ def append_df_shirts_with_more_info(marketplace, df_shirts, df_shirts_with_more_
           ((time.time() - start_time)))
 
     start_time_additional_data = time.time()
-    df_additional_data = get_additional_data(
-        marketplace, df_shirts_detail_daily, use_dask=use_dask)
+    df_additional_data = get_df_additional_data(
+        marketplace, df_shirts_detail_daily, use_dask=use_dask, num_threads=num_threads)
     print("elapsed time for additional_data: %.2f sec" %
           ((time.time() - start_time_additional_data)))
 
@@ -727,7 +755,7 @@ def replace_price_last_zero(marketplace, project_id="mba-pipeline"):
     query_job.result()
 
 
-def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None, dev=False, project_id="mba-pipeline"):
+def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None, dev=False, project_id="mba-pipeline", num_threads=4):
     start_time = time.time()
     # This part should only triggered once a day to update all relevant data
     print("Load shirt data from bigquery")
@@ -745,13 +773,15 @@ def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None,
 
     df_shirts_asin_chunks = [df_shirts_asin[i:i+chunk_size]
                              for i in range(0, df_shirts_asin.shape[0], chunk_size)]
+    start_time_more_info = time.time()
     for i, df_shirts_asin_chunk in enumerate(df_shirts_asin_chunks):
-        print("Chunk %s of %s" % (i, len(df_shirts_asin_chunks)))
+        print("Chunk %s of %s" % (i + 1, len(df_shirts_asin_chunks)))
         start_time_chunk = time.time()
         df_shirts_with_more_info = append_df_shirts_with_more_info(
-            marketplace, df_shirts, df_shirts_with_more_info, df_shirts_asin_chunk, chunk_size_csv_file=10000)
+            marketplace, df_shirts, df_shirts_with_more_info, df_shirts_asin_chunk, chunk_size_csv_file=10000, num_threads=num_threads)
         gc.collect()
         print("elapsed time: %.2f sec" % ((time.time() - start_time_chunk)))
+    print("elapsed time for more info task: %.2f sec" % ((time.time() - start_time_more_info)))
 
     df_shirts_with_more_info = make_trend_column(
         marketplace, df_shirts_with_more_info)
@@ -762,9 +792,9 @@ def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None,
 
     # save dataframe with shirts in local storage
     print("Length of dataframe", len(df_shirts_with_more_info), dev_str)
-    df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) + ".merchwatch_shirts" +
-                                    dev_str, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
-    replace_price_last_zero(marketplace, project_id=project_id)
+    # df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) + ".merchwatch_shirts" +
+    #                                 dev_str, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
+    # replace_price_last_zero(marketplace, project_id=project_id)
     print("Update merchwatch daily table completed. Elapsed time: %.2f minutes" % (
         (time.time() - start_time) / 60))
 
@@ -778,20 +808,24 @@ def main(argv):
     parser.add_argument(
         '--debug_limit', help='Whether only limit of asins should be used for execution', type=int, default=None)
     parser.add_argument(
+        '--num_threads', help='How many threads should be used for multiprocessing', type=int, default=4)
+    parser.add_argument(
         '--dev', help='Whether its a dev execution or not', action='store_true')
 
-    # if len(argv) == 4:
-    #    argv = argv[1:4]
-
+    if "merchwatch_daily_creator" in argv[0]:
+       argv = argv[1:4]
+    
+    print(argv)
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
     chunk_size = args.chunk_size
     debug_limit = args.debug_limit
+    num_threads = args.num_threads
     dev = args.dev
 
     update_bq_shirt_tables(
-        marketplace, chunk_size=chunk_size, limit=debug_limit, dev=dev)
+        marketplace, chunk_size=chunk_size, limit=debug_limit, dev=dev, num_threads=num_threads)
 
 
 if __name__ == '__main__':
