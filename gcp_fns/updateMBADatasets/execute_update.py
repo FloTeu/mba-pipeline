@@ -2,11 +2,14 @@ from data_handler import DataHandler
 from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
 from bigquery_handler import BigqueryHandler
+import merchwatch_daily_creator as merchwatch_daily_creator
+
 import requests
 import argparse
 import time
 import datetime
 import pytz
+import pandas as pd
 
 def get_args(argv=None):
     parser = argparse.ArgumentParser()
@@ -26,6 +29,10 @@ def get_args(argv=None):
         const=True,
         default="False",
         help='Wheter development or productive')
+    parser.add_argument(
+        '--debug_limit', help='Whether only limit of asins should be used for execution', type=int, default=None)
+    parser.add_argument(
+        '--num_threads', help='How many threads should be used for multiprocessing', type=int, default=8)
     parser.add_argument(
         '--update_all',
         type=str2bool, nargs='?',
@@ -71,6 +78,11 @@ def send_msg(target, msg, api_key):
         print("Telegram massage could not be sended.")
         return ""
 
+def remove_blacklisted_shirts_from_firestore(marketplace):
+    firestore_model = Firestore(f"{marketplace}_niches")
+    df = pd.read_gbq(f"SELECT DISTINCT asin FROM mba_{marketplace}.products_no_mba_shirt where url LIKE '%amazon.{marketplace}/dp/%'", project_id="mba-pipeline")
+    firestore_model.delete_by_df_batch(df, "asin", batch_size=100)
+
 
 def main(args):
     marketplace = args.marketplace
@@ -91,7 +103,13 @@ def main(args):
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
 
         BigQueryHandlerModel.product_details_daily_data2file()
-        DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
+        args_merchwatch_daily_creator = [marketplace, "--chunk_size", args.chunk_size, "--num_threads", args.num_threads]
+        if args.dev:
+            args_merchwatch_daily_creator.append("--dev")
+        if args.debug_limit:
+            args_merchwatch_daily_creator.extend(["--debug_limit", args.debug_limit])
+        merchwatch_daily_creator.main([str(v) for v in args_merchwatch_daily_creator])
+        #DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
 
         # niches are updated once a week every sunday

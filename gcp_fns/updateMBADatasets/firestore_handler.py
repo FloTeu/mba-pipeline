@@ -68,6 +68,25 @@ class Firestore():
             print("Batch: {} of {}".format(str(k + 1), batch_count))
             batch.commit()
 
+    def delete_by_df_batch(self, df, product_id_column, batch_size=500):
+        print("Start delete firestore by batches")
+        batch_count = int(len(df)/batch_size)
+        for k, df_batch in df.groupby(np.arange(len(df))//batch_size):
+            batch = self.db.batch()
+            for i, df_row in df_batch.iterrows():
+                try:
+                    df_dict = df_row.to_dict()
+                    document_id = df_dict[product_id_column]
+                    doc_ref = self.db.collection(self.collection_name).document(document_id)
+                    batch.delete(doc_ref)
+
+                except Exception as e:
+                    print(str(e))
+                    raise e
+            print("Batch: {} of {}".format(str(k + 1), batch_count))
+            batch.commit()
+
+
     def add_or_update_content(self, df_row_dict, document_id):
         # update lists in dict to firestore ArrayUnion
         #for key, value in df_row_dict.items():

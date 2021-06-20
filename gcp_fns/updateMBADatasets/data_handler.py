@@ -25,6 +25,7 @@ from pytz import timezone
 import subprocess
 import collections
 from niche_updater import list_str_to_list
+from bigquery_handler import BigqueryHandler
 import hashlib
 import nltk
 from nltk.stem.snowball import SnowballStemmer
@@ -118,6 +119,7 @@ class DataHandler():
         left join `mba-pipeline.mba_{0}.products_mba_images` t3 on t0.asin = t3.asin
         
         ) t_fin
+        --where asin = 'B07PHZLLG1'
         order by t_fin.bsr_mean desc
         {1}
         """.format(marketplace, SQL_LIMIT)
@@ -288,7 +290,7 @@ class DataHandler():
         #df_shirts = df_shirts[df_shirts["asin"]== "B08BYLWZCC"]
         #df_shirts = bq_client.query(self.get_sql_shirts(marketplace, None, None)).to_dataframe().drop_duplicates()
         # This dataframe is expanded with additional information with every chunk 
-        df_shirts_with_more_info = df_shirts.copy()
+        df_shirts_with_more_info = pd.DataFrame()
 
         chunk_size = chunk_size  #chunk row size
         print("Chunk size: "+ str(chunk_size))
@@ -311,7 +313,7 @@ class DataHandler():
             start_time = time.time()
             try:
                 # new cost effective method with local file
-                self.df_shirts_detail_daily = self.bigquery_handler.get_product_details_daily_data_by_asin(asin_list,chunksize=chunk_size).drop_duplicates()
+                self.df_shirts_detail_daily = BigqueryHandler.get_product_details_daily_data_by_asin(self.marketplace, asin_list, chunksize=10000).drop_duplicates()
                 #self.df_shirts_detail_daily_old = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 #self.df_shirts_detail_daily = bq_client.query(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, limit=limit)).to_dataframe().drop_duplicates()
             #df_shirts_detail_daily["date"] = df_shirts_detail_daily.apply(lambda x: datetime.datetime.strptime(re.search(r'\d{4}-\d{2}-\d{2}', x["timestamp"]).group(), '%Y-%m-%d').date(), axis=1)
@@ -339,10 +341,11 @@ class DataHandler():
 
             df_shirts_with_more_info_append = df_shirts.merge(df_additional_data, 
                 left_index=True, right_index=True)
-            if i == 0:
-                df_shirts_with_more_info = df_shirts_with_more_info_append
-            else:
-                df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
+            df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
+            #if i == 0:
+            #    df_shirts_with_more_info = df_shirts_with_more_info_append
+            #else:
+            #    df_shirts_with_more_info = df_shirts_with_more_info.append(df_shirts_with_more_info_append)
             print("elapsed time: %.2f sec" %((time.time() - start_time)))
 
 
@@ -381,7 +384,10 @@ class DataHandler():
             df_shirts_with_more_info['bsr_last_change'] = (df_shirts_with_more_info["bsr_last_old"] - df_shirts_with_more_info["bsr_last"]).astype(int)
             # get the date one week ago
             date_one_week_ago = (datetime.now() - timedelta(days = 7)).date()
-            bsr_change_threshold = df_shirts_with_more_info.sort_values(by=['bsr_change']).iloc[1000]["bsr_change"]
+            if len(len(df_shirts_with_more_info)) <= 1000:
+                bsr_change_threshold = df_shirts_with_more_info.sort_values(by=['bsr_change']).iloc[len(df_shirts_with_more_info)-1]["bsr_change"]
+            else:
+                bsr_change_threshold = df_shirts_with_more_info.sort_values(by=['bsr_change']).iloc[1000]["bsr_change"]
             # filter df which should always be updated (update newer than 7 days + bsr_count equals 1 or 2 or trend_nr lower or equal to 2000 or bsr_change is within top 1000) 
             df_should_update = df_shirts_with_more_info[((df_shirts_with_more_info["bsr_count"]<=2) & (df_shirts_with_more_info["update_last"]>=date_one_week_ago)) | (df_shirts_with_more_info["trend_nr"]<=2000) | (df_shirts_with_more_info["bsr_change"]<bsr_change_threshold) | (df_shirts_with_more_info["bsr_change_old"]<bsr_change_threshold)]
             # change bsr_last_change to 1 for those how should be updated independent of bsr_last
@@ -1463,7 +1469,7 @@ class DataHandler():
                 asin_list = df_shirts_asin_chunk["asin"].tolist()
                 print("Start to get chunk from bigquery")
                 try:
-                    self.df_shirts_detail_daily = self.bigquery_handler.get_product_details_daily_data_by_asin(asin_list,chunksize=chunk_size).drop_duplicates()
+                    self.df_shirts_detail_daily = BigqueryHandler.get_product_details_daily_data_by_asin(self.marketplace, asin_list,chunksize=chunk_size).drop_duplicates()
                     #self.df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list, until_date=next_day), project_id="mba-pipeline", verbose=True).drop_duplicates()
                 except Exception as e:
                     print(str(e))

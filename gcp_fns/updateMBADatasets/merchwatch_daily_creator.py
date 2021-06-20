@@ -16,7 +16,7 @@ from multiprocessing.dummy import Pool as ThreadPool
 from functools import partial
 
 
-ADDITIONAL_DATA_COLS = ["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_category"]
+ADDITIONAL_DATA_COLS = ["bsr_last", "price_last", "bsr_first", "price_first", "bsr_change", "bsr_change_total", "price_change", "update_last", "score_last", "score_count", "bsr_count", "bsr_category"]
 
 def get_sql_shirts(marketplace, limit=None, filter=None):
     if limit == None:
@@ -39,7 +39,7 @@ def get_sql_shirts(marketplace, limit=None, filter=None):
     SELECT t_fin.* FROM (
 SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t3.url_image_hq as url_mba_hq, t3.url_image_lowq as url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
-            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
+            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min,
             AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
             FROM `mba-pipeline.mba_{0}.products_details_daily`
     where bsr != 0 and bsr != 404
@@ -53,7 +53,7 @@ SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date),
     
     SELECT t0.*, t2.title, t2.brand, DATE_DIFF(current_date(), Date(t2.upload_date), DAY) as time_since_upload,Date(t2.upload_date) as upload_date, t2.product_features, t1.url, t3.url_image_hq as url_mba_hq, t3.url_image_lowq as url_mba_lowq, t3.url_image_q2, t3.url_image_q3, t3.url_image_q4 FROM (
     SELECT asin, AVG(price) as price_mean,MAX(price) as price_max,MIN(price) as price_min,
-            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min, COUNT(*) as bsr_count,
+            AVG(bsr) as bsr_mean, MAX(bsr) as bsr_max,MIN(bsr) as bsr_min,
             AVG(customer_review_score_mean) as score_mean, MAX(customer_review_score_mean) as score_max, MIN(customer_review_score_mean) as score_min 
             FROM `mba-pipeline.mba_{0}.products_details_daily`
     where bsr = 0 and bsr != 404
@@ -118,25 +118,6 @@ def create_plot_data(df_asin_detail_daily):
             x_plot = x_plot + "," + date.strftime("%d/%m/%Y")
             y_plot = y_plot + "," + str(bsr)
     return x_plot[1:], y_plot[1:]
-
-# def get_plot_lists(df_asin_daily_data):
-#     start_time = time.time()
-#     plot_data = df_asins["asin"].apply(lambda asin: create_plot_data(asin, df_shirts_detail_daily))
-#     print("elapsed time for bsr plot data: %.2f sec" %((time.time() - start_time)))
-#     plot_x=[]
-#     plot_y=[]
-#     for plot_data_i in plot_data:
-#         plot_x.append(plot_data_i[0])
-#         plot_y.append(plot_data_i[1])
-#     start_time = time.time()
-#     plot_price_data = df_asins["asin"].apply(lambda asin: create_plot_price_data(asin, df_shirts_detail_daily))
-#     print("elapsed time for price plot data: %.2f sec" %((time.time() - start_time)))
-#     plot_x_price = []
-#     plot_y_price = []
-#     for plot_price_data_i in plot_price_data:
-#         plot_x_price.append(plot_price_data_i[0])
-#         plot_y_price.append(plot_price_data_i[1])
-#     return plot_x, plot_y, plot_x_price, plot_y_price
 
 
 def get_default_category_name(marketplace):
@@ -212,97 +193,6 @@ def get_last_ue_zero_by_col(df_asin_detail_daily, filter_col):
     i = 1
     return last_ue_zero
 
-# def get_ue_zero_rows(df_asin_detail_daily, n_days=30):
-#     # performance optimated function
-#     # init default values
-#     last_row = df_asin_detail_daily.iloc[-1]
-#     first_row = df_asin_detail_daily.iloc[0]
-    
-#     latest_occ_bsr_ue_zero = pd.Series() # first_row
-#     oldest_occ_bsr_ue_zero = pd.Series() # last_row
-#     latest_occ_price_ue_zero = pd.Series() # first_row
-#     oldest_occ_price_ue_zero = pd.Series() # last_row
-#     oldest_occ = last_row
-#     occ_n_days = pd.Series() # first_row
-
-#     date_N_weeks_ago = datetime.now() - timedelta(days=n_days)
-
-#     i = 0
-#     while True:
-#         try:
-#             df_asin_detail_daily_row = df_asin_detail_daily.iloc[i]
-#         except:
-#             break
-#         if int(df_asin_detail_daily_row["bsr"]) != 0:
-#             # do overwrite latest_occ_bsr_ue_zero only once at the beginning
-#             if latest_occ_bsr_ue_zero.empty:
-#                 latest_occ_bsr_ue_zero = df_asin_detail_daily_row
-
-#         if int(df_asin_detail_daily_row["price"]) != 0:
-#             # do overwrite latest_occ_price_ue_zero only once at the beginning
-#             if latest_occ_price_ue_zero.empty:
-#                 latest_occ_price_ue_zero = df_asin_detail_daily_row
-
-#         if occ_n_days.empty and df_asin_detail_daily_row["date"] < date_N_weeks_ago.date():
-#             occ_n_days = df_asin_detail_daily_row
-
-#         if not latest_occ_bsr_ue_zero.empty and not latest_occ_price_ue_zero.empty and not occ_n_days.empty:
-#             break
-
-#         i += 1
-
-#     i = 1
-#     while True:
-#         try:
-#             df_asin_detail_daily_row = df_asin_detail_daily.iloc[-i]
-#         except:
-#             break
-#         if int(df_asin_detail_daily_row["bsr"]) != 0:
-#             # do overwrite oldest_occ_bsr_ue_zero only once at the beginning
-#             if oldest_occ_bsr_ue_zero.empty:
-#                 oldest_occ_bsr_ue_zero = df_asin_detail_daily_row
-
-#         if int(df_asin_detail_daily_row["price"]) != 0:
-#             # do overwrite oldest_occ_price_ue_zero only once at the beginning
-#             if oldest_occ_price_ue_zero.empty:
-#                 oldest_occ_price_ue_zero = df_asin_detail_daily_row
-#         if not oldest_occ_price_ue_zero.empty and not oldest_occ_bsr_ue_zero.empty:
-#             break
-#         i += 1
-
-#     # set defaults if matching df_row could not be found
-#     if latest_occ_bsr_ue_zero.empty:
-#         latest_occ_bsr_ue_zero = first_row
-#     if latest_occ_price_ue_zero.empty:
-#         latest_occ_price_ue_zero = first_row
-#     if occ_n_days.empty:
-#         occ_n_days = first_row
-            
-#     if oldest_occ_bsr_ue_zero.empty:
-#         oldest_occ_bsr_ue_zero = last_row
-#     if oldest_occ_price_ue_zero.empty:
-#         oldest_occ_price_ue_zero = last_row
-
-#     return latest_occ_bsr_ue_zero, oldest_occ_bsr_ue_zero, latest_occ_price_ue_zero, oldest_occ_price_ue_zero, oldest_occ, occ_n_days
-
-
-
-
-# def get_first_and_last_row_bsr_ue_zero(df_asin_detail_daily):
-#     df_filtered = df_asin_detail_daily.loc[df_asin_detail_daily.bsr > 0]
-#     if not df_filtered.empty:
-#         return df_filtered.iloc[0], df_filtered.iloc[-1]
-#     else:
-#         return df_asin_detail_daily.iloc[0], df_asin_detail_daily.iloc[-1]
-
-# def get_first_and_last_row_price_ue_zero(df_asin_detail_daily):
-#     # return df_row which is nearest to present and bsr unequal to zero. If only zero values exists last row is returned
-#     # df_asin_detail_daily must be sorted by date where first value is near present and last value in past
-#     df_filtered = df_asin_detail_daily.loc[df_asin_detail_daily.price > 0]
-#     if not df_filtered.empty:
-#         return df_filtered.iloc[0], df_filtered.iloc[-1]
-#     else:
-#         return df_asin_detail_daily.iloc[0], df_asin_detail_daily.iloc[-1]
 
 def get_row_n_days_ago(df_asin_detail_daily, latest_occ_bsr_ue_zero, n_days=30):
     # try to first occurence 4 weeks in the past
@@ -387,92 +277,11 @@ def get_initial_additional_data_dict(marketplace, df_asin_detail_daily):
                             "update_last": latest_occ_bsr_ue_zero["date"], 
                             "score_last": latest_occ_bsr_ue_zero["customer_review_score_mean"], 
                             "score_count": latest_occ_bsr_ue_zero["customer_review_count"], 
+                            "bsr_count": len(df_asin_detail_daily),
                             "bsr_category": bsr_category}
     return additional_data_dict
 
 
-# def get_first_and_last_data(df_asin_detail_daily, marketplace="de"):
-#     # return last_bsr, last_price, first_bsr, first_price
-#     if len(df_asin_detail_daily) == 0:
-#         category_name = get_default_category_name(marketplace)
-#         return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, category_name
-#     else:
-#         i = 0
-#         # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
-#         while True:
-#             try:
-#                 last_occ = df_asin_detail_daily.iloc[i]
-#             except:
-#                 last_occ = df_asin_detail_daily.iloc[0]
-#                 break
-#             if int(last_occ["bsr"]) != 0:
-#                 break
-#             i += 1
-#         i = 0
-#         # try to get last price which is unequal to zero. If only zero bsr exists return last occurence
-#         while True:
-#             try:
-#                 last_occ_price = df_asin_detail_daily.iloc[i]
-#             except:
-#                 last_occ_price = df_asin_detail_daily.iloc[0]
-#                 break
-#             if int(last_occ_price["price"]) != 0.0:
-#                 break
-#             i += 1
-#         i = 1
-#         # try to get first bsr which is unequal to zero. If only zero bsr exists return first occurence
-#         while True:
-#             try:
-#                 oldest_occ_ue_zero = df_asin_detail_daily.iloc[-i]
-#             except:
-#                 oldest_occ_ue_zero = df_asin_detail_daily.iloc[-1]
-#                 break
-#             if int(oldest_occ_ue_zero["bsr"]) != 0:
-#                 break
-#             i += 1
-#         i = 1
-#         # try to get first price which is unequal to zero. If only zero bsr exists return first occurence
-#         while True:
-#             try:
-#                 oldest_occ_price_ue_zero = df_asin_detail_daily.iloc[-i]
-#             except:
-#                 oldest_occ_price_ue_zero = df_asin_detail_daily.iloc[-1]
-#                 break
-#             if int(oldest_occ_price_ue_zero["price"]) != 0.0:
-#                 break
-#             i += 1
-#     # get first occurence of data
-#     oldest_occ = df_asin_detail_daily.iloc[-1]
-
-#     # try to first occurence 4 weeks in the past
-#     # if not possible use the first occurence of bsr un equal to zero
-#     last_n_weeks = 4
-#     days = 30
-#     date_N_weeks_ago = datetime.now() - timedelta(days=days)
-#     try:
-#         # make sure that occ_4w contains an value unequal to zero if existent
-#         df_asin_detail_daily_4w = df_asin_detail_daily[(
-#             df_asin_detail_daily['date'] < date_N_weeks_ago.date()) & (df_asin_detail_daily['bsr'] != 0)]
-#         if len(df_asin_detail_daily_4w) == 0:
-#             # case we have no new bsr data crawled in last month. Therefore bsr_change should be prevented to contain multiple months between first and last bsr
-#             # results in bsr_change = 0
-#             occ_4w = last_occ
-#         else:
-#             occ_4w = df_asin_detail_daily_4w.iloc[0]
-#     except Exception as e:
-#         print(str(e))
-#         occ_4w = last_occ
-
-#     if last_occ_price["price"] == 0:
-#         try:
-#             price_last = df_asin_detail_daily.iloc[0]["price_overview"]
-#         except:
-#             price_last = last_occ_price["price"]
-#     else:
-#         price_last = last_occ_price["price"]
-#     bsr_category = get_bsr_category(last_occ, marketplace)
-
-#     return last_occ["bsr"], price_last, oldest_occ["bsr"], oldest_occ_price_ue_zero["price"], get_change_total(last_occ["bsr"], occ_4w["bsr"]), get_change_total(last_occ["bsr"], oldest_occ["bsr"]), get_change_total(last_occ["price"], oldest_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category
 
 def get_additional_data_dict(df_asin_detail_daily, marketplace="de", times = [0, 0, 0, 0], *args, **kwargs):
     # get plot data
@@ -537,6 +346,7 @@ def get_df_additional_data(marketplace, df_shirts_detail_daily, use_dask=False, 
     start_time_total = time.time()
     times = [0, 0, 0, 0]
     additional_data_dicts = []
+    #print("THREADS", num_threads)
     pool = ThreadPool(num_threads) 
 
     #for data_col in additional_cols:
@@ -548,9 +358,12 @@ def get_df_additional_data(marketplace, df_shirts_detail_daily, use_dask=False, 
     else:
         start_time = time.time()
         grouped_by_asin = df_shirts_detail_daily.groupby(["asin"])
+        count_groups = len(grouped_by_asin)
         df_asin_detail_daily_list = []
         thread_counter = 0
+        group_counter = 0
         for asin, df_asin_detail_daily in grouped_by_asin:
+            group_counter += 1
             if start_time:
                 times[0] = times[0] + (time.time() - start_time)
             # additional_data_dict = get_additional_data_dict(df_asin_detail_daily, marketplace=marketplace, times=times)
@@ -558,7 +371,8 @@ def get_df_additional_data(marketplace, df_shirts_detail_daily, use_dask=False, 
 
             df_asin_detail_daily_list.append(df_asin_detail_daily)
             thread_counter += 1
-            if thread_counter == num_threads:
+            # execute multithreading if num_threads is reached or if iteration over group is in last iteration
+            if thread_counter == num_threads or group_counter == count_groups:
                 get_additional_data_dict_fn = partial(get_additional_data_dict, marketplace=marketplace, times=times)
                 # additional_data_dict = get_additional_data_dict(df_asin_detail_daily, marketplace=marketplace, times=times)
                 additional_data_dict_list_by_threads = pool.map(get_additional_data_dict_fn, df_asin_detail_daily_list)
@@ -738,18 +552,18 @@ def create_should_be_updated_column(df_shirts_with_more_info):
     return df_shirts_with_more_info
 
 
-def replace_price_last_zero(marketplace, project_id="mba-pipeline"):
+def replace_price_last_zero(marketplace, project_id="mba-pipeline", dev_str=""):
     bq_client = bigquery.Client(project=project_id)
 
-    SQL_STATEMENT = '''CREATE OR REPLACE TABLE `mba-pipeline.mba_{0}.merchwatch_shirts`
+    SQL_STATEMENT = '''CREATE OR REPLACE TABLE `mba-pipeline.mba_{0}.merchwatch_shirts{1}`
     AS        
     SELECT CASE WHEN t0.price_last = 0.0 THEN  CAST(REPLACE(
         t1.price,
         ',',
         '.') as FLOAT64) ELSE t0.price_last END as price_last
-    , t0.* EXCEPT(price_last) FROM `mba-pipeline.mba_{0}.merchwatch_shirts` t0 
+    , t0.* EXCEPT(price_last) FROM `mba-pipeline.mba_{0}.merchwatch_shirts{1}` t0 
     LEFT JOIN (SELECT distinct asin, price FROM `mba-pipeline.mba_{0}.products`) t1 on t1.asin = t0.asin
-    '''.format(marketplace)
+    '''.format(marketplace, dev_str)
 
     query_job = bq_client.query(SQL_STATEMENT)
     query_job.result()
@@ -792,9 +606,9 @@ def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None,
 
     # save dataframe with shirts in local storage
     print("Length of dataframe", len(df_shirts_with_more_info), dev_str)
-    # df_shirts_with_more_info.to_gbq("mba_" + str(marketplace) + ".merchwatch_shirts" +
-    #                                 dev_str, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
-    # replace_price_last_zero(marketplace, project_id=project_id)
+    table_path = "mba_" + str(marketplace) + ".merchwatch_shirts" + dev_str
+    df_shirts_with_more_info.to_gbq(table_path, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
+    replace_price_last_zero(marketplace, project_id=project_id, dev_str=dev_str)
     print("Update merchwatch daily table completed. Elapsed time: %.2f minutes" % (
         (time.time() - start_time) / 60))
 
@@ -813,9 +627,8 @@ def main(argv):
         '--dev', help='Whether its a dev execution or not', action='store_true')
 
     if "merchwatch_daily_creator" in argv[0]:
-       argv = argv[1:4]
+       argv = argv[1:]
     
-    print(argv)
     # get all arguments
     args = parser.parse_args(argv)
     marketplace = args.marketplace
@@ -823,6 +636,7 @@ def main(argv):
     debug_limit = args.debug_limit
     num_threads = args.num_threads
     dev = args.dev
+    print(argv, dev)
 
     update_bq_shirt_tables(
         marketplace, chunk_size=chunk_size, limit=debug_limit, dev=dev, num_threads=num_threads)
@@ -830,3 +644,203 @@ def main(argv):
 
 if __name__ == '__main__':
     main(sys.argv)
+
+
+
+'''
+### Deprecated code
+'''
+
+# def get_plot_lists(df_asin_daily_data):
+#     start_time = time.time()
+#     plot_data = df_asins["asin"].apply(lambda asin: create_plot_data(asin, df_shirts_detail_daily))
+#     print("elapsed time for bsr plot data: %.2f sec" %((time.time() - start_time)))
+#     plot_x=[]
+#     plot_y=[]
+#     for plot_data_i in plot_data:
+#         plot_x.append(plot_data_i[0])
+#         plot_y.append(plot_data_i[1])
+#     start_time = time.time()
+#     plot_price_data = df_asins["asin"].apply(lambda asin: create_plot_price_data(asin, df_shirts_detail_daily))
+#     print("elapsed time for price plot data: %.2f sec" %((time.time() - start_time)))
+#     plot_x_price = []
+#     plot_y_price = []
+#     for plot_price_data_i in plot_price_data:
+#         plot_x_price.append(plot_price_data_i[0])
+#         plot_y_price.append(plot_price_data_i[1])
+#     return plot_x, plot_y, plot_x_price, plot_y_price
+
+# def get_ue_zero_rows(df_asin_detail_daily, n_days=30):
+#     # performance optimated function
+#     # init default values
+#     last_row = df_asin_detail_daily.iloc[-1]
+#     first_row = df_asin_detail_daily.iloc[0]
+    
+#     latest_occ_bsr_ue_zero = pd.Series() # first_row
+#     oldest_occ_bsr_ue_zero = pd.Series() # last_row
+#     latest_occ_price_ue_zero = pd.Series() # first_row
+#     oldest_occ_price_ue_zero = pd.Series() # last_row
+#     oldest_occ = last_row
+#     occ_n_days = pd.Series() # first_row
+
+#     date_N_weeks_ago = datetime.now() - timedelta(days=n_days)
+
+#     i = 0
+#     while True:
+#         try:
+#             df_asin_detail_daily_row = df_asin_detail_daily.iloc[i]
+#         except:
+#             break
+#         if int(df_asin_detail_daily_row["bsr"]) != 0:
+#             # do overwrite latest_occ_bsr_ue_zero only once at the beginning
+#             if latest_occ_bsr_ue_zero.empty:
+#                 latest_occ_bsr_ue_zero = df_asin_detail_daily_row
+
+#         if int(df_asin_detail_daily_row["price"]) != 0:
+#             # do overwrite latest_occ_price_ue_zero only once at the beginning
+#             if latest_occ_price_ue_zero.empty:
+#                 latest_occ_price_ue_zero = df_asin_detail_daily_row
+
+#         if occ_n_days.empty and df_asin_detail_daily_row["date"] < date_N_weeks_ago.date():
+#             occ_n_days = df_asin_detail_daily_row
+
+#         if not latest_occ_bsr_ue_zero.empty and not latest_occ_price_ue_zero.empty and not occ_n_days.empty:
+#             break
+
+#         i += 1
+
+#     i = 1
+#     while True:
+#         try:
+#             df_asin_detail_daily_row = df_asin_detail_daily.iloc[-i]
+#         except:
+#             break
+#         if int(df_asin_detail_daily_row["bsr"]) != 0:
+#             # do overwrite oldest_occ_bsr_ue_zero only once at the beginning
+#             if oldest_occ_bsr_ue_zero.empty:
+#                 oldest_occ_bsr_ue_zero = df_asin_detail_daily_row
+
+#         if int(df_asin_detail_daily_row["price"]) != 0:
+#             # do overwrite oldest_occ_price_ue_zero only once at the beginning
+#             if oldest_occ_price_ue_zero.empty:
+#                 oldest_occ_price_ue_zero = df_asin_detail_daily_row
+#         if not oldest_occ_price_ue_zero.empty and not oldest_occ_bsr_ue_zero.empty:
+#             break
+#         i += 1
+
+#     # set defaults if matching df_row could not be found
+#     if latest_occ_bsr_ue_zero.empty:
+#         latest_occ_bsr_ue_zero = first_row
+#     if latest_occ_price_ue_zero.empty:
+#         latest_occ_price_ue_zero = first_row
+#     if occ_n_days.empty:
+#         occ_n_days = first_row
+            
+#     if oldest_occ_bsr_ue_zero.empty:
+#         oldest_occ_bsr_ue_zero = last_row
+#     if oldest_occ_price_ue_zero.empty:
+#         oldest_occ_price_ue_zero = last_row
+
+#     return latest_occ_bsr_ue_zero, oldest_occ_bsr_ue_zero, latest_occ_price_ue_zero, oldest_occ_price_ue_zero, oldest_occ, occ_n_days
+
+
+
+
+# def get_first_and_last_row_bsr_ue_zero(df_asin_detail_daily):
+#     df_filtered = df_asin_detail_daily.loc[df_asin_detail_daily.bsr > 0]
+#     if not df_filtered.empty:
+#         return df_filtered.iloc[0], df_filtered.iloc[-1]
+#     else:
+#         return df_asin_detail_daily.iloc[0], df_asin_detail_daily.iloc[-1]
+
+# def get_first_and_last_row_price_ue_zero(df_asin_detail_daily):
+#     # return df_row which is nearest to present and bsr unequal to zero. If only zero values exists last row is returned
+#     # df_asin_detail_daily must be sorted by date where first value is near present and last value in past
+#     df_filtered = df_asin_detail_daily.loc[df_asin_detail_daily.price > 0]
+#     if not df_filtered.empty:
+#         return df_filtered.iloc[0], df_filtered.iloc[-1]
+#     else:
+#         return df_asin_detail_daily.iloc[0], df_asin_detail_daily.iloc[-1]
+
+# def get_first_and_last_data(df_asin_detail_daily, marketplace="de"):
+#     # return last_bsr, last_price, first_bsr, first_price
+#     if len(df_asin_detail_daily) == 0:
+#         category_name = get_default_category_name(marketplace)
+#         return 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, category_name
+#     else:
+#         i = 0
+#         # try to get last bsr which is unequal to zero. If only zero bsr exists return last occurence
+#         while True:
+#             try:
+#                 last_occ = df_asin_detail_daily.iloc[i]
+#             except:
+#                 last_occ = df_asin_detail_daily.iloc[0]
+#                 break
+#             if int(last_occ["bsr"]) != 0:
+#                 break
+#             i += 1
+#         i = 0
+#         # try to get last price which is unequal to zero. If only zero bsr exists return last occurence
+#         while True:
+#             try:
+#                 last_occ_price = df_asin_detail_daily.iloc[i]
+#             except:
+#                 last_occ_price = df_asin_detail_daily.iloc[0]
+#                 break
+#             if int(last_occ_price["price"]) != 0.0:
+#                 break
+#             i += 1
+#         i = 1
+#         # try to get first bsr which is unequal to zero. If only zero bsr exists return first occurence
+#         while True:
+#             try:
+#                 oldest_occ_ue_zero = df_asin_detail_daily.iloc[-i]
+#             except:
+#                 oldest_occ_ue_zero = df_asin_detail_daily.iloc[-1]
+#                 break
+#             if int(oldest_occ_ue_zero["bsr"]) != 0:
+#                 break
+#             i += 1
+#         i = 1
+#         # try to get first price which is unequal to zero. If only zero bsr exists return first occurence
+#         while True:
+#             try:
+#                 oldest_occ_price_ue_zero = df_asin_detail_daily.iloc[-i]
+#             except:
+#                 oldest_occ_price_ue_zero = df_asin_detail_daily.iloc[-1]
+#                 break
+#             if int(oldest_occ_price_ue_zero["price"]) != 0.0:
+#                 break
+#             i += 1
+#     # get first occurence of data
+#     oldest_occ = df_asin_detail_daily.iloc[-1]
+
+#     # try to first occurence 4 weeks in the past
+#     # if not possible use the first occurence of bsr un equal to zero
+#     last_n_weeks = 4
+#     days = 30
+#     date_N_weeks_ago = datetime.now() - timedelta(days=days)
+#     try:
+#         # make sure that occ_4w contains an value unequal to zero if existent
+#         df_asin_detail_daily_4w = df_asin_detail_daily[(
+#             df_asin_detail_daily['date'] < date_N_weeks_ago.date()) & (df_asin_detail_daily['bsr'] != 0)]
+#         if len(df_asin_detail_daily_4w) == 0:
+#             # case we have no new bsr data crawled in last month. Therefore bsr_change should be prevented to contain multiple months between first and last bsr
+#             # results in bsr_change = 0
+#             occ_4w = last_occ
+#         else:
+#             occ_4w = df_asin_detail_daily_4w.iloc[0]
+#     except Exception as e:
+#         print(str(e))
+#         occ_4w = last_occ
+
+#     if last_occ_price["price"] == 0:
+#         try:
+#             price_last = df_asin_detail_daily.iloc[0]["price_overview"]
+#         except:
+#             price_last = last_occ_price["price"]
+#     else:
+#         price_last = last_occ_price["price"]
+#     bsr_category = get_bsr_category(last_occ, marketplace)
+
+#     return last_occ["bsr"], price_last, oldest_occ["bsr"], oldest_occ_price_ue_zero["price"], get_change_total(last_occ["bsr"], occ_4w["bsr"]), get_change_total(last_occ["bsr"], oldest_occ["bsr"]), get_change_total(last_occ["price"], oldest_occ["price"]), last_occ["date"], last_occ["customer_review_score_mean"], last_occ["customer_review_count"], bsr_category

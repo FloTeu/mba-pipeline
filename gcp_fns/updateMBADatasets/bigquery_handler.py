@@ -1,4 +1,8 @@
 import pandas as pd
+try:
+    import dask.dataframe as dd
+except:
+    pass
 from google.cloud import bigquery
 
 class BigqueryHandler():
@@ -53,15 +57,20 @@ class BigqueryHandler():
         df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(), project_id="mba-pipeline", verbose=True).drop_duplicates()
         df_shirts_detail_daily.to_csv(f"{self.marketplace}_{file_name}",index=False)
 
-    def get_product_details_daily_data_by_asin(self, asin_list, file_name="products_details_daily.csv", chunksize=500):
+    @staticmethod
+    def get_product_details_daily_data_by_asin(marketplace, asin_list, file_name="products_details_daily.csv", chunksize=500, use_dask=False):
         df_shirts_detail_daily = pd.DataFrame()
         # load the big file in smaller chunks
-        for df_chunk in pd.read_csv(f"{self.marketplace}_{file_name}",chunksize=chunksize):
-            df_chunk = df_chunk[df_chunk["asin"].isin(asin_list)]
-            if df_shirts_detail_daily.empty:
-                df_shirts_detail_daily = df_chunk
-            else:
-                df_shirts_detail_daily = df_shirts_detail_daily.append(df_chunk)
+        if use_dask:
+            df_dask = dd.read_csv(f"{marketplace}_{file_name}", parse_dates=['timestamp'])
+            df_shirts_detail_daily = df_dask[df_dask["asin"].isin(asin_list)]
+        else:
+            for df_chunk in pd.read_csv(f"{marketplace}_{file_name}",chunksize=chunksize):
+                df_chunk = df_chunk[df_chunk["asin"].isin(asin_list)]
+                if df_shirts_detail_daily.empty:
+                    df_shirts_detail_daily = df_chunk
+                else:
+                    df_shirts_detail_daily = df_shirts_detail_daily.append(df_chunk)
         # dtype change to orignal bq type
         df_shirts_detail_daily['timestamp'] = df_shirts_detail_daily['timestamp'].astype('datetime64[ns]')
         return df_shirts_detail_daily
