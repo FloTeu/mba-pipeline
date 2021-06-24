@@ -498,7 +498,7 @@ class NicheAnalyser():
                 "admin": True,
                 "is_authenticated": True,
                 "type": niche_type,
-                "shirt_count": 150
+                "shirt_count": 1000
             }
             post_data_dict.update({"api_key": API_KEYS[0]})
             try:
