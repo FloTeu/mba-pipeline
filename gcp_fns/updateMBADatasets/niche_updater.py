@@ -6,7 +6,8 @@ import hashlib
 from scrapy.utils.python import to_bytes
 import subprocess
 from os.path import join
-import datetime
+from datetime import datetime, timedelta
+from firebase_admin import firestore as firebase_admin_fs
 
 def list_str_to_list(list_str):
     list_str = list_str.strip("[]")
@@ -94,7 +95,7 @@ class NicheUpdater():
         df_niche_data_keywords = pd.read_gbq(self.get_niche_data_sql(keywords=keywords), project_id="mba-pipeline")
         keywords = df_niche_data_keywords.groupby(by=["keyword"]).count()["count"].index.tolist()
         df_keywords = pd.DataFrame(data={"keyword": keywords})
-        df_keywords["timestamp"] = datetime.datetime.now()
+        df_keywords["timestamp"] = datetime.now()
         df_keywords.to_gbq("mba_" + str(self.marketplace) +".niches_firestore", project_id="mba-pipeline", if_exists="append")
 
         for keyword in keywords:
@@ -217,10 +218,11 @@ class NicheUpdater():
         
         return firestore_dict
 
-    def delete_all_niches_by_type(self, niche_type):
+    def delete_all_niches_by_type(self, niche_type, days=7):
+        datetime_last_week = datetime.now() - timedelta(days=days)
         # blog_niches never should be deleted
         if niche_type != "blog_niche":
-            doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
+            doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).order_by("timestamp", direction=firebase_admin_fs.Query.DESCENDING).start_after({"timestamp": datetime_last_week}).stream()
             count = 0
             for doc in doc_iter:
                 doc.reference.delete()
