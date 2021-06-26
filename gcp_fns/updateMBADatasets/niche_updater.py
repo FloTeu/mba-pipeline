@@ -225,6 +225,11 @@ class NicheUpdater():
             doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).order_by("timestamp", direction=firebase_admin_fs.Query.DESCENDING).start_after({"timestamp": datetime_last_week}).stream()
             count = 0
             for doc in doc_iter:
+                # delete subcollections first
+                for sub_coll_ref in doc.reference.collections():
+                    doc_iter_sub_collection = sub_coll_ref.stream()
+                    for doc_sub_collection in doc_iter_sub_collection:
+                        doc_sub_collection.reference.delete()
                 doc.reference.delete()
                 count += 1
             print(f"Deleted {count} docuemnt with niche type {niche_type}")
