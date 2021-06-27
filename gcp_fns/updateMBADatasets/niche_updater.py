@@ -250,7 +250,7 @@ KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Gesc
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
         "Spruch", "Fans", "Party", "Geburtstagsparty", "Familie", "Opa", "Oma", "Liebhaber", "Freundin", "Freund", "Jungen", "Mädchen", "Outfit",
         "Motiv", "Damen", "Mann", "Papa", "Mama", "Onkel", "Tante", "Nichte", "Neffe", "Jungs", "gift", "Marke", "Kind", "Anlass", "Jubiläum"
-        , "Überraschung"]
+        , "Überraschung", "Lustig"]
 
 KEYWORDS_TO_REMOVE_EN = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children", "friends", "sister", "brother",
     "childreen", "present", "boys", "girls"]
@@ -277,7 +277,6 @@ class NicheAnalyser():
             self.banned_words = [keyword.lower() for keyword in KEYWORDS_TO_REMOVE_EN]
         else:
             raise ValueError("Marketplace not known")
-        self.banned_words = self.banned_words + ["t"]
         self.tr4w_de = TextRank4Keyword(language="de")
         self.tr4w_en = TextRank4Keyword(language="en")
 
@@ -448,7 +447,10 @@ class NicheAnalyser():
             doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
             count = 0
             for doc in doc_iter:
-                keywords.append({"keyword": doc._data["keyword"], "asins": doc._data["asins"]})
+                mba_data_firestore = Firestore(f"{self.marketplace}_niches/{doc.id}/mba_data")
+                doc_mba_data = mba_data_firestore.get_document("asins")
+                if doc_mba_data.exists:
+                    keywords.append({"keyword": doc._data["keyword"], "asins": doc_mba_data._data["asins"]})
                 count += 1
             print(f"Got {count} docuemnts with niche type {niche_type}")
         return keywords
@@ -486,6 +488,12 @@ class NicheAnalyser():
                 return False
         return True
 
+    def is_banned(self, keyword):
+        return any([banned_word in keyword.lower() for banned_word in self.banned_words])
+
+    def remove_banned_words(self, niche_keywords):
+        return [keyword for keyword in niche_keywords if not self.is_banned(keyword)]
+        
     def update_fs_trend_niches(self):
         
         # TODO make sure api_keys is provided in instance which executes this code
@@ -497,6 +505,8 @@ class NicheAnalyser():
         niches_in_fs = self.get_keywords_already_in_fs(niche_type)
         keywords_already_in_fs = [niche["keyword"].lower() for niche in niches_in_fs]
         best_niches = [niche_data["best_niche_keyword"] for niche_nr, niche_data in best_niches_dict.items() if niche_data["best_niche_keyword"].lower() not in keywords_already_in_fs and self.is_not_to_similar_as_fs_data(niche_data["asins"], niches_in_fs, threshold=50)]
+        best_niches = self.remove_banned_words(best_niches)
+
         headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
         for niche_keyword in best_niches:
             post_data_dict = {
