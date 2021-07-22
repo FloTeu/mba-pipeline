@@ -310,7 +310,7 @@ class MBASpider(scrapy.Spider):
             return brand.strip()
 
     def get_url_product(self, response_shirt, url_mba):
-        url_product = response_shirt.css("div.a-section.a-spacing-none.s-image-overlay-black a::attr(href)").get()
+        url_product = response_shirt.css("div.a-section.a-spacing-none a::attr(href)").get()
         if url_product == None:
             raise ValueError("Could not get url_product information for crawler " + self.name)
         else:

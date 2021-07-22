@@ -437,9 +437,9 @@ class MBASpider(scrapy.Spider):
 
     def is_captcha_required(self, response):
         captcha = "captcha" in response.body.decode("utf-8").lower()
-        content_protection = "benningtonschools" in response.body.decode("utf-8").lower()
+        content_protection = "benningtonschools" in response.body.decode("utf-8").lower() or "shield.ericomcloud" in response.url
         if content_protection:
-            print("Found content protection of benningtonschools.org")
+            print("Found content protection of benningtonschools.org or shield.ericomcloud")
         return  content_protection or captcha
 
     def get_proxy(self, response):
