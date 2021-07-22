@@ -19,7 +19,7 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
-use_public_proxies = False
+use_public_proxies = True
 use_private_proxies = False
 only_usa = False
 
@@ -73,7 +73,8 @@ COOKIES_ENABLED = False
 # issue: https://stackoverflow.com/questions/56889999/how-to-rotate-proxies-and-user-agents
 DOWNLOADER_MIDDLEWARES = {
     #'mba_crawler.middlewares.MbaCrawlerDownloaderMiddleware': 543,
-    'rotating_proxies.middlewares.RotatingProxyMiddleware': 610,
+    #'rotating_proxies.middlewares.RotatingProxyMiddleware': 610,
+    'mba_crawler.middlewares.CustomAmazonRotatingProxyMiddleware': 610,
     'rotating_proxies.middlewares.BanDetectionMiddleware': 620,
 }
 

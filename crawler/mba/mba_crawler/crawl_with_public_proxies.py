@@ -43,6 +43,7 @@ def main(argv):
     parser.add_argument('--number_products', default=10, type=int, help='Number of products/shirts that shoul be crawled. If -1, every image that is not already crawled will be crawled.')
     parser.add_argument('--proportion_priority_low_bsr_count', default=0, type=float, help='50% is the default proportion what means 50% should be design which were crawled least often')
     parser.add_argument('--repeat', default=1, type=int, help='If crawling should be repeated')
+    parser.add_argument('--force_exec', default=0, type=int, help='If crawling should start at any time')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -56,13 +57,18 @@ def main(argv):
         marketplace_rotation = True
     repeat = args.repeat
     number_products = args.number_products
+    force_exec = args.force_exec
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
     project_id = 'mba-pipeline'
     print(os.getcwd())
 
     # 2 hours time difference to real german time 14 -> 16 hour
-    on_time = datetime.time(14,00)
-    off_time = datetime.time(9,00)
+    if not force_exec:
+        on_time = datetime.time(14,00)
+        off_time = datetime.time(9,00)
+    else:
+        on_time = datetime.time(14,00)
+        off_time = datetime.time(13,59)
     
     replace("mba_crawler/settings.py", "CONCURRENT_REQUESTS = 5", "CONCURRENT_REQUESTS = 10")
     count = 0

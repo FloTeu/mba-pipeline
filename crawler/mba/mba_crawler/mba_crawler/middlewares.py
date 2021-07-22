@@ -7,7 +7,18 @@ from scrapy import signals
 
 # useful for handling different item types with a single interface
 from itemadapter import is_item, ItemAdapter
+from rotating_proxies.middlewares import RotatingProxyMiddleware
 
+class CustomAmazonRotatingProxyMiddleware(RotatingProxyMiddleware):
+    def process_exception(self, request, exception, spider):
+        # do only retry request if its a amazon request. Otherwise like for protection pages, request should not be sended multiple times
+        if "amazon" in request.url:
+            return super().process_exception(request, exception, spider)
+        else:
+            return None
+
+    def process_response(self, request, response, spider):
+        return super().process_response(request, response, spider)
 
 class MbaCrawlerSpiderMiddleware:
     # Not all methods need to be defined. If a method is not defined,
