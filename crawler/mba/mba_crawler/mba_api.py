@@ -437,8 +437,8 @@ if __name__ == '__main__':
     mbaProduct = MBAProducts("/home/f_teutsch/PAAPICredentials.csv", "merchwatch0f-21", marketplace="de")
     # make request to prevent limit reached error throwed every first time api is called
     mbaProduct.get_mw_data(["B096FGPG6C"])
-    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=2000)
-    mbaUpdater.set_asins_to_update(proportions=[0.4,0.2,0.4])#, file_path="~/no_images.csv")
+    mbaUpdater = MBADataUpdater(mbaProduct, max_requests=4000)
+    mbaUpdater.set_asins_to_update(proportions=[0.1,0.5,0.4])#, file_path="~/no_images.csv")
     #mbaUpdater.update_mba_images_table()
     mbaUpdater.update_daily_table()
     #mw_data = mbaProduct.get_mw_data(["B08NWKWLYZ","B07K9SS7L2", "B086DFZBRM", "B0868557JQ"])

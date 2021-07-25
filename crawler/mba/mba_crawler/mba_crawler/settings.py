@@ -19,7 +19,7 @@ NEWSPIDER_MODULE = 'mba_crawler.spiders'
 
 # Obey robots.txt rules
 ROBOTSTXT_OBEY = False
-use_public_proxies = True
+use_public_proxies = False
 use_private_proxies = False
 only_usa = False
 
@@ -35,7 +35,7 @@ ROTATING_PROXY_CLOSE_SPIDER = True
 ROTATING_PROXY_PAGE_RETRY_TIMES = 20 
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 5
+CONCURRENT_REQUESTS = 10
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay

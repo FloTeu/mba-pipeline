@@ -927,11 +927,11 @@ class DataHandler():
 
     def update_firestore(self, marketplace, collection, dev=False, update_all=False):
         # if development than bigquery operations should only change dev tables
-        dev_str = ""
+        fs_project = "merchwatch"
         if dev:
-            dev_str = "_dev"
+            fs_project = "merchwatch-dev"
 
-        firestore = Firestore(collection + dev_str)
+        firestore = Firestore(collection, project=fs_project)
         # check: B07D7NX4RL com
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
@@ -942,6 +942,7 @@ class DataHandler():
         # drop duplicates
         # TODO: find out why duplicates exists
         df = df.drop_duplicates(["asin"])
+        #df = df.sort_values(["bsr_count"], ascending = False)
 
         # filter all rows which do not contain image reference data, but dont filter those which got takedown (Otherwise takedown shirts are not updated)
         df = df[~((df["url_mba_lowq"].isnull()|df["url_image_q2"].isnull()|df["url_image_q3"].isnull())&(~df["takedown"]))]
@@ -980,7 +981,7 @@ class DataHandler():
             df_filtered = df_chunk[columns]
             #df_chunk["keywords"] = df_chunk.apply(lambda x: self.get_keywords_filtered(x), axis=1)
             #df_filtered = df_filtered.iloc[124*250:len(df_filtered)]
-            firestore.update_by_df_batch(df_filtered, "asin", batch_size=250)
+            firestore.update_by_df_batch(df_filtered, "asin", batch_size=100)
             # for i, df_row in df_unequal_normal_bsr.iterrows():
             #     asin = df_row["asin"]
             #     firestore.delete_document(asin)

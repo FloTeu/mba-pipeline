@@ -84,6 +84,15 @@ def remove_blacklisted_shirts_from_firestore(marketplace):
     firestore_model.delete_by_df_batch(df, "asin", batch_size=100)
 
 
+def update_bq_table(args, marketplace, BigQueryHandlerModel):
+    BigQueryHandlerModel.product_details_daily_data2file()
+    args_merchwatch_daily_creator = [marketplace, "--chunk_size", args.chunk_size, "--num_threads", args.num_threads]
+    if args.dev:
+        args_merchwatch_daily_creator.append("--dev")
+    if args.debug_limit:
+        args_merchwatch_daily_creator.extend(["--debug_limit", args.debug_limit])
+    merchwatch_daily_creator.main([str(v) for v in args_merchwatch_daily_creator])
+
 def main(args):
     marketplace = args.marketplace
     time_start = time.time()
@@ -102,13 +111,7 @@ def main(args):
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
 
-        BigQueryHandlerModel.product_details_daily_data2file()
-        args_merchwatch_daily_creator = [marketplace, "--chunk_size", args.chunk_size, "--num_threads", args.num_threads]
-        if args.dev:
-            args_merchwatch_daily_creator.append("--dev")
-        if args.debug_limit:
-            args_merchwatch_daily_creator.extend(["--debug_limit", args.debug_limit])
-        merchwatch_daily_creator.main([str(v) for v in args_merchwatch_daily_creator])
+        update_bq_table(args, marketplace, BigQueryHandlerModel)
         #DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         
