@@ -76,12 +76,13 @@ class MBASpider(scrapy.Spider):
         urls = pd.read_csv(self.url_data_path)["url"].tolist()
         asins = pd.read_csv(self.url_data_path)["asin"].tolist()
         send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
+        print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
             asin = asins[i]
             yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=1,
-                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20}) # "proxy": proxies["http"], 
+                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url}) # "proxy": proxies["http"], 
 
     def errback_httpbin(self, failure):
         # log all errback failures,
@@ -474,8 +475,8 @@ class MBASpider(scrapy.Spider):
             
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
-            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"asin": asin})
+            request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                    errback=self.errback_httpbin, meta={"asin": asin, "url": response.meta["url"]})
             yield request
             '''
             raise Exception("Captcha required")

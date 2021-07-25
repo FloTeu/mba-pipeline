@@ -443,8 +443,8 @@ class MBASpider(scrapy.Spider):
             self.update_ban_count(proxy)            
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
-            request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
+            request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page, "url": response.meta["url"]})
             yield request
         else:
             
