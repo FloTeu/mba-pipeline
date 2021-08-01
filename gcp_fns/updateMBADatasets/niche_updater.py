@@ -245,6 +245,7 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN, KMeans
 from sklearn.metrics import adjusted_rand_score
 import requests
+from auth_fns import get_oauth2_id_token_by_url, get_id_token_header, get_service_account_id_token
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -287,7 +288,20 @@ class NicheAnalyser():
             self.stop_words = set(stopwords.words('english'))
             self.stemmer = SnowballStemmer("english")
 
+        if dev:
+            self.MERCHWATCH_API_URL = "https://merchwatch-api-ruzytvhzvq-ey.a.run.app"
+        else:
+            self.MERCHWATCH_API_URL = "https://merchwatch-api-mhttow5wga-ey.a.run.app"
+
+        self.headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
+        #id_token = get_service_account_id_token(["https://www.googleapis.com/auth/cloud-platform"])
+        id_token = get_oauth2_id_token_by_url(self.MERCHWATCH_API_URL + "/watch_meta_data_rest")
+        auth_header = get_id_token_header(id_token)
         
+        from api_keys import API_KEYS
+        self.headers.update({"Authorization": auth_header, 'access_token': API_KEYS[0]})
+
+            
     def get_raw_design_data_sql(self, limit=1000):
         SQL_STATEMENT = """
         SELECT price_last, asin, title, t0.brand, product_features, upload_date FROM `{0}` t0
@@ -507,7 +521,6 @@ class NicheAnalyser():
         best_niches = [niche_data["best_niche_keyword"] for niche_nr, niche_data in best_niches_dict.items() if niche_data["best_niche_keyword"].lower() not in keywords_already_in_fs and self.is_not_to_similar_as_fs_data(niche_data["asins"], niches_in_fs, threshold=50)]
         best_niches = self.remove_banned_words(best_niches)
 
-        headers = {'Accept' : 'application/json', 'Content-Type' : 'application/json'}
         for niche_keyword in best_niches:
             post_data_dict = {
                 "marketplace": self.marketplace,
@@ -519,7 +532,7 @@ class NicheAnalyser():
             }
             post_data_dict.update({"api_key": API_KEYS[0]})
             try:
-                r = requests.post('https://europe-west3-merchwatch.cloudfunctions.net/dev_watch_meta_data_rest', json=post_data_dict, headers=headers, timeout=1)
+                r = requests.post(self.MERCHWATCH_API_URL + '/watch_meta_data_rest', json=post_data_dict, headers=self.headers, timeout=1)
             except Exception as e:
                 print(str(e))
                 pass
