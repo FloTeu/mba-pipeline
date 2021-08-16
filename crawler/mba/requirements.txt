@@ -5,6 +5,9 @@ pandas-gbq
 lxml
 google-cloud-storage
 google-cloud-bigquery
+google-cloud-logging
+google-auth
+google-auth-oauthlib
 proxy_requests
 dateparser
 scrapy

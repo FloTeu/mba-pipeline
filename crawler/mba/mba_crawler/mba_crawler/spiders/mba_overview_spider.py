@@ -18,10 +18,10 @@ from proxy.utils import get_random_headers, send_msg
 from proxy import proxy_handler
 from ..items import MbaCrawlerItem
 from urllib.parse import urlparse
-import dateparser
 from scrapy.exceptions import CloseSpider
 import mba_url_creator as url_creator
 import time
+import traceback
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 from scrapy.spidermiddlewares.httperror import HttpError
@@ -29,6 +29,12 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
 from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
+
+from mwfunctions.logger import get_logger
+from mwfunctions import environment
+
+environment.set_cloud_logging()
+LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "overview_page", "type": "scrapy"}, do_cloud_logging=True)
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -280,6 +286,12 @@ class MBASpider(scrapy.Spider):
         self.df_mba_relevance.to_csv(filename, index=False)
         self.log('Saved file %s' % filename)
 
+    def log_error(self, e, custom_msg):
+        LOGGER.error(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
+
+    def log_warning(self, e, custom_msg):
+        LOGGER.warning(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
+
     def is_captcha_required(self, response):
         return "captcha" in response.body.decode("utf-8").lower()
 
@@ -475,19 +487,22 @@ class MBASpider(scrapy.Spider):
                     try:
                         price = self.get_price(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get price data")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                     try:
                         title = self.get_title(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get title")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                     try:
                         brand = self.get_brand(shirt)
                     except Exception as e:
-                        print("Could not get brand of shirt: ",title)
+                        self.log_warning(e, "Could not get brand")
+                        #print("Could not get brand of shirt: ",title)
                         brand = None
                         # its possible that amazon does not show brand on overview page. Therefore raise is not neccessary.
                         #self.save_content(response, url)
@@ -496,26 +511,30 @@ class MBASpider(scrapy.Spider):
                     try:
                         url_product = self.get_url_product(shirt, url)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get url of product")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                     try:
                         url_image_lowq,url_image_q2,url_image_q3,url_image_q4,url_image_hq = self.get_img_urls(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get image urls")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                     try:
                         asin = self.get_asin(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get asin of product")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                     try:
                         uuid = self.get_uuid(shirt)
                     except Exception as e:
-                        self.save_content(response, url)
-                        send_msg(self.target, str(e) + " | url: " + url, self.api_key)
+                        self.log_error(e, "Could not get uuid of product")
+                        #self.save_content(response, url)
+                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
                         raise e
                         
                     crawlingdate = datetime.datetime.now()

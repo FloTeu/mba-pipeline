@@ -17,6 +17,7 @@ from scrapy.exceptions import CloseSpider
 
 import time
 import threading
+import traceback
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 from scrapy.spidermiddlewares.httperror import HttpError
@@ -24,6 +25,13 @@ from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
 from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
+
+from mwfunctions.logger import get_logger
+from mwfunctions import environment
+
+environment.set_cloud_logging()
+LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
+
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -234,6 +242,11 @@ class MBASpider(scrapy.Spider):
         self.df_products_details.to_csv(filename, index=False)
         self.log('Saved file %s' % filename)
 
+    def log_error(self, e, custom_msg):
+        LOGGER.error(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
+
+    def log_warning(self, e, custom_msg):
+        LOGGER.warning(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
 
     def get_price(self, response):
         price_div = response.css('div#price')
@@ -283,6 +296,13 @@ class MBASpider(scrapy.Spider):
     def get_bsr(self, response):
         product_information = response.css('div#detailBullets')
         bsr_li = product_information.css("li#SalesRank")
+        # try to get bsr out of first li of second ul if id SalesRank is not provided in html
+        if bsr_li == None or bsr_li == []:
+            try:
+                bsr_li = product_information.css("ul")[1].css("li")[0:1]
+            except:
+                pass
+
         mba_bsr_str = ""
         mba_bsr = 0
         array_mba_bsr = []
@@ -292,12 +312,17 @@ class MBASpider(scrapy.Spider):
                 mba_bsr_str = "".join(bsr_li.css("::text").getall()).replace("\n", "")
                 mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.mba_bsr_str_to_mba_data(mba_bsr_str)
             except Exception as e:
-                print(str(e))
-                raise ValueError("Could not get bsr information for crawler " + self.name)
+                if len(product_information) > 0:
+                    raise ValueError(f"Could not get bsr information. \n Product information block: {product_information[0].extract()} ")
+                else:
+                    raise ValueError(f"Could not get bsr information. \n Product information block: {product_information} ")
         else:
             customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
             if customer_review_score_mean > 0:
-                raise ValueError("Designs has reviews but no bsr (impossible)" + self.name)
+                if len(product_information) > 0:
+                    raise ValueError(f"Designs has reviews but no bsr (impossible). \n Product information block: {product_information[0].extract()}" )
+                else:
+                    raise ValueError(f"Designs has reviews but no bsr (impossible). \n Product information block: {product_information}" )
 
         return mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie
         
@@ -496,13 +521,15 @@ class MBASpider(scrapy.Spider):
             try:
                 price_str, price = self.get_price(response)
             except Exception as e:
+                self.log_warning(e, "Could not get price data")
                 #self.save_content(response, asin)
                 #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 price_str, price = "", 0.0
             try:
                 mba_bsr_str, mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.get_bsr(response)
             except Exception as e:
-                self.save_content(response, asin)
+                self.log_error(e, "Could not get BSR data")
+                #self.save_content(response, asin)
                 #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 if "no bsr" in str(e):
                     self.df_products_no_bsr = self.df_products_no_bsr.append(pd.DataFrame(data={"asin":[asin],"url":[url], "timestamp": [datetime.datetime.now()]}))
@@ -515,44 +542,51 @@ class MBASpider(scrapy.Spider):
             try:
                 customer_review_score_mean, customer_review_score, customer_review_count = self.get_customer_review(response)
             except Exception as e:
-                self.save_content(response, asin)
-                send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                self.log_error(e, "Could not get review data")
+                #self.save_content(response, asin)
+                #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 raise e
             # if not daily crawler more data of website need to be crawled
             if not self.daily:
                 try:
                     title = self.get_title(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get title")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
                     brand, url_brand = self.get_brand_infos(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get brand")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
                     fit_types = self.get_fit_types(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get fit types")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
                     array_color_names, color_count = self.get_color_infos(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get colors")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
                     array_product_feature = self.get_product_features(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get product featurs/listings")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 try:
                     description = self.get_description(response)                    
                 except Exception as e:
+                    self.log_warning(e, "Could not get product description")
                     #self.save_content(response, asin)
                     #send_msg(self.target, str(e) + "| asin: " + asin, self.api_key)
                     #raise e
@@ -560,14 +594,16 @@ class MBASpider(scrapy.Spider):
                 try:
                     weight = self.get_weight(response)
                 except Exception as e:
+                    self.log_warning(e, "Could not get product weight")
                     weight = "not found"
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                 try:
                     upload_date_str, upload_date = self.get_upload_date(response)
                 except Exception as e:
-                    self.save_content(response, asin)
-                    send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
+                    self.log_error(e, "Could not get product upload date")
+                    #self.save_content(response, asin)
+                    #send_msg(self.target, str(e) + " | asin: " + asin, self.api_key)
                     raise e
                 
             crawlingdate = datetime.datetime.now()

@@ -12,7 +12,6 @@ sys.path.append("...")
 #os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
 from proxy.utils import get_random_headers, send_msg
 from urllib.parse import urlparse
-import dateparser
 from scrapy.exceptions import CloseSpider
 
 import time
