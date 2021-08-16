@@ -78,7 +78,12 @@ cd home/
 rm -rf mba-pipeline/
 git clone https://github.com/Flo95x/mba-pipeline.git
 sudo pip3 install -r /home/mba-pipeline/crawler/mba/requirements.txt 
-cd mba-pipeline/crawler/mba/
+cd mba-pipeline
+yes | sudo apt-get install python-setuptools
+sudo python3 setup.py build
+sudo python3 setup.py install
+pip3 install -e .
+cd crawler/mba/
 #sudo git pull
 sudo mkdir data
 sudo mkdir data/shirts

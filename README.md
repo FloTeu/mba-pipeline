@@ -1,6 +1,13 @@
 # mba-pipeline
 Project to gain insights about the MBA platform
 
+## Instalation
+```
+python setup.py build
+python setup.py install
+pip3 install -e .
+```
+## packages
 install with conda env and pip
 ```
 ~/miniconda3/envs/mw/bin/pip install
