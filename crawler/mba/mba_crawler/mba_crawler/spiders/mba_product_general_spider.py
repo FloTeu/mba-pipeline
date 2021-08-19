@@ -84,7 +84,7 @@ class MBASpider(scrapy.Spider):
         urls = pd.read_csv(self.url_data_path)["url"].tolist()
         asins = pd.read_csv(self.url_data_path)["asin"].tolist()
         # send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
-        LOGGER.debug("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
+        LOGGER.info("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
@@ -652,7 +652,7 @@ class MBASpider(scrapy.Spider):
         except:
             pass
         #send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
-        LOGGER.debug("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
+        LOGGER.info("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
         print("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
         if not self.daily:
             # change types to fit with big query datatypes
