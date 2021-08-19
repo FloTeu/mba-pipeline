@@ -118,7 +118,9 @@ class MBASpider(scrapy.Spider):
                 urls_mba.append(url_mba_page)
         else:
             url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
-            send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
+            # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
+            LOGGER.debug("Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
+
             # if start_page is other than one, crawler should start from differnt page
             until_page = 401
 
@@ -606,8 +608,9 @@ class MBASpider(scrapy.Spider):
 
         self.drop_asins_already_crawled()
 
-        send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
-        
+        #send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
+        LOGGER.debug("Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason))
+
         # change types to fit with big query datatypes
         self.df_products['timestamp'] = self.df_products['timestamp'].astype('datetime64[ns]')
         self.df_mba_images['timestamp'] = self.df_mba_images['timestamp'].astype('datetime64[ns]')

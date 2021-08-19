@@ -83,7 +83,8 @@ class MBASpider(scrapy.Spider):
         self.reset_was_banned_every_hour()
         urls = pd.read_csv(self.url_data_path)["url"].tolist()
         asins = pd.read_csv(self.url_data_path)["asin"].tolist()
-        send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
+        # send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
+        LOGGER.debug("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         for i, url in enumerate(urls):
             #proxies = proxy_handler.get_random_proxy_url_dict()
@@ -628,7 +629,8 @@ class MBASpider(scrapy.Spider):
         try:
             self.reset_ban.cancel()
         except Exception as e:
-            send_msg(self.target, "Could not cancel ban reset function", self.api_key)
+            #send_msg(self.target, "Could not cancel ban reset function", self.api_key)
+            LOGGER.warning("Could not cancel ban reset function {}".format(str(e)))
             print("Could not cancel ban reset function", str(e))
         try:
             ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
@@ -649,7 +651,8 @@ class MBASpider(scrapy.Spider):
             #send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
         except:
             pass
-        send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
+        #send_msg(self.target, "Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason), self.api_key)
+        LOGGER.debug("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
         print("Finished scraper {} daily {} with {} products and reason: {}".format(self.name, self.daily, len(self.df_products_details_daily), reason))
         if not self.daily:
             # change types to fit with big query datatypes
