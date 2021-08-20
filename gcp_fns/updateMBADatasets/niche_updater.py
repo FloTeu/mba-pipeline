@@ -218,8 +218,14 @@ class NicheUpdater():
         
         return firestore_dict
 
+    def get_last_timestamp_niche(self, niche_type):
+        try:
+            return next(self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).order_by("timestamp", direction=firebase_admin_fs.Query.DESCENDING).stream())._data["timestamp"]
+        except Exception as e:
+            return datetime.now()
+
     def delete_all_niches_by_type(self, niche_type, days=7):
-        datetime_last_week = datetime.now() - timedelta(days=days)
+        datetime_last_week = self.get_last_timestamp_niche(niche_type) - timedelta(days=days)
         # blog_niches never should be deleted
         if niche_type != "blog_niche":
             doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).order_by("timestamp", direction=firebase_admin_fs.Query.DESCENDING).start_after({"timestamp": datetime_last_week}).stream()
@@ -233,6 +239,8 @@ class NicheUpdater():
                 doc.reference.delete()
                 count += 1
             print(f"Deleted {count} docuemnt with niche type {niche_type}")
+
+
 
 import re
 from nltk import ngrams

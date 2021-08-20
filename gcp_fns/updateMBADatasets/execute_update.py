@@ -112,11 +112,9 @@ def main(args):
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
 
         update_bq_table(args, marketplace, BigQueryHandlerModel)
-        #DataHandlerModel.update_bq_shirt_tables(marketplace, chunk_size=args.chunk_size, dev=args.dev)
         DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         
         # Delete every day trend niche designs but only those which are older than one week
-        # TODO: delete 7 days before last timestamp of last trend_niche entry
         NicheUpdaterModel.delete_all_niches_by_type("trend_niche", days=7)
         # niches are updated once a week every sunday
         if today_weekday == 6:
