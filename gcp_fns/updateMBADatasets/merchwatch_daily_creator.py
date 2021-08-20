@@ -122,10 +122,15 @@ def create_plot_data(df_asin_detail_daily):
 
 def get_default_category_name(marketplace):
     if marketplace == "de":
-        return "Bekleidung"
+        return "Fashion"
     else:
         return "Clothing, Shoes & Jewelry"
 
+def get_bsr_top_category_names_list(marketplace):
+    if marketplace == "de":
+        return ["Fashion", "Bekleidung"]
+    else:
+        return ["Clothing, Shoes & Jewelry"]
 
 def get_bsr_category(df_row, marketplace):
     if marketplace == "de":
@@ -490,8 +495,8 @@ def make_trend_column(marketplace, df_shirts, months_privileged=6):
     df = pd.DataFrame(x_power)
     df_shirts["time_since_upload_power"] = df.iloc[:, 0]
     # change bsr_last to high number to prevent distort trend calculation
-    df_shirts.loc[(df_shirts['bsr_category'] != get_default_category_name(
-        marketplace)), "bsr_last"] = 999999999
+    df_shirts.loc[~(df_shirts['bsr_category'].isin(get_bsr_top_category_names_list(
+        marketplace))), "bsr_last"] = 999999999
     df_shirts.loc[(df_shirts['bsr_last'] == 0.0), "bsr_last"] = 999999999
     df_shirts.loc[(df_shirts['bsr_last'] == 404.0), "bsr_last"] = 999999999
     df_shirts["trend"] = df_shirts["bsr_last"] * \

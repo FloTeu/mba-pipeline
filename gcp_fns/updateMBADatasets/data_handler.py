@@ -30,6 +30,8 @@ import hashlib
 import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
+from merchwatch_daily_creator import get_bsr_top_category_names_list
+
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 
@@ -620,7 +622,10 @@ class DataHandler():
             dev_str = "_dev"
 
         ORDERBY_STATEMENT = "order by trend_nr"
-        WHERE_STATEMENT = "where (bsr_category='{}' or bsr_category='')".format(self.get_category_name(marketplace))
+        bsr_categories_to_filter = get_bsr_top_category_names_list(marketplace)
+        #bsr_categories_to_filter.append("''")
+        bsr_categories_to_filter_str = "('{}')".format("','".join(bsr_categories_to_filter))
+        WHERE_STATEMENT = "where bsr_category IN {}".format(bsr_categories_to_filter_str)
         if not update_all:
             WHERE_STATEMENT = WHERE_STATEMENT + " and t_fin.should_be_updated"
         SQL_STATEMENT = """
