@@ -275,11 +275,12 @@ class MBASpider(scrapy.Spider):
             bsr_iterator = mba_bsr_str.split("Nr. ")
             bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
             for bsr_str in bsr_iterator:
-                bsr = int(bsr_str.split("in")[0].replace(".", ""))
+                # response happens to contain also , seperated integer like 296,206
+                bsr = int(bsr_str.split("in")[0].replace(".", "").replace(",", ""))
                 array_mba_bsr.append(bsr)
                 bsr_categorie = bsr_str.split("(")[0].replace("\xa0", " ").split("in ")[1].strip()
                 array_mba_bsr_categorie.append(bsr_categorie)
-            mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", ""))
+            mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", "").replace(",", ""))
         elif self.marketplace == "com":
             bsr_iterator = mba_bsr_str.split("#")
             bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
