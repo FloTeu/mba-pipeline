@@ -1,0 +1,14 @@
+# ML_MODEL
+ML_MODEL_FRAMEWORK_TAG = "framework"
+ML_MODEL_FRAMEWORK_PYTOCH = "pytorch"
+ML_MODEL_FRAMEWORK_TENSORFLOW = "tensorflow"
+ML_MODEL_PYTORCH_ARCHIVE_DIR = "archive"
+ML_MODEL_MODEL_NAME_TAG = "model_name"
+ML_MODEL_BACKBONE_TAG = "backbone"
+ML_MODEL_LOSS_TAG = "loss"
+ML_MODEL_OPTIMIZER_TAG = "optimizer"
+
+# MISC
+LABEL_COL = "label"
+PATH_COL = "path"
+WEIGHT_COL = "weight"

@@ -1,0 +1,7 @@
+{
+    "tags": {
+        "framework": "pytorch",
+        "model_img_size": 224,
+        "model_name": "dino_vitb8"
+    }
+}

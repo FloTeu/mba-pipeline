@@ -1,0 +1,52 @@
+# gcloud builds submit . --config=pytorch_cloudbuild.yaml --substitutions=_PROJECT_ID="image-analysis-253512-dev",_CLOUD_STORAGE_PATH="gs://wslkjsdfg-mlflow-dsfgkbjesrih/8/d076677606ab4ab79f373d2071914dea/artifacts/exporter/arcface_512x512_nfnet_l0_mish.mar"
+
+# gs://wslkjsdfg-mlflow-dsfgkbjesrih/8/d076677606ab4ab79f373d2071914dea/artifacts/exporter/arcface_512x512_nfnet_l0_mish.mar
+steps:
+
+# - name: 'gcr.io/cloud-builders/gcloud'
+#   args: ['source', 'repos', 'clone', 'marketvisionfunctions', './submodules/marketvisionfunctions']
+#   id: 'mvfunctions_install'
+
+# - name: 'gcr.io/cloud-builders/git'
+#   args: ['-C', './submodules/marketvisionfunctions', 'checkout', 'dev'] # todo: change to dev
+#   id: 'mvfunctions'
+#   waitFor: ['mvfunctions_install']
+
+# todo: add mvmodels to repo mirroring and add below...
+#- name: 'gcr.io/cloud-builders/gcloud'
+#  args: ['source', 'repos', 'clone', 'VectorIndex', './submodules/vectorindex']
+#  id: 'vectorindex_install'
+#
+#- name: 'gcr.io/cloud-builders/git'
+#  args: ['-C', './submodules/vectorindex', 'checkout', 'dev']
+#  id: 'vectorindex'
+#  waitFor: ['vectorindex_install']
+
+
+- name: 'gcr.io/cloud-builders/gsutil'
+  args: ['cp', '$_CLOUD_STORAGE_PATH', '$_MODEL_NAME.mar']
+  id: 'mar-file'
+# gsutil cp _CLOUD_STORAGE_PATH .
+
+#
+# 2) Download .mar file from storage
+#_AIP_MODEL_NAME
+#
+- name: 'gcr.io/cloud-builders/docker'
+  args: ['build', '--build-arg', 'GOOGLE_CLOUD_PROJECT=$_PROJECT_ID', '--build-arg', 'MODEL_NAME=$_MODEL_NAME', '--build-arg', 'NUM_WORKER=$_NUM_WORKER', '--tag=$_REGION-docker.pkg.dev/$_PROJECT_ID/pytorch-models/$_AIP_MODEL_NAME', '.' ]
+  id: 'container'
+  waitFor: ['mar-file']
+
+
+# waitFor: ['mvfunctions', 'mar-file']
+
+#
+# 3) Push container to goole cloud
+#
+# - name: "gcr.io/cloud-builders/docker"
+#   args: ["push", "$_REGION-docker.pkg.dev/$_PROJECT_ID/pytorch-models/$_AIP_MODEL_NAME"]
+#   id: 'container-push'
+#   waitFor: ['container']
+images: 
+- '$_REGION-docker.pkg.dev/$_PROJECT_ID/pytorch-models/$_AIP_MODEL_NAME'
+# - 'gcr.io/'

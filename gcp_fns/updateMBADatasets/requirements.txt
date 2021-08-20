@@ -22,3 +22,4 @@ firebase-admin
 # not needed for cloud function but for instance which executes code later
 rake-nltk==1.0.4
 rdp
+requests-futures
