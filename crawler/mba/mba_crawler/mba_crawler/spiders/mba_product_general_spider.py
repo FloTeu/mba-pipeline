@@ -309,7 +309,7 @@ class MBASpider(scrapy.Spider):
         mba_bsr = 0
         array_mba_bsr = []
         array_mba_bsr_categorie = []
-        if bsr_li != None and bsr_li != []:
+        if bsr_li != None and bsr_li != [] and type(bsr_li) == scrapy.selector.unified.SelectorList and "".join(bsr_li.css("::text").getall()).replace("\n", "") != "":
             try:
                 mba_bsr_str = "".join(bsr_li.css("::text").getall()).replace("\n", "")
                 mba_bsr, array_mba_bsr, array_mba_bsr_categorie = self.mba_bsr_str_to_mba_data(mba_bsr_str)
