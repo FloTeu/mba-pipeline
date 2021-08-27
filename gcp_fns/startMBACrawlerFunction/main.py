@@ -99,9 +99,8 @@ sudo cp /home/flo_t_1995/utils.py .
 cd ..
 {5}
 wait
-sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=500
-{9}
-wait
+#sudo /usr/bin/python3 create_url_csv.py de False --number_products=700 & sudo /usr/bin/python3 create_url_csv.py com False --number_products=500
+#wait
 cd ..
 #/usr/bin/python3 wc_mba_images.py de --number_chunks 0
 yes Y | gcloud compute instances stop crawler-mba-auto-daily --zone us-west1-b

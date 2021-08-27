@@ -44,6 +44,7 @@ def main(argv):
     parser.add_argument('--proportion_priority_low_bsr_count', default=0, type=float, help='50% is the default proportion what means 50% should be design which were crawled least often')
     parser.add_argument('--repeat', default=1, type=int, help='If crawling should be repeated')
     parser.add_argument('--force_exec', default=0, type=int, help='If crawling should start at any time')
+    parser.add_argument('--general_crawling_after_n_iter', default=0, type=int, help='After how many iteration steps general product crawler should start periodically. Defaults 0 -> no general crawling')
 
     # if python file path is in argv remove it 
     if ".py" in argv[0]:
@@ -58,6 +59,7 @@ def main(argv):
     repeat = args.repeat
     number_products = args.number_products
     force_exec = args.force_exec
+    general_crawling_after_n_iter = args.general_crawling_after_n_iter
     proportion_priority_low_bsr_count = args.proportion_priority_low_bsr_count
     project_id = 'mba-pipeline'
     print(os.getcwd())
@@ -81,7 +83,7 @@ def main(argv):
         when, matching = check_time(current_time, on_time, off_time)
         #matching = True
         # execute function only between on_time and off_time
-        if matching or not repeat:
+        if True: #matching or not repeat
             # sleep random to prevent com crawler and de crawler change their settings
             #time.sleep(random.randint(0,60))
             # create crawling data csv
@@ -90,7 +92,8 @@ def main(argv):
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             process.wait()
 
-            # change settings for us 
+            # change settings
+            # currently also us is crawled by all (also european) crawlers. Reason: only price is not shown in this case but BSR information can be crawled.
             command = """sudo python3 change_spider_settings.py de --use_public_proxies True
             """.format(marketplace)
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
@@ -101,6 +104,12 @@ def main(argv):
             """.format(marketplace, number_products, proportion_priority_low_bsr_count)
             process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             process.wait()
+
+            if general_crawling_after_n_iter != 0 and (count%general_crawling_after_n_iter == 0):
+                # start general crawling after every n iteration loops
+                command = "sh crawl_general_product_page.sh"
+                process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+                process.wait()
             
             if not repeat:
                 while_condition = False
