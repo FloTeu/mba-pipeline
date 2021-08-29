@@ -1,5 +1,5 @@
 import firebase_admin
-from datetime import datetime
+from datetime import datetime, date
 from firebase_admin import credentials
 from firebase_admin import firestore
 from os.path import join
@@ -87,6 +87,9 @@ class Firestore():
 
 
                     document_id = df_dict[product_id_column]
+                    # add upload_since_days field
+
+                    df_dict["upload_since_days"] = get_upload_since_days_field(upload_date=df_dict["upload_date"].date())
                     df_dict.update({'timestamp': datetime.now()})
 
                     doc_ref = self.db.collection(self.collection_name).document(document_id)
@@ -252,3 +255,14 @@ def df_dict2subcollections(df_dict):
     sub_collection_dict.update({"plot_data": plot_data_dict})
 
     return sub_collection_dict
+
+def get_upload_since_days_field(upload_since_days: int = None, upload_date: date = None):
+    assert upload_since_days != None or upload_date != None, "Either 'upload_since_days' or 'upload_date' must be provided"
+    if upload_date:
+        upload_since_days = (datetime.now().date() - upload_date).days
+    try:
+        upload_since_days_list = [7,14,30,90,365]
+        return list(filter(lambda x: x >= upload_since_days, upload_since_days_list))[0]
+    except Exception as e:
+        # case upload_since_days no int or upload_since_days > 365
+        return None
