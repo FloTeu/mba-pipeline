@@ -89,7 +89,8 @@ class Firestore():
                     document_id = df_dict[product_id_column]
                     # add upload_since_days field
 
-                    df_dict["upload_since_days"] = get_upload_since_days_field(upload_date=df_dict["upload_date"].date())
+                    #df_dict["upload_since_days"] = get_upload_since_days_field(upload_date=df_dict["upload_date"].date())
+                    df_dict["upload_since_days_map"] = get_upload_since_days_dict(upload_date=df_dict["upload_date"].date())
                     df_dict.update({'timestamp': datetime.now()})
 
                     doc_ref = self.db.collection(self.collection_name).document(document_id)
@@ -256,13 +257,32 @@ def df_dict2subcollections(df_dict):
 
     return sub_collection_dict
 
+UPLOAD_SINCE_DAYS_LIST = [7,14,30,90,365]
+
 def get_upload_since_days_field(upload_since_days: int = None, upload_date: date = None):
     assert upload_since_days != None or upload_date != None, "Either 'upload_since_days' or 'upload_date' must be provided"
     if upload_date:
         upload_since_days = (datetime.now().date() - upload_date).days
     try:
-        upload_since_days_list = [7,14,30,90,365]
-        return list(filter(lambda x: x >= upload_since_days, upload_since_days_list))[0]
+        return list(filter(lambda x: x >= upload_since_days, UPLOAD_SINCE_DAYS_LIST))[0]
     except Exception as e:
         # case upload_since_days no int or upload_since_days > 365
         return None
+
+def get_upload_since_days_dict(upload_since_days: int = None, upload_date: date = None):
+    assert upload_since_days != None or upload_date != None, "Either 'upload_since_days' or 'upload_date' must be provided"
+    if upload_date:
+        upload_since_days = (datetime.now().date() - upload_date).days
+    upload_since_days_map = {}
+    if type(upload_since_days) == int:
+        is_true = list(filter(lambda x: x >= upload_since_days, UPLOAD_SINCE_DAYS_LIST))
+        is_false = list(filter(lambda x: x < upload_since_days, UPLOAD_SINCE_DAYS_LIST))
+        for is_true_i in is_true:
+            upload_since_days_map[str(is_true_i)] = True
+        for is_false_i in is_false:
+            upload_since_days_map[str(is_false_i)] = False
+    else:
+        for is_false_i in UPLOAD_SINCE_DAYS_LIST:
+            upload_since_days_map[str(is_false_i)] = False
+
+    return upload_since_days_map
