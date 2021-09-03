@@ -5,7 +5,6 @@ from firebase_admin import firestore
 from os.path import join
 import numpy as np
 from numpy.lib.index_tricks import _fill_diagonal_dispatcher
-# TODO: replace import by
 from mwfunctions.transform import get_shortened_plot_data
 #from utils_plot import get_shortened_plot_data
 import time

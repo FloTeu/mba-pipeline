@@ -1,4 +1,4 @@
-bs4 
+beautifulsoup4
 pandas
 numpy 
 pandas-gbq
@@ -16,7 +16,7 @@ scrapy-inline-requests
 selenium
 opencv-python-headless<4.3
 setuptools==51.0.0
-py3exiv2==0.9.3 
+py3exiv2==0.9.3
 piexif
 easydict
 matplotlib

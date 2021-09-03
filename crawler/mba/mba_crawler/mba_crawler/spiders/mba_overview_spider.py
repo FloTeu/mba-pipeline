@@ -19,7 +19,7 @@ from proxy import proxy_handler
 from ..items import MbaCrawlerItem
 from urllib.parse import urlparse
 from scrapy.exceptions import CloseSpider
-import mba_url_creator as url_creator
+#import mba_url_creator as url_creator
 import time
 import traceback
 
@@ -32,6 +32,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
+import mwfunctions.crawler.mba.url_creator as url_creator
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "overview_page", "type": "scrapy"}, do_cloud_logging=True)
