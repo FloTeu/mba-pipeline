@@ -73,6 +73,7 @@ mba-page/merchwatch/merchwatch/data/*
 mba-page/merchwatch/merchwatch/settings.py
 /mba-page/merchwatch/merchwatch/settings.py
 
+/mwfunctions/crawler/proxy/*
 
 /gcp_fns/bigquery_fns/data/*
 /gcp_fns/updateMBADatasets/data/*
