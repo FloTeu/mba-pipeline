@@ -20,7 +20,9 @@ cd home/
 rm -rf mba-pipeline/
 git clone https://github.com/Flo95x/mba-pipeline.git
 sudo cp "privacy files/api_keys.py" mba-pipeline/gcp_fns/updateMBADatasets
-cd mba-pipeline/gcp_fns/updateMBADatasets
+cd mba-pipeline/
+sudo pip3 install -e .
+cd gcp_fns/updateMBADatasets
 pip3 install -r requirements.txt 
  
 for cmd in "/usr/bin/python3 execute_update.py --marketplace=de --chunk_size=%s" "/usr/bin/python3 execute_update.py --marketplace=com --chunk_size=%s"; do
