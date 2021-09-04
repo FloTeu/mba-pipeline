@@ -63,14 +63,17 @@ class MBASpider(scrapy.Spider):
     #     "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
     # }
 
-    def __init__(self, marketplace, daily=True, *args, **kwargs):
+    def __init__(self, marketplace, daily=True, url_data_path=None, *args, **kwargs):
         self.marketplace = marketplace
         self.daily = str2bool(daily)
         self.allowed_domains = ['amazon.' + marketplace]
-        if self.daily:
-            self.url_data_path = f"mba_crawler/url_data/urls_mba_daily_{self.marketplace}.csv"
+        if url_data_path:
+            self.url_data_path = url_data_path
         else:
-            self.url_data_path = f"mba_crawler/url_data/urls_mba_general_{self.marketplace}.csv"
+            if self.daily:
+                self.url_data_path = f"mba_crawler/url_data/urls_mba_daily_{self.marketplace}.csv"
+            else:
+                self.url_data_path = f"mba_crawler/url_data/urls_mba_general_{self.marketplace}.csv"
 
         # does not work currently
         # if self.marketplace == "com":

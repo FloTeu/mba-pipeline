@@ -48,7 +48,7 @@ class ImageException(FileException):
 
 logger = logging.getLogger(__name__)
 
-class MbaCrawlerImagePipeline(ImagesPipeline):
+class MbaCrawlerImagePipelineBase(ImagesPipeline):
 
     def get_media_requests(self, item, info):
         # function 1
