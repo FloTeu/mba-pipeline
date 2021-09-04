@@ -13,8 +13,6 @@ from io import BytesIO
 from PIL import Image
 
 print(os.getcwd())
-from mba_crawler.functions import CSS4Counter
-from mba_crawler.functions import add_metadata
 import numpy as np
 import pyexiv2
 from pyexiv2.metadata import ImageMetadata
@@ -42,6 +40,9 @@ from scrapy.utils.misc import md5sum
 from scrapy.utils.python import to_bytes
 from scrapy.utils.request import referer_str
 from scrapy.pipelines.files import FileException, FilesPipeline
+
+from mwfunctions.crawler.scrapy.mba_crawler.functions import CSS4Counter
+from mwfunctions.crawler.scrapy.mba_crawler.functions import add_metadata
 
 class ImageException(FileException):
     """General image error exception"""
