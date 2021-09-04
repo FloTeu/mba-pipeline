@@ -39,7 +39,7 @@ from scrapy.utils.python import to_bytes
 from scrapy.utils.request import referer_str
 from scrapy.pipelines.files import FileException, FilesPipeline
 
-from mwfunctions.crawler.scrapy.mba_crawler.functions import CSS4Counter
+from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
 
 
