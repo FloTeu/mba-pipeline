@@ -14,8 +14,6 @@ from PIL import Image
 
 print(os.getcwd())
 import numpy as np
-import pyexiv2
-from pyexiv2.metadata import ImageMetadata
 import piexif
 import json
 import io
@@ -42,7 +40,8 @@ from scrapy.utils.request import referer_str
 from scrapy.pipelines.files import FileException, FilesPipeline
 
 from mwfunctions.crawler.scrapy.mba_crawler.functions import CSS4Counter
-from mwfunctions.crawler.scrapy.mba_crawler.functions import add_metadata
+from mwfunctions.image.metadata import pil_add_metadata, print_metadata
+
 
 class ImageException(FileException):
     """General image error exception"""
@@ -99,7 +98,7 @@ class MbaCrawlerImagePipelineBase(ImagesPipeline):
         # HERE ARE CUSTOM CHANGES
         most_common = self.get_most_common_colors(response, n=10)
         most_common_dict = self.most_common_to_property([most_common])[0]
-        orig_image = add_metadata(orig_image, most_common_dict, path_to_data_dir="../scrapy_pipelines/data/")
+        orig_image = pil_add_metadata(orig_image, most_common_dict, path_to_data_dir="../scrapy_pipelines/data/")
 
         width, height = orig_image.size
         if width < self.min_width or height < self.min_height:
