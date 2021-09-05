@@ -86,8 +86,6 @@ class MBASpider(scrapy.Spider):
     }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", **kwargs):
-        # change working directory to spider project root dir
-        os.chdir("/".join(str(Path(__file__)).split("/")[0:-3]))
 
         self.marketplace = marketplace
         self.pod_product = pod_product
