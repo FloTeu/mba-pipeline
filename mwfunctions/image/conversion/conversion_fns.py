@@ -24,3 +24,8 @@ def grayscale2rgb(image):
     img = Image.fromarray(image)
     img.convert("RGB")
     return np.array(img)
+
+
+def bytes2pil(img_bytes):
+    image = Image.open(io.BytesIO(img_bytes))
+    return image

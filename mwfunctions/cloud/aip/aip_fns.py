@@ -103,7 +103,8 @@ class AI_Model():
             # no-cache not working with config
             args = ["gcloud", "builds", "submit", source_dir,
                     f"--config={build_yaml}",
-                    f'--substitutions=_PROJECT_ID=merchwatch-dev,'
+                    f"--project={self.project_id}",
+                    f'--substitutions=_PROJECT_ID={self.project_id},'
                     f'_CLOUD_STORAGE_PATH={gcs_mar_file},'
                     f'_AIP_MODEL_NAME={self.aip_model_name},'
                     f'_NUM_WORKER={num_worker},'
@@ -113,14 +114,21 @@ class AI_Model():
             args = ["cloud-build-local", 
                     f"--config={build_yaml}",
                     f"--dryrun=False",
-                    f'--substitutions=_PROJECT_ID=merchwatch-dev,'
+                    f'--substitutions=_PROJECT_ID={self.project_id},'
                     f'_CLOUD_STORAGE_PATH={gcs_mar_file},'
                     f'_AIP_MODEL_NAME={self.aip_model_name},'
                     f'_NUM_WORKER={num_worker},'
                     f'_MODEL_NAME={self.model_name},'
                     f'_REGION={self.region}',
                     source_dir]
+        import os
+        # quickfix to make gcloud work again
+        # TODO: check if deployment works on cloud instance
+        if "google-cloud-sdk" not in os.environ["PATH"]:
+            os.environ["PATH"] = os.environ["PATH"]  + ':/home/fteutsch/miniconda3/envs/exports/google-cloud-sdk/bin'
         subprocess.run(args, check=True)
+        process = subprocess.Popen(args, stdout=subprocess.PIPE)
+        output, error = process.communicate()
 
     # todo: add ai engine argument as **kwargs
     def create_version(self, exporter_name: str = "exporter",
@@ -169,9 +177,6 @@ class AI_Model():
                                    "response": response_to_json_hook}, headers=self.auth_headers)
         resp = future.result()
         if resp.status_code == 200:
-            self.aip_model_str = f'projects/{self.project_id}/models/{self.aip_model_name}'
-            # Set tags
-            self.mvflow.set_aip_model(self.endpoint, self.aip_model_str)
             if wait_until_finished:
                 while not self.is_ready():
                     time.sleep(60)
