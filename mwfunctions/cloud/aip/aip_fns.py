@@ -104,6 +104,7 @@ class AI_Model():
             args = ["gcloud", "builds", "submit", source_dir,
                     f"--config={build_yaml}",
                     f"--project={self.project_id}",
+                    f"--timeout=30m",
                     f'--substitutions=_PROJECT_ID={self.project_id},'
                     f'_CLOUD_STORAGE_PATH={gcs_mar_file},'
                     f'_AIP_MODEL_NAME={self.aip_model_name},'
@@ -121,14 +122,13 @@ class AI_Model():
                     f'_MODEL_NAME={self.model_name},'
                     f'_REGION={self.region}',
                     source_dir]
-        import os
         # quickfix to make gcloud work again
         # TODO: check if deployment works on cloud instance
         if "google-cloud-sdk" not in os.environ["PATH"]:
             os.environ["PATH"] = os.environ["PATH"]  + ':/home/fteutsch/miniconda3/envs/exports/google-cloud-sdk/bin'
         subprocess.run(args, check=True)
-        process = subprocess.Popen(args, stdout=subprocess.PIPE)
-        output, error = process.communicate()
+        #process = subprocess.Popen(args, stdout=subprocess.PIPE)
+        #output, error = process.communicate()
 
     # todo: add ai engine argument as **kwargs
     def create_version(self, exporter_name: str = "exporter",
@@ -193,8 +193,6 @@ class AI_Model():
 
         resp = future.result()
         if resp.status_code == 200:
-            # delete ai-engine tags from run
-            self.mvflow.remove_aip_model()
             print("Success")
         else:
             print(f"\nFailed:\n{url}\n{resp}\n{resp.data}")

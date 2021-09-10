@@ -9,7 +9,7 @@ gs_url = "gs://5c0ae2727a254b608a4ee55a15a05fb7/ai/models/pytorch_pre_dino"
 #print("{}".format(read_json_as_dictg(gs_url).get("aip_model_endpoint","")))
 #print("{0}/v1/{1}:predict".format(read_json_as_dictg(gs_url).get("aip_model_endpoint", ""),read_json_as_dictg(gs_url).get("aip_model_str", "")))
 
-model = AI_Model(gs_url, region="europe-west1", project_id="merchwatch-dev")
+model = AI_Model(gs_url, region="europe-west1", project_id="mba-pipeline")
 
 gpu = False
 machine_type = "n1-standard-4"
