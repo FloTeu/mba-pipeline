@@ -21,5 +21,5 @@ def read_file_as_string(gs_url):
     blob = bucket.get_blob(storage_params.path)
     return blob.download_as_string()
 
-def read_json_as_dictg(gs_url):
+def read_json_as_dict(gs_url):
     return json.loads(read_file_as_string(gs_url))

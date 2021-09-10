@@ -9,7 +9,7 @@ from requests_futures.sessions import FuturesSession
 
 import mwfunctions.constants.ml_constants as mlc
 from mwfunctions.cloud.auth import get_service_account_id_token, get_id_token_header
-from mwfunctions.cloud.storage import read_json_as_dictg
+from mwfunctions.cloud.storage import read_json_as_dict
 
 
 def response_to_json_hook(resp, *args, **kwargs):
@@ -34,8 +34,9 @@ class AI_Model():
         self.region = region
         self.project_id = project_id
         self.future_sessions_max_workers = future_sessions_max_workers
+        self.meta_dict_gs_url = f"{model_gs_url}/model_meta.json"
         
-        self.meta_tags_dict = read_json_as_dictg(f"{model_gs_url}/model_meta.json")["tags"]
+        self.meta_tags_dict = read_json_as_dict(self.meta_dict_gs_url)["tags"]
 
         # TODO: Does this work anymore?
         # set timeout for request
@@ -99,6 +100,7 @@ class AI_Model():
         build_yaml = f"{source_dir}/pytorch_cloudbuild.yaml"
         assert os.path.exists(build_yaml), "Could not find cloud_build yaml"
 
+
         if not build_local:
             # no-cache not working with config
             args = ["gcloud", "builds", "submit", source_dir,
@@ -146,6 +148,8 @@ class AI_Model():
         # https://cloud.google.com/ai-platform/prediction/docs/reference/rest/v1/projects.models.versions
         print(f'creating model version... ')
 
+        time_start = time.time()
+
         autoScaling = {"minNodes": min_nodes, "maxNodes": max_nodes}
         create_version_dict = {"machineType": machineType, "autoScaling": autoScaling}
         if self.framework == mlc.ML_MODEL_FRAMEWORK_PYTOCH:
@@ -177,9 +181,16 @@ class AI_Model():
                                    "response": response_to_json_hook}, headers=self.auth_headers)
         resp = future.result()
         if resp.status_code == 200:
+            self.aip_model_str = f'projects/{self.project_id}/models/{self.aip_model_name}'
+            # Set tags
+            self.meta_tags_dict["aip_model_str"] = self.aip_model_str
+            # TODO upload meta data json to storage
+            #self.meta_dict_gs_url()
+
             if wait_until_finished:
                 while not self.is_ready():
-                    time.sleep(60)
+                    time.sleep(30)
+                print("Elapsed time until model version is ready: %.2f minutes" % ((time.time() - time_start) / 60 ))
         print(resp)
         print(resp.data)
 
@@ -216,7 +227,7 @@ class AI_Model():
         
         
 
-    def predict(self, instances, signature_name="serving_default"):
+    def predict(self, instances, signature_name="serving_default", print_elapsed_time=False):
         '''
         helper function for getting predictions with model name and model endpoint.
         Send json data to a deployed model for prediction.
@@ -233,14 +244,17 @@ class AI_Model():
         Mapping[str: any]: dictionary of prediction results defined by the
                     model.
         '''
-
+        time_start = time.time()
         future = self.get_inference_future(instances=instances)
-        resp = future.result()
+        response = future.result()
+        print("RESPONSE", response, self.aip_inference_url)
+        if print_elapsed_time:
+            print("Elapsed time until model version is ready: %.2f minutes" % ((time.time() - time_start) / 60 ))
 
-        if 'error' in response:
+        if 'error' in response.data:
             raise RuntimeError(response['error'])
 
-        return response['predictions']
+        return response.data['predictions']
 
     def get_inference_future(self, instances, signature_name="serving_default", timeout=60):
         """ Send future sessions to aip deployed model. 
