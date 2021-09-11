@@ -53,3 +53,4 @@ CMD ["torchserve", \
      "sleep 5;", \
      "sh /home/model-server/start_model.sh"]
      # "sh -c 'curl -v -X PUT 'http://127.0.0.1:8081/models/${MODEL_NAME}''"]
+
