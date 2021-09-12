@@ -1,7 +1,6 @@
 import google.auth.transport.requests
 import google.oauth2.id_token
 import google.auth
-import google.auth.transport.requests
 from mwfunctions.environment import get_gcp_credentials
 
 def get_oauth2_id_token_by_url(service_url):
@@ -29,3 +28,12 @@ def get_service_account_id_token(scopes=None):
 
 def get_id_token_header(id_token):
     return f"Bearer {id_token}"
+
+def get_id_token_by_service_url(service_url):
+    auth_req = google.auth.transport.requests.Request()
+    return google.oauth2.id_token.fetch_id_token(auth_req, service_url)
+
+def get_headers_by_service_url(service_url):
+    id_token_value = f"Bearer {get_id_token_by_service_url(service_url)}"
+    headers = {'Accept' : 'application/json', 'Authorization': id_token_value, 'Content-Type' : 'application/json'}
+    return headers

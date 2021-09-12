@@ -11,6 +11,8 @@ import datetime
 import pytz
 import pandas as pd
 
+from mwfunctions.cloud.auth import get_headers_by_service_url
+
 def get_args(argv=None):
     parser = argparse.ArgumentParser()
     parser.add_argument(

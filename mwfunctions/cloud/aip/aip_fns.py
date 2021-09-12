@@ -2,6 +2,7 @@ import os
 import time
 import subprocess
 import socket
+import requests
 
 from google.cloud import storage
 from googleapiclient import discovery
@@ -64,6 +65,7 @@ class AI_Model():
         self.aip_inference_url = "{0}/v1/{1}:predict".format(self.meta_tags_dict.get("aip_model_endpoint", ""), self.meta_tags_dict.get("aip_model_str", ""))
 
         self.output_parser = AIPOutputParser(framework=self.framework, squeeze_result=squeeze_result)
+        self.model_image =  f"{self.region}-docker.pkg.dev/{self.project_id}/pytorch-models/{self.aip_model_name}:latest"
 
     def overwrite_auth_headers(self):
         self.auth_headers = {'Authorization': get_id_token_header(get_service_account_id_token(
@@ -186,6 +188,25 @@ class AI_Model():
         print(resp)
         print(resp.data)
 
+    def deploy_local(self, gpu=None):
+        args_str = f"docker run --name {self.model_name} --rm {'--gpus ' + gpu  if gpu else ''} -d -p 8080:8080 -p 8081:8081 -p 8082:8082 -p 7070:7070 -p 7071:7071 {self.model_image}"
+        subprocess.run(args_str,
+                       shell=True, check=True,
+                       executable='/bin/bash')
+        args_str = f"curl -X POST 'http://0.0.0.0:8081/models?url={self.model_name}.mar&model_name={self.model_name}&batch_size=128&max_batch_delay=1000&initial_workers=1'"
+        subprocess.run(args_str,
+                       shell=True, check=True,
+                       executable='/bin/bash')
+
+    def shutdown_local(self, do_rm=False):
+        args_str = f'docker stop $(docker ps -a -q --filter "name={self.model_name}")'
+        if do_rm:
+            args_str = f"docker rm $({args_str})"
+        subprocess.run(args_str,
+                       shell=True, check=True,
+                       executable='/bin/bash')
+
+
     def delete_version(self):
         # https://cloud.google.com/ai-platform/prediction/docs/reference/rest/v1/projects.models.versions/delete
         url = f"https://{self.region + '-' if self.region else ''}ml.googleapis.com/v1/projects/{self.project_id}/models/{self.aip_model_name}/versions/{self.model_name}"
@@ -216,10 +237,8 @@ class AI_Model():
         return resp.data["defaultVersion"]["state"] == "READY"
         print(resp.data)
         # raise resp.
-        
-        
 
-    def predict(self, instances, signature_name="serving_default", print_elapsed_time=False):
+    def predict(self, instances, signature_name="serving_default", print_elapsed_time=False, local_run=False):
         '''
         helper function for getting predictions with model name and model endpoint.
         Send json data to a deployed model for prediction.
@@ -237,8 +256,13 @@ class AI_Model():
                     model.
         '''
         time_start = time.time()
-        future = self.get_inference_future(instances=instances)
-        response = future.result()
+        if local_run:
+            response = requests.post(f"http://0.0.0.0:8080/predictions/{self.model_name}",json={'signature_name': signature_name, 'instances': instances})
+            response.data = response.json()
+            response.data["predictions"] = self.output_parser.to_list(response.data['predictions'])
+        else:
+            future = self.get_inference_future(instances=instances)
+            response = future.result()
         print("RESPONSE", response, self.aip_inference_url)
         if print_elapsed_time:
             print("Elapsed time until model version is ready: %.2f minutes" % ((time.time() - time_start) / 60 ))
@@ -248,7 +272,7 @@ class AI_Model():
 
         return response.data['predictions']
 
-    def get_inference_future(self, instances, signature_name="serving_default", timeout=60):
+    def get_inference_future(self, instances, signature_name="serving_default", timeout=60, local_run=False):
         """ Send future sessions to aip deployed model. 
 
         :param instances: List of instances which should be sended to AIP. e.g. [{"b64": base64_str}]
@@ -259,11 +283,15 @@ class AI_Model():
         # set timeout for request
         socket.setdefaulttimeout(timeout)
         body = {'signature_name': signature_name, 'instances': instances}
-        return self.session.post(self.aip_inference_url, json=body, timeout=timeout, hooks={"response": response_to_json_hook}, headers=self.auth_headers)
+        if local_run:
+            return self.session.post(f"http://0.0.0.0:8080/predictions/{self.model_name}",json=body, hooks={"response": response_to_json_hook}, timeout=timeout)
+        else:
+            return self.session.post(self.aip_inference_url, json=body, timeout=timeout, hooks={"response": response_to_json_hook}, headers=self.auth_headers)
 
-    def get_future_results(self, future, instances, max_retry_requests=6):
+    def get_future_results(self, future, instances, max_retry_requests=6, local_run=False):
         retry_counter = 0
         while retry_counter < max_retry_requests:
+            time.sleep(retry_counter * 2)
             try:
                 resp = future.result()
                 return self.output_parser.to_list(resp.data['predictions'])
@@ -277,7 +305,7 @@ class AI_Model():
                 # Response status code: 404 and type: <class 'dict'> and data {'error': {'code': 404, 'message': 'Requested entity was not found.', 'status': 'NOT_FOUND'}} [while running 'Preprocess + Append Feature Vector 2']
                 self.overwrite_auth_headers()
             # retry and get new future
-            future = self.get_inference_future(instances)
+            future = self.get_inference_future(instances, local_run=local_run)
             retry_counter += 1
 
         resp = future.result()
