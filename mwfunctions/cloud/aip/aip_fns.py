@@ -10,7 +10,7 @@ from requests_futures.sessions import FuturesSession
 import mwfunctions.constants.ml_constants as mlc
 from mwfunctions.cloud.auth import get_service_account_id_token, get_id_token_header
 from mwfunctions.cloud.storage import read_json_as_dict
-
+from .output_parser import AIPOutputParser
 
 def response_to_json_hook(resp, *args, **kwargs):
     # parse the json storing the result on the response object
@@ -18,7 +18,7 @@ def response_to_json_hook(resp, *args, **kwargs):
 
 
 class AI_Model():
-    def __init__(self, model_gs_url, region=None, project_id='mba-pipeline', future_sessions_max_workers=2):
+    def __init__(self, model_gs_url, region=None, project_id='mba-pipeline', future_sessions_max_workers=2, squeeze_result=True):
         '''
         Model Class designed for use with mlflow run url.
 
@@ -63,6 +63,8 @@ class AI_Model():
 
         self.aip_inference_url = "{0}/v1/{1}:predict".format(self.meta_tags_dict.get("aip_model_endpoint", ""), self.meta_tags_dict.get("aip_model_str", ""))
 
+        self.output_parser = AIPOutputParser(framework=self.framework, squeeze_result=squeeze_result)
+
     def overwrite_auth_headers(self):
         self.auth_headers = {'Authorization': get_id_token_header(get_service_account_id_token(
             scopes=self.scopes)), 'Content-Type': 'application/json; UTF-8'}
@@ -84,16 +86,6 @@ class AI_Model():
         print(resp.data)
 
     def build_pytorch_serve_container(self, num_worker, build_local=False):
-        # In pytorch for batch inference we currently cannot deploy with automatically inferring
-        # the min and max workers. Therefor we have to provide them
-        # ATM we do not use this
-        # assert num_worker, "For pytorch u have to provide valid num_worker"
-        # If we use pytorch we have to build a custom container
-        # As we need mvfunctions we build the container with cloudbuild.yaml under mvtools
-        # We use a subprocess with gcloud command for this
-        # Example command
-        # gcloud builds submit . --config=pytorch_cloudbuild.yaml --substitutions=_PROJECT_ID="image-analysis-253512-dev",_CLOUD_STORAGE_PATH="gs://wslkjsdfg-mlflow-dsfgkbjesrih/8/d076677606ab4ab79f373d2071914dea/artifacts/exporter/arcface_512x512_nfnet_l0_mish.mar"
-        # gcloud builds submit /home/r_beckmann/projects/mvtools/mvtools/cloud/ai_engine/ --config=/home/r_beckmann/projects/mvtools/mvtools/cloud/ai_engine/pytorch_cloudbuild.yaml --substitutions=_PROJECT_ID=image-analysis-253512-dev,_CLOUD_STORAGE_PATH=gs://wslkjsdfg-mlflow-dsfgkbjesrih/8/d076677606ab4ab79f373d2071914dea/artifacts/exporter/arcface_512x512_nfnet_l0_mish.mar,_AI_MODEL_NAME=ML_MODEL_d076677606ab4ab79f373d2071914dea,_REGION=europe-west-1
         source_dir = os.path.dirname(os.path.realpath(__file__))
         # Mar file is model archive file
         gcs_mar_file = f"{self.model_gs_url}/exporter/{self.model_name}.mar"
@@ -269,8 +261,7 @@ class AI_Model():
         body = {'signature_name': signature_name, 'instances': instances}
         return self.session.post(self.aip_inference_url, json=body, timeout=timeout, hooks={"response": response_to_json_hook}, headers=self.auth_headers)
 
-    def get_future_results(self, future, img_b64_str, max_retry_requests=6):
-        from mvfunctions.cloud.auth import get_service_account_id_token, get_id_token_header
+    def get_future_results(self, future, instances, max_retry_requests=6):
         retry_counter = 0
         while retry_counter < max_retry_requests:
             try:
@@ -284,9 +275,9 @@ class AI_Model():
                 # Please use scale workers API to add workers.'} [while running 'Preprocess + Append Feature Vector 2']
 
                 # Response status code: 404 and type: <class 'dict'> and data {'error': {'code': 404, 'message': 'Requested entity was not found.', 'status': 'NOT_FOUND'}} [while running 'Preprocess + Append Feature Vector 2']
-                self.overwrite_auth_header()
+                self.overwrite_auth_headers()
             # retry and get new future
-            future = self.aip_async_inference(img_b64_str)
+            future = self.get_inference_future(instances)
             retry_counter += 1
 
         resp = future.result()
@@ -296,72 +287,3 @@ class AI_Model():
 
 def get_aip_inference_url(aip_model_endpoint, aip_model_str):
     return f"{aip_model_endpoint}/v1/{aip_model_str}:predict"
-
-
-def aip_inference_future(session: FuturesSession, instances, headers, url=None, aip_model_endpoint=None, aip_model_str=None, signature_name="serving_default", timeout=60):
-    """ Send future sessions to aip deployed model. 
-        Note:
-            headers: Must contain at least contain Authorization e.g. {"Authorization": f"Bearer {get_service_account_id_token()}"}
-            url: Can be created with get_aip_inference_url()
-
-    :param session: Session object of type FuturesSession
-    :type session: FuturesSession
-    :param instances: List of instances which should be sended to AIP. e.g. [{"b64": base64_str}]
-    :param headers: Dict of headers which are used by requests library in background
-    :type headers: dict
-    :return: Future request which sends response asynchronously
-    :rtype: Future 
-    """
-
-    import socket
-
-    assert url or (
-        aip_model_endpoint and aip_model_str), "Either url or at least both, aip_model_endpoint and aip_model_str, must be provided."
-
-    # set timeout for request
-    socket.setdefaulttimeout(timeout)
-
-    if not url:
-        url = get_aip_inference_url(aip_model_endpoint, aip_model_str)
-    body = {'signature_name': signature_name, 'instances': instances}
-    future = session.post(url, json=body, timeout=timeout, hooks={
-                          "response": response_to_json_hook}, headers=headers)
-    return future
-
-
-def submit_training(jobId, trainingInput,
-                    project_id='mba-pipeline'):
-    '''
-
-    :param jobId:
-    :param training_inputs:
-    example:
-        training_inputs = {'scaleTier': 'BASIC',
-            'packageUris': ['gs://mv_model_deployments/marketvisionfunctions/mvfunctions-0.1.tar.gz',
-                            'gs://mv_model_deployments/vectorindex/vectorindex-0.1.tar.gz'],
-            'pythonModule': 'trainer.train_index_id_features',
-            'args': ['--json_gs_url_bq_table_id','image-analysis-253512:fashion_eu.peterhahn_images_mvdelf_test123_features',
-                    '--mlflow_run_url','http://35.198.118.119/#/experiments/0/runs/b07bfec40f204dbab228350f9d86cada/',
-                    '--local_output_root_dir', '/tmp',
-                    '--match_oneself', 'True'],
-            'region': 'europe-west3',
-            'jobDir': 'gs://staging.image-analysis-253512.appspot.com',
-            'runtimeVersion': '2.3',
-            'pythonVersion': '3.7'}
-
-    :param project_id:
-    :return:
-    '''
-
-    job_spec = {'jobId': jobId, 'trainingInput': trainingInput}
-    project_id = 'projects/{}'.format(project_id)
-
-    #  "Field: training_input Error: Training is not supported on this endpoint."
-    # -> keine regional endpoints possible
-    cloudml = discovery.build('ml', 'v1')
-
-    request = cloudml.projects().jobs().create(body=job_spec, parent=project_id)
-    response = request.execute()
-
-    print(response)
-    return response

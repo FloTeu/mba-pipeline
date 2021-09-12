@@ -87,3 +87,18 @@ class BQParams():
             query += " limit {}".format(limit)
         return query
 
+def table_exists(bq_params):
+    """
+    Checks if a bigquery table exists
+    :param client:
+    :param bq_params:
+    :return:
+    """
+    client = bigquery.Client()
+    try:
+        client.get_table(bq_params.table_id)  # Make an API request.
+        logging.info("Table {} already exists.".format(bq_params.table_id))
+        return True
+    except NotFound:
+        logging.info("Table {} is not found.".format(bq_params.table_id))
+        return False
