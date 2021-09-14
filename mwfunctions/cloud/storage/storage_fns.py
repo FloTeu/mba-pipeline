@@ -3,6 +3,7 @@ from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from typing import Optional, Union, Iterator, Tuple, List, BinaryIO
 from functools import partial
+import pandas as pd
 
 import json
 
@@ -84,3 +85,195 @@ def upload_filebytes(bucket, file_path, file_bytes,
             i += 1
             time.sleep(0.1)
 
+
+def upload(gs_url,
+           path=None,
+           file_bytes=None,
+           content_type=None,
+           max_retries: int = 10,
+           do_overwrite: bool = True,
+           force_as_file=False,
+           storage_client: storage.Client = None,
+           timeout=300,
+           suppress_exception=False):
+    assert bool(path) != bool(file_bytes), "Either you provide a path or filebytes"
+
+    client = GCS_CLIENT
+    if path:
+        path = path.replace("\\", "/")
+    gs_url = gs_url[:-1] if gs_url[-1] == '/' else gs_url
+    except_context = log_suppress if suppress_exception else log_if_except
+
+    if file_bytes:
+        assert "." in gs_url or force_as_file, "You have to provide an filepath with an extension or set force_as_file"
+        blob = Blob.from_string(gs_url, client=client)
+        if not do_overwrite and blob.exists(client=client):
+            LOGGER.warning(
+                "Upload url already exists: {}".format(gs_url))
+            return
+        fn = partial(blob.upload_from_string, data=file_bytes, content_type=content_type, client=client, timeout=timeout)
+        LOGGER.info(f"Uploading file_bytes to {gs_url}")
+        with except_context(f"Could not upload: {gs_url}", Exception):
+            mvfunctions.misc.do_retry_if_exeption(fn, max_retries=max_retries)
+
+    # We have dirs/files on storage
+    else:
+        loc_filepaths = []
+        gcs_path_appends = []
+        if os.path.isfile(path) or force_as_file:
+            loc_filepaths.append(path)
+            gcs_path_appends.append(os.path.basename(path))
+        # We have a directory. We need to get the directory name and get everything in it
+        # the directory and every file in it will be uploaded in that structure
+        else:
+            del_prefix_left_len = len('/'.join(path.split('/')[:-1]))
+            root_dir_name = path.split('/')[-1]  # everyting except the dir which should be uploaded
+            # files = glob.glob(path +"/**", recursive=True)
+            for root, dirs, files in os.walk(path):
+                for file in files:
+                    loc_filepath = os.path.join(root, file).replace("\\", "/")
+                    gcs_append = loc_filepath[del_prefix_left_len:]
+                    loc_filepaths.append(loc_filepath)
+                    gcs_path_appends.append(gcs_append)
+
+        pbar_disabled = False
+        for loc_filepath, gcs_append in tqdm.tqdm(zip(loc_filepaths, gcs_path_appends), desc="Uploading: ", disable=pbar_disabled):
+            to_gsurl = f"{gs_url}{gcs_append}"
+            blob = Blob.from_string(to_gsurl, client=client)
+            # Costly Class A Operation if do_overwrite is False
+            if not do_overwrite and blob.exists(client=client):
+                LOGGER.warning(
+                    "Upload url already exists: {}".format(to_gsurl))
+                continue
+            # file_path = os.path.join(local_path, loc_filepath)
+            LOGGER.info("Uploading {} to {}".format(loc_filepath, to_gsurl))
+            fn = partial(blob.upload_from_filename, filename=loc_filepath, client=client, timeout=timeout)
+            with except_context("Could not upload: {}".format(to_gsurl), Exception):
+                mwfunctions.misc.do_retry_if_exeption(fn)
+
+
+def download_apply(gs_urls: List[str], dest_dir: str, no_globbing: bool, verbose: int = 0, num_worker: int = -1,
+                   chunksize: int = 1):
+    """Inorder multiprocessing download.
+
+    Args:
+        gs_urls (List[str]): [description]
+        dest_dir (str): [description]
+        no_globbing (bool): [description]
+        verbose (int, optional): [description]. Defaults to 0.
+        num_worker (int, optional): [description]. Defaults to -1.
+
+    Returns:
+        list: Downloaded path, None if error.
+    """
+    from mwfunctions.parallel import mp_map
+    from tqdm import tqdm
+    from mwfunctions import environment
+
+    download_fn = partial(download,
+                          destination_dir=dest_dir,
+                          do_overwrite=not no_globbing,
+                          force_as_file=True,
+                          with_rel_path=True,
+                          suppress_exception=True,
+                          log_verbose=verbose)
+
+    # assert num_worker <= len(gs_urls)
+    cpu_count = environment.get_cpu_count()
+    if num_worker == -1 or num_worker > len(gs_urls) or cpu_count:
+        num_worker = min(len(gs_urls), cpu_count)
+
+    gs_urls = tqdm(gs_urls, desc="File download", )
+    ret_iter = map(download_fn, gs_urls) if num_worker == 1 else mp_map(download_fn,
+                                                                        gs_urls,
+                                                                        chunksize=chunksize,
+                                                                        # leave it for 1 for now
+                                                                        num_worker=int(num_worker))  # bug?
+
+    paths, error_paths = zip(*ret_iter)
+    paths = [item for sublist in paths for item in sublist]
+    errors = [bool(len(item)) for item in error_paths]
+    # paths = [path if not error else None for path, error in zip(paths, errors)]
+
+    return paths, errors
+
+def get_gcs2LocalJsonGen(json_path_df: pd.DataFrame, local_output_dir: str, json_gs_url_col="json_gs_url"):
+    """ Download json files containing the objects and provide access as generator.
+
+    Filter for a category, this will merge the dataset_table with the json table and atm selects "main_category" as
+    the column to use to filter.
+    """
+    # gs_urls = [gs_url[0] for gs_url in json_path_df[bmc.JSON_GS_URL_COL].values.tolist()]  # Flatten the list
+    gs_urls = json_path_df[json_gs_url_col].values.tolist()
+    gcs2LocalJsonGen = GCS2LocalJsonGen(gs_urls, local_output_dir=local_output_dir)
+    assert len(gcs2LocalJsonGen) == len(json_path_df), "Lens not euqal...."
+    return gcs2LocalJsonGen, json_path_df
+
+class GCS2LocalJsonGen(object):
+    def __init__(self,
+                 gs_urls: List[str],
+                 local_output_dir: str):
+        """ Downloads json files specified in the given bigquery table.
+
+        WARNING:
+            Output order not the same as input gs_urls
+
+        TODO: What is with memory? Both if we do
+
+        """
+
+        self.gs_urls = gs_urls
+        self.max_elems = len(self.gs_urls)
+        self.local_output_dir = local_output_dir
+
+        self.download_jsons()
+
+        # Get a list of the local files
+        self.local_json_files = self.list_local_json_files()
+        self.idx = 0
+
+    def download_jsons(self, do_overwrite=False):
+        """
+        Temporarily download the df, extract the json paths and donwload them.
+
+        TODO:
+            - Maybe hardcode category_col
+
+        :param do_overwrite:
+        :return:
+        """
+        # Startup of mp take to long if we only have a small amount of files
+        singleprocess = False # if self.max_elems < 5 else False
+
+        self.local_paths, errors = download_apply(self.gs_urls, dest_dir=self.local_output_dir, no_globbing=~do_overwrite, verbose=False, num_worker=1 if singleprocess else -1)
+
+    def list_local_json_files(self):
+        """ """
+        return [f"{self.local_output_dir}/{file}" for file in self.local_paths]
+        # return [os.path.join(self.local_output_dir, file) for file in os.listdir(self.local_output_dir)]
+
+    def __iter__(self):
+        self.idx = 0
+        return self
+
+    def __len__(self):
+        return len(self.local_json_files)
+
+    def __next__(self):
+        try:
+            while self.max_elems >= self.idx:
+                json_file = self.local_json_files[self.idx]
+                try:
+                    self.idx += 1
+                    with open(json_file) as f:
+                        return json.load(f)
+                except json.JSONDecodeError as e:
+                    LOGGER.error(f"Could not decode json: {json_file}")
+        except IndexError:
+            pass
+        # except IndexError:
+        #     raise StopIteration
+        # finally:
+        # Important to condisder mistakes from manually taking next and maybe skipping an element
+        # self.idx = 0
+        raise StopIteration

@@ -97,3 +97,7 @@ def assert_gcp_auth(credentials=None, project_id=None):
     # os.environ['GOOGLE_CLOUD_PROJECT']
 
 
+
+def get_cpu_count():
+    import multiprocessing
+    return multiprocessing.cpu_count()

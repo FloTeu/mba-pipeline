@@ -1,0 +1,1 @@
+MBA_MARKETPLACES_LIST = ["com", "de"]

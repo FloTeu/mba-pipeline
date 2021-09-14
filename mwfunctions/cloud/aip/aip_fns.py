@@ -4,6 +4,7 @@ import subprocess
 import socket
 import requests
 
+from pydantic import BaseModel
 from google.cloud import storage
 from googleapiclient import discovery
 from requests_futures.sessions import FuturesSession
@@ -17,6 +18,14 @@ def response_to_json_hook(resp, *args, **kwargs):
     # parse the json storing the result on the response object
     resp.data = resp.json()
 
+
+class AIPTfB64ImageInstance(BaseModel):
+    b64: str
+
+# List of instances which should be sended to AIP. e.g. [{"b64": base64_str}]
+class AIPTfB64ImageInstancePtWrapper(BaseModel):
+    """This is what ai engine expects as an instance for a pytorch model query"""
+    data: AIPTfB64ImageInstance
 
 class AI_Model():
     def __init__(self, model_gs_url, region=None, project_id='mba-pipeline', future_sessions_max_workers=2, squeeze_result=True):
@@ -188,15 +197,36 @@ class AI_Model():
         print(resp)
         print(resp.data)
 
-    def deploy_local(self, gpu=None):
-        args_str = f"docker run --name {self.model_name} --rm {'--gpus ' + gpu  if gpu else ''} -d -p 8080:8080 -p 8081:8081 -p 8082:8082 -p 7070:7070 -p 7071:7071 {self.model_image}"
-        subprocess.run(args_str,
-                       shell=True, check=True,
-                       executable='/bin/bash')
-        args_str = f"curl -X POST 'http://0.0.0.0:8081/models?url={self.model_name}.mar&model_name={self.model_name}&batch_size=128&max_batch_delay=1000&initial_workers=1'"
-        subprocess.run(args_str,
-                       shell=True, check=True,
-                       executable='/bin/bash')
+    def deploy_local(self, gpu=None, batch_size=8):
+        try:
+            args_str = f"docker run --name {self.model_name} --rm {'--gpus ' + gpu  if gpu else ''} -d -p 8080:8080 -p 8081:8081 -p 8082:8082 -p 7070:7070 -p 7071:7071 {self.model_image}"
+            subprocess.run(args_str,
+                           shell=True, check=True,
+                           executable='/bin/bash')
+        except Exception as e:
+            print(str(e))
+        while True:
+            try:
+                if requests.get(f'http://0.0.0.0:8080/ping').json()["status"] != "Healthy":
+                    print("Status is not healthy", requests.get(f'http://0.0.0.0:8080/ping').json()["status"])
+                    # wait some seconds
+                    time.sleep(5)
+                else:
+                    break
+            except Exception as e:
+                print("Error:", e)
+                time.sleep(5)
+
+        import multiprocessing
+        requests.post(f'http://0.0.0.0:8081/models?url={self.model_name}.mar&model_name={self.model_name}&batch_size={batch_size}&max_batch_delay=1000&initial_workers=1')
+        requests.put(f'http://0.0.0.0:8081/models/{self.model_name}?min_worker=1&max_worker={ multiprocessing.cpu_count()}&batch_size={batch_size}')
+        requests.put(f'http://0.0.0.0:8081/models/{self.model_name}/1.0/set-default')
+        #if gpu:
+        #    requests.put(f'http://0.0.0.0:8081/models/{self.model_name}?gpu=True')
+
+        # requests.get(f'http://0.0.0.0:8081/models/{self.model_name}').text
+        # args_str = f"curl -X POST 'http://0.0.0.0:8081/models?url={self.model_name}.mar&model_name={self.model_name}&batch_size=128&max_batch_delay=1000&initial_workers=1'"
+
 
     def shutdown_local(self, do_rm=False):
         args_str = f'docker stop $(docker ps -a -q --filter "name={self.model_name}")'
@@ -288,7 +318,7 @@ class AI_Model():
         else:
             return self.session.post(self.aip_inference_url, json=body, timeout=timeout, hooks={"response": response_to_json_hook}, headers=self.auth_headers)
 
-    def get_future_results(self, future, instances, max_retry_requests=6, local_run=False):
+    def get_future_result(self, future, instances, max_retry_requests=6, timeout=60, local_run=False):
         retry_counter = 0
         while retry_counter < max_retry_requests:
             time.sleep(retry_counter * 2)
@@ -305,7 +335,7 @@ class AI_Model():
                 # Response status code: 404 and type: <class 'dict'> and data {'error': {'code': 404, 'message': 'Requested entity was not found.', 'status': 'NOT_FOUND'}} [while running 'Preprocess + Append Feature Vector 2']
                 self.overwrite_auth_headers()
             # retry and get new future
-            future = self.get_inference_future(instances, local_run=local_run)
+            future = self.get_inference_future(instances, local_run=local_run, timeout=timeout)
             retry_counter += 1
 
         resp = future.result()
