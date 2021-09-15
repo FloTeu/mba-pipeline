@@ -69,6 +69,9 @@ def np2b64_str(img_np):
 def np2pil(img_np):
     return Image.fromarray(img_np)
 
+def pil2np(img_pil):
+    return np.array(img_pil)
+
 def b64_str2np(b64_str):
     img_bytes = b64_str2bytes(b64_str)
     img = bytes2np(img_bytes)

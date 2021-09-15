@@ -1,4 +1,4 @@
-
+import os
 from google.cloud import storage
 from google.cloud.storage.blob import Blob
 from typing import Optional, Union, Iterator, Tuple, List, BinaryIO
@@ -7,10 +7,17 @@ import pandas as pd
 
 import json
 
+import tqdm
 from mwfunctions.exceptions import log_suppress, log_if_except
 import mwfunctions.misc
 
 GCS_CLIENT = storage.Client()
+
+
+# Setup logging
+from mwfunctions.logger import get_logger
+LOGGER = get_logger(__name__, labels_dict={})
+
 
 class StorageParams():
     def __init__(self, gs_url, project="mba-pipeline", credentials=None):
@@ -58,6 +65,88 @@ def read_file_as_bytes(gs_url,
     fn = partial(blob.download_as_bytes, client=GCS_CLIENT)
     with except_context("Could not download: {}".format(gs_url), Exception):
         return mwfunctions.misc.do_retry_if_exeption(fn, max_retries=max_retries)
+
+    download_paths = [blob.name for blob in blobs]
+    return download_paths, error_filepaths
+
+
+def download(gs_url,
+             destination_dir=None,
+             do_overwrite: bool = False,
+             max_retries: int = 2,
+             storage_client: storage.Client = None,
+             force_as_file=False,
+             with_rel_path=False,
+             suppress_exception=False,
+             log_verbose=False):
+
+    #with log_time("Create client", is_on=False):
+    client = GCS_CLIENT
+    # if log_verbose:
+    #     print(client)
+
+    # with log_time("Rest of download", is_on=False):
+    blobs = []
+    error_filepaths = []
+    gs_splits = gs_url.split('/')
+    bucket_name = gs_splits[2]
+    prefix = '/'.join(gs_splits[3:])
+    # A file has . in it
+    if "." in os.path.basename(gs_url) or force_as_file:
+        # with log_time("As file", is_on=True):
+        blob = Blob.from_string(gs_url, client=client)
+        # if blob.exists(client=client):  # this is a class A Operation and should be skipped
+        blobs.append(blob)
+    # Clone dir
+    else:
+        assert destination_dir is not None, "You have to provide a download_path to download a dir"
+        LOGGER.warning("Costly class A Operation!")
+        blobs = list(client.list_blobs(bucket_or_name=bucket_name, prefix=prefix))  # Get list of files
+
+    # if len(blobs) == 0:
+    #     raise FileNotFoundError("No files found for gs_url {}".format(gs_url))
+
+    except_context = log_suppress if suppress_exception else log_if_except
+
+    # if no destination dir -> download as file
+    if destination_dir is None and len(blobs) == 1:
+        blob = blobs[0]
+        fn = partial(blob.download_as_bytes, client=client)
+        with except_context("Could not download: {}".format(gs_url), Exception):
+            return mwfunctions.misc.do_retry_if_exeption(fn, max_retries=max_retries)
+    else:
+        # donwload_paths = []
+        # Disable pbar for only 1 blob
+        pbar_disabled = len(blobs) == 1 or not log_verbose
+        with tqdm.tqdm(total=len(blobs), desc="Downloading: ", disable=pbar_disabled) as pbar:
+            for blob in blobs:
+                # filename = blob.name.replace(prefix, os.path.basename(prefix))
+                rel_filepath = blob.name if with_rel_path else blob.name.replace(prefix, os.path.basename(prefix))
+                curr_download_pth = os.path.join(destination_dir, rel_filepath)
+                # Put in list
+                # donwload_paths.append(curr_download_pth)
+                if do_overwrite or not os.path.exists(curr_download_pth):
+                    os.makedirs(os.path.dirname(curr_download_pth), exist_ok=True)
+                    if log_verbose:
+                        LOGGER.info(f"Downloading: {gs_url} to {curr_download_pth}")
+                    pbar.set_description_str(f"Downloading: {blob.name}")
+                    fn = partial(blob.download_to_filename, filename=curr_download_pth, client=client)
+                    # with log_time("Acutal download", is_on=True):
+                    with except_context(f"Could not download: {gs_url}", Exception):
+                        mwfunctions.misc.do_retry_if_exeption(fn, max_retries=max_retries)
+                    # Test not empty
+                    if os.stat(curr_download_pth).st_size == 0:
+                        LOGGER.error(f"Removing empty file")
+                        os.remove(curr_download_pth)
+                    # Check if the downloaded file exists, else log the error
+                    if not os.path.exists(curr_download_pth):
+                        error_filepaths.append(curr_download_pth)
+                else:
+                    if log_verbose:
+                        LOGGER.info(
+                            f"The download_file_path: {curr_download_pth} already exists")
+                pbar.update(1)
+        # return download_paths
 
     download_paths = [blob.name for blob in blobs]
     return download_paths, error_filepaths
