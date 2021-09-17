@@ -2,6 +2,7 @@ from data_handler import DataHandler
 from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
 from bigquery_handler import BigqueryHandler
+from ai_fns import update_descriptor_json_files, update_projector_files
 import merchwatch_daily_creator as merchwatch_daily_creator
 
 import requests
@@ -12,6 +13,7 @@ import pytz
 import pandas as pd
 
 from mwfunctions.cloud.auth import get_headers_by_service_url
+from mwfunctions.cloud.aip import AI_Model
 
 def get_args(argv=None):
     parser = argparse.ArgumentParser()
@@ -108,6 +110,8 @@ def main(args):
         BigQueryHandlerModel = BigqueryHandler(marketplace=marketplace, dev=args.dev)
         DataHandlerModel = DataHandler(marketplace=marketplace, bigquery_handler=BigQueryHandlerModel)
         NicheUpdaterModel = NicheUpdater(marketplace=marketplace, dev=args.dev)
+        ML_MODEL_URL = "gs://5c0ae2727a254b608a4ee55a15a05fb7/ai/models/pytorch_pre_dino"
+        model = AI_Model(ML_MODEL_URL, region="europe-west1", project_id="mba-pipeline")
         keywords="brawl" #"Schleich di du Oaschloch; Dezentralisierung, Wolliball, Lockdown 2021,Agrardemiker;Among;Schlafkleidung;Querdenken;Qanon"
         #NicheUpdaterModel.crawl_niches(keywords)
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
@@ -123,6 +127,18 @@ def main(args):
             DataHandlerModel.update_trademark(marketplace)
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_language_code(marketplace)
+
+            # AI related updates
+            acceleratorConfig = {
+                'count': 1,
+                'type': "NVIDIA_TESLA_K80"
+            }
+            model.create_version(exporter_name="exporter", machineType="n1-standard-4",
+                                 acceleratorConfig=acceleratorConfig, wait_until_finished=True)
+            update_descriptor_json_files(ML_MODEL_URL, sortby_list=["trend_nr", "bsr_last"], marketplace_list=["com","de"])
+            model.delete_version()
+            update_projector_files(ML_MODEL_URL)
+
             #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
 
         # update trend_niches after deletion process
@@ -137,6 +153,8 @@ def main(args):
 
     except Exception as e:
         print(str(e))
+        # make sure model version is deleted
+        model.delete_version()
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
 
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
