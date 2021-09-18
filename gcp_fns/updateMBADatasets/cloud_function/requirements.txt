@@ -4,3 +4,4 @@ requests==2.24.0
 tqdm==4.48.2
 google-api-python-client==1.10.0
 oauth2client
+pydantic

@@ -5,7 +5,7 @@ from firebase_admin import firestore
 from os.path import join
 import numpy as np
 from numpy.lib.index_tricks import _fill_diagonal_dispatcher
-from mwfunctions.transform import get_shortened_plot_data
+from mwfunctions.transform import get_shortened_plot_data, df_dict2subcollections
 #from utils_plot import get_shortened_plot_data
 import time
 
@@ -165,98 +165,6 @@ class Firestore():
         self.db.collection(self.collection_name).document(doc_id).delete()
 
 
-def list2year_dict(data_list, date_list, year_dict, data_name, date_format='%d/%m/%Y'):
-    """
-        data_list: [2312, 23423423, 43534]
-        date_list: [03/07/2021,01/07/2021,17/06/2021]
-        data_name: e.g. bsr, price etc.
-
-        year_dict = {2022: {"bsr": ...}}
-    """
-    assert len(data_list) == len(date_list), f"data_list and date_list need to have same length, but have length {len(data_list)} and {len(date_list)}"
-    
-    while len(date_list) != 0:
-        date_str = date_list.pop(0)
-        data = data_list.pop(0)
-        year = datetime.strptime(date_str, date_format).year 
-        date_str_standard = str(datetime.strptime(date_str, date_format).date())
-        if year not in year_dict:
-            year_dict[year] = {}
-        if data_name not in year_dict[year]:
-            year_dict[year][data_name] = {}
-        year_dict[year][data_name].update({date_str_standard: data})
-    return year_dict
-
-
-def df_dict2subcollections(df_dict):
-    """ Takes df_dict:
-            {"plot_x": "03/07/2021,01/07/2021,17/06/2021,12/06/2021,09/06/2021,06/06/2021",
-             "plot_y": "1389005,1287762,805237,662490,574463,468444",
-             "plot_x_price": "06/06/2021,08/07/2021",
-             "plot_y_price": "13.5,15.5",
-             ...}
-
-        to:
-        sub_collection_dict:
-            {
-                "plot_data":
-                    {
-                        "year": 
-                            {"bsr": {"2020-09-20": 480549, ...},
-                            "price": {"2020-09-20": 13.99, ...},
-                            "takedowns": {"2018-10-02": 0, ...},
-                            "uploads": {"2018-10-03": 1, ...},
-                            }
-                    }
-            }
-    """
-    sub_collection_dict = {}
-
-    dates_bsr_list = []
-    bsr_data_list = []
-    dates_price_list = []
-    price_data_list = []
-    
-    if "plot_x" in df_dict and df_dict["plot_x"] != None:
-        dates_bsr_list = df_dict["plot_x"].split(",")
-    if "plot_y" in df_dict and df_dict["plot_y"] != None:
-        bsr_data_list = [int(v) for v in df_dict["plot_y"].split(",")]
-    if "plot_x_price" in df_dict and df_dict["plot_x_price"] != None:
-        dates_price_list = df_dict["plot_x_price"].split(",")
-    if "plot_y_price" in df_dict and df_dict["plot_y_price"] != None:
-        price_data_list = [float(v) for v in df_dict["plot_y_price"].split(",")]
-
-    if len(dates_bsr_list) == 0:
-        curr_year = datetime.now().year
-        return {"plot_data": {curr_year: {"bsr": {}, "prices": {}, "takedowns": {}, "uploads": {}, "year": curr_year}}}
-
-    plot_data_dict = {}
-
-    if len(dates_price_list) > 0:
-        start_year = min(datetime.strptime(dates_bsr_list[-1], '%d/%m/%Y').year, datetime.strptime(dates_price_list[-1], '%d/%m/%Y').year)
-        end_year = max(datetime.strptime(dates_bsr_list[0], '%d/%m/%Y').year, datetime.strptime(dates_price_list[0], '%d/%m/%Y').year)
-    else:
-        start_year = datetime.strptime(dates_bsr_list[-1], '%d/%m/%Y').year
-        end_year = datetime.strptime(dates_bsr_list[0], '%d/%m/%Y').year
-
-    plot_data_dict = list2year_dict(bsr_data_list, dates_bsr_list, plot_data_dict, "bsr", date_format='%d/%m/%Y')
-    plot_data_dict = list2year_dict(price_data_list, dates_price_list, plot_data_dict, "prices", date_format='%d/%m/%Y')
-    
-    
-    # standardize plot_data dict. Every year should contain year as field + bsr and prices as at least empty dicts
-    for year_count in range(end_year-start_year + 1):
-        curr_year = start_year+year_count
-        if curr_year not in plot_data_dict:
-            plot_data_dict[curr_year] = {}
-        if "year" not in plot_data_dict[curr_year]:
-            plot_data_dict[curr_year]["year"] = curr_year
-        for data_name in ["bsr", "prices"]:
-            if data_name not in plot_data_dict[curr_year]:
-                plot_data_dict[curr_year][data_name] = {}
-
-    sub_collection_dict.update({"plot_data": plot_data_dict})
-
-    return sub_collection_dict
 
 UPLOAD_SINCE_DAYS_LIST = [7,14,30,90,365]
 

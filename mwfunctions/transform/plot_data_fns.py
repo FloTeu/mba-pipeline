@@ -2,8 +2,11 @@ from rdp import rdp
 import copy
 import time
 import random
+from datetime import date, datetime
 
+from mwfunctions.pydantic import FSWatchItemSubCollectionDict, BQPlotDataRaw
 max_number_of_plot_points = 20
+
 
 
 def get_short_list(list, mask, convert_to_str=False):
@@ -100,7 +103,7 @@ def get_shortened_plot_data_dict(plot_data_dict, max_number_of_plot_points=20, m
     return shortened_plot_data_dict
 
 
-def get_shortened_plot_data(sub_collection_dict, max_number_of_plot_points=20, min_number_of_plot_points=18):
+def get_shortened_plot_data(sub_collection_dict: FSWatchItemSubCollectionDict, max_number_of_plot_points=20, min_number_of_plot_points=18):
     """
         sub_collection_dict:
             {
@@ -139,3 +142,84 @@ def get_shortened_plot_data(sub_collection_dict, max_number_of_plot_points=20, m
         return shortened_plot_data
     else:
         return shortened_plot_data
+
+
+## BQ to FS
+
+def list2year_dict(data_list, date_list, year_dict, data_name, date_format='%d/%m/%Y') -> dict:
+    """
+        data_list: [2312, 23423423, 43534]
+        date_list: [03/07/2021,01/07/2021,17/06/2021]
+        data_name: e.g. bsr, price etc.
+
+        year_dict = {2022: {"bsr": ...}}
+    """
+    assert len(data_list) == len(
+        date_list), f"data_list and date_list need to have same length, but have length {len(data_list)} and {len(date_list)}"
+
+    while len(date_list) != 0:
+        date_str = date_list.pop(0)
+        data = data_list.pop(0)
+
+        year = str(datetime.strptime(date_str, date_format).year)
+        date_str_standard = str(datetime.strptime(date_str, date_format).date())
+        if year not in year_dict:
+            year_dict[year] = {}
+        if data_name not in year_dict[year]:
+            year_dict[year][data_name] = {}
+        year_dict[year][data_name].update({date_str_standard: data})
+    return year_dict
+
+
+def df_dict2subcollections(df_dict: BQPlotDataRaw, date_format='%d/%m/%Y') -> FSWatchItemSubCollectionDict:
+    """
+    """
+    sub_collection_dict = {}
+
+    dates_bsr_list = []
+    bsr_data_list = []
+    dates_price_list = []
+    price_data_list = []
+
+    if "plot_x" in df_dict and df_dict["plot_x"] != None:
+        dates_bsr_list = df_dict["plot_x"].split(",")
+    if "plot_y" in df_dict and df_dict["plot_y"] != None:
+        bsr_data_list = [int(v) for v in df_dict["plot_y"].split(",")]
+    if "plot_x_price" in df_dict and df_dict["plot_x_price"] != None:
+        dates_price_list = df_dict["plot_x_price"].split(",")
+    if "plot_y_price" in df_dict and df_dict["plot_y_price"] != None:
+        price_data_list = [float(v) for v in df_dict["plot_y_price"].split(",")]
+
+    if len(dates_bsr_list) == 0:
+        curr_year = datetime.now().year
+        return {"plot_data": {str(curr_year): {"bsr": {}, "prices": {}, "takedowns": {}, "uploads": {}, "year": curr_year}}}
+
+    plot_data_dict = {}
+
+    if len(dates_price_list) > 0:
+        start_year = min(datetime.strptime(dates_bsr_list[-1], '%d/%m/%Y').year,
+                         datetime.strptime(dates_price_list[-1], '%d/%m/%Y').year)
+        end_year = max(datetime.strptime(dates_bsr_list[0], '%d/%m/%Y').year,
+                       datetime.strptime(dates_price_list[0], '%d/%m/%Y').year)
+    else:
+        start_year = datetime.strptime(dates_bsr_list[-1], '%d/%m/%Y').year
+        end_year = datetime.strptime(dates_bsr_list[0], '%d/%m/%Y').year
+
+    plot_data_dict = list2year_dict(bsr_data_list, dates_bsr_list, plot_data_dict, "bsr", date_format=date_format)
+    plot_data_dict = list2year_dict(price_data_list, dates_price_list, plot_data_dict, "prices", date_format=date_format)
+
+    # standardize plot_data dict. Every year should contain year as field + bsr and prices as at least empty dicts
+    for year_count in range(end_year - start_year + 1):
+        curr_year = start_year + year_count
+        curr_year_str = str(curr_year)
+        if curr_year_str not in plot_data_dict:
+            plot_data_dict[curr_year_str] = {}
+        if "year" not in plot_data_dict[curr_year_str]:
+            plot_data_dict[curr_year_str]["year"] = curr_year
+        for data_name in ["bsr", "prices"]:
+            if data_name not in plot_data_dict[curr_year_str]:
+                plot_data_dict[curr_year_str][data_name] = {}
+
+    sub_collection_dict.update({"plot_data": plot_data_dict})
+
+    return FSWatchItemSubCollectionDict.parse_obj(sub_collection_dict)
