@@ -23,3 +23,4 @@ firebase-admin
 rake-nltk==1.0.4
 rdp
 requests-futures
+pydantic
