@@ -63,7 +63,7 @@ class AI_Model():
         self.endpoint = f'https://ml.googleapis.com' if not region else f'https://{self.region}-ml.googleapis.com'
 
         self.scopes = ["https://www.googleapis.com/auth/cloud-platform"]
-        self.overwrite_auth_headers()
+        self.reload_auth_headers()
 
         self.session = FuturesSession(
             max_workers=self.future_sessions_max_workers)  # 8 is default
@@ -76,7 +76,7 @@ class AI_Model():
         self.output_parser = AIPOutputParser(framework=self.framework, squeeze_result=squeeze_result)
         self.model_image =  f"{self.region}-docker.pkg.dev/{self.project_id}/pytorch-models/{self.aip_model_name}:latest"
 
-    def overwrite_auth_headers(self):
+    def reload_auth_headers(self):
         self.auth_headers = {'Authorization': get_id_token_header(get_service_account_id_token(
             scopes=self.scopes)), 'Content-Type': 'application/json; UTF-8'}
 
@@ -150,6 +150,7 @@ class AI_Model():
         # }
         # https://cloud.google.com/ai-platform/prediction/docs/reference/rest/v1/projects.models.versions
         print(f'creating model version... ')
+        self.reload_auth_headers()
 
         time_start = time.time()
 
@@ -333,7 +334,7 @@ class AI_Model():
                 # Please use scale workers API to add workers.'} [while running 'Preprocess + Append Feature Vector 2']
 
                 # Response status code: 404 and type: <class 'dict'> and data {'error': {'code': 404, 'message': 'Requested entity was not found.', 'status': 'NOT_FOUND'}} [while running 'Preprocess + Append Feature Vector 2']
-                self.overwrite_auth_headers()
+                self.reload_auth_headers()
             # retry and get new future
             future = self.get_inference_future(instances, local_run=local_run, timeout=timeout)
             retry_counter += 1
