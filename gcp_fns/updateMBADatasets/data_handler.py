@@ -18,7 +18,7 @@ import gc
 from django.conf import settings
 import logging
 from firestore_handler import Firestore
-from text_rank import TextRank4Keyword
+from mwfunctions.text import TextRank4Keyword
 from langdetect import detect
 import difflib
 from pytz import timezone

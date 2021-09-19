@@ -247,7 +247,7 @@ from nltk import ngrams
 from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
 from shirt_handler import MerchwatchShirt
-from text_rank import TextRank4Keyword
+from mwfunctions.text import TextRank4Keyword
 import difflib
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.cluster import DBSCAN, KMeans
