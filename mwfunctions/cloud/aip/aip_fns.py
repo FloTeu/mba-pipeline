@@ -242,6 +242,7 @@ class AI_Model():
         # https://cloud.google.com/ai-platform/prediction/docs/reference/rest/v1/projects.models.versions/delete
         url = f"https://{self.region + '-' if self.region else ''}ml.googleapis.com/v1/projects/{self.project_id}/models/{self.aip_model_name}/versions/{self.model_name}"
         print(f"Deleting: {url}")
+        self.reload_auth_headers()
 
         future = self.session.delete(url, timeout=self.timeout, hooks={
                                    "response": response_to_json_hook}, headers=self.auth_headers)
