@@ -127,16 +127,20 @@ def main(args):
             DataHandlerModel.update_trademark(marketplace)
             send_msg("869595848", "Update niches of day %s" % today_day,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
             DataHandlerModel.update_language_code(marketplace)
-
-            # AI related updates
-            acceleratorConfig = {
-                'count': 1,
-                'type': "NVIDIA_TESLA_K80"
-            }
-            model.create_version(exporter_name="exporter", machineType="n1-standard-4",
-                                 acceleratorConfig=acceleratorConfig, wait_until_finished=True)
-            update_descriptor_json_files(ML_MODEL_URL, sortby_list=["trend_nr", "bsr_last"], marketplace_list=["com","de"])
+            try:
+                # AI related updates
+                acceleratorConfig = {
+                    'count': 1,
+                    'type': "NVIDIA_TESLA_K80"
+                }
+                model.create_version(exporter_name="exporter", machineType="n1-standard-4",
+                                     acceleratorConfig=acceleratorConfig, wait_until_finished=True)
+                update_descriptor_json_files(ML_MODEL_URL, sortby_list=["trend_nr", "bsr_last"], marketplace_list=["com","de"])
+            except Exception as e:
+                print("Could not create descriptor files", str(e))
             model.delete_version()
+
+        if today_weekday == 6 or today_weekday == 2: #sunday or wednesday
             update_projector_files(ML_MODEL_URL)
 
             #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"

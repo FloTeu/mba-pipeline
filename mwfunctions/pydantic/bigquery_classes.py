@@ -1,5 +1,6 @@
 
 from pydantic import BaseModel, Field
+# TODO_ lteral is only available since python3.8, but instance has python 3.7
 from typing import Union, Dict, List #, Literal
 
 from mwfunctions.pydantic.base_classes import MWBaseModel

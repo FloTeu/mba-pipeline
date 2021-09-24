@@ -12,9 +12,13 @@ def update_descriptor_json_files(model_gs_url, sortby_list=["trend_nr", "bsr_las
     headers.update({"Authorization": auth_header})
     for marketplace in marketplace_list:
         for sortby in sortby_list:
-            r = requests.get(f"{MBA_PIPELINE_AI_API}{endpoint}?model_gs_url={model_gs_url}&marketplace={marketplace}&sort_by={sortby}&batch_size={batch_size}&limit={update_top_n}", headers=headers,
-                              timeout=60*60)
-            print(r.text)
+            try:
+                r = requests.get(f"{MBA_PIPELINE_AI_API}{endpoint}?model_gs_url={model_gs_url}&marketplace={marketplace}&sort_by={sortby}&batch_size={batch_size}&limit={update_top_n}", headers=headers,
+                              timeout=60*20)
+                print(r.text)
+            except Exception as e:
+                print(str(e))
+
 
 ## projector fns
 def update_projector_files(model_gs_url):
