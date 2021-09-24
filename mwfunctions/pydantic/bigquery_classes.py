@@ -1,6 +1,6 @@
 
 from pydantic import BaseModel, Field
-from typing import Union, Dict, List, Literal
+from typing import Union, Dict, List #, Literal
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.transform.utils import bq_list_str_to_list
@@ -22,6 +22,7 @@ class BQKeywordDataRaw(MWBaseModel):
     brand:str = Field(description="Brand of mba product")
     title:str = Field(description="Title of product")
     description: str = Field(default="", description="Description of product. Is not part of merchwatch_shirts table")
+    #language: Literal['de', 'en'] = Field(default=None, description="Language of product text")
     language: Literal['de', 'en'] = Field(default=None, description="Language of product text")
 
     def get_keyword_text(self, marketplace):
