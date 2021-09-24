@@ -23,7 +23,7 @@ class BQKeywordDataRaw(MWBaseModel):
     title:str = Field(description="Title of product")
     description: str = Field(default="", description="Description of product. Is not part of merchwatch_shirts table")
     #language: Literal['de', 'en'] = Field(default=None, description="Language of product text")
-    language: Literal['de', 'en'] = Field(default=None, description="Language of product text")
+    language: str = Field(default=None, description="Language of product text")
 
     def get_keyword_text(self, marketplace):
         # all keyword related text combined with whitespaces.
