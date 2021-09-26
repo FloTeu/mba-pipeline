@@ -143,6 +143,7 @@ def main(args):
             model.delete_version()
 
         if today_weekday == 6 or today_weekday == 2: #sunday or wednesday
+            # TODO why does response cannot be received before timeout error?
             update_projector_files(ML_MODEL_URL)
             # TODO redeploy cloud run
             process = subprocess.Popen('/usr/bin/gcloud run deploy merchwatch-projector-de --image eu.gcr.io/merchwatch/merchwatch-projector-de --allow-unauthenticated --platform managed --project merchwatch --region="europe-west3" --service-account="merchwatch-backend@merchwatch.iam.gserviceaccount.com"  --timeout=15m --memory=1Gi', shell=True, stdout=subprocess.PIPE)

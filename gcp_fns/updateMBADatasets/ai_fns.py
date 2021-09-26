@@ -17,7 +17,7 @@ def update_descriptor_json_files(model_gs_url, sortby_list=["trend_nr", "bsr_las
                               timeout=60*20)
                 print(r.text)
             except Exception as e:
-                print(str(e))
+                print("ERROR during update_descriptor_json_files()",str(e))
 
 
 ## projector fns
@@ -27,6 +27,9 @@ def update_projector_files(model_gs_url):
     id_token = get_oauth2_id_token_by_url(MBA_PIPELINE_AI_API + endpoint)
     auth_header = get_id_token_header(id_token)
     headers.update({"Authorization": auth_header})
-    r = requests.get(f"{MBA_PIPELINE_AI_API}{endpoint}?model_gs_url={model_gs_url}", headers=headers,
+    try:
+        r = requests.get(f"{MBA_PIPELINE_AI_API}{endpoint}?model_gs_url={model_gs_url}", headers=headers,
                       timeout=60*60)
-    print(r.text)
+        print(r.text)
+    except Exception as e:
+        print("ERROR during update_projector_files()",str(e))
