@@ -2,11 +2,10 @@ from data_handler import DataHandler
 from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
 from bigquery_handler import BigqueryHandler
-from ai_fns import update_descriptor_json_files, update_projector_files
+from ai_fns import update_descriptor_json_files, update_projector_files, deploy_projector_cloud_run
 import merchwatch_daily_creator as merchwatch_daily_creator
 
 import requests
-import subprocess
 import os
 import argparse
 import time
@@ -145,11 +144,8 @@ def main(args):
         if today_weekday == 6 or today_weekday == 2: #sunday or wednesday
             # TODO why does response cannot be received before timeout error?
             update_projector_files(ML_MODEL_URL)
-            # TODO redeploy cloud run
-            process = subprocess.Popen('/usr/bin/gcloud run deploy merchwatch-projector-de --image eu.gcr.io/merchwatch/merchwatch-projector-de --allow-unauthenticated --platform managed --project merchwatch --region="europe-west3" --service-account="merchwatch-backend@merchwatch.iam.gserviceaccount.com"  --timeout=15m --memory=1Gi', shell=True, stdout=subprocess.PIPE)
-            process = subprocess.Popen('/usr/bin/gcloud run deploy merchwatch-projector-com --image eu.gcr.io/merchwatch/merchwatch-projector-com --allow-unauthenticated --platform managed --project merchwatch --region="europe-west3" --service-account="merchwatch-backend@merchwatch.iam.gserviceaccount.com"  --timeout=15m --memory=1Gi', shell=True, stdout=subprocess.PIPE)
-            process.wait()
-            print(process)
+            # redeploy cloud run. Otherwise projector might take old files or does not work correctly
+            deploy_projector_cloud_run(marketplace)
 
             #DataHandlerModel.update_niches(marketplace, chunk_size=args.chunk_size, dates=[]) #2021-02-21 "2021-01-10" "2020-10-11", "2020-10-18", "2020-10-25","2020-11-01", "2020-11-22"
 
