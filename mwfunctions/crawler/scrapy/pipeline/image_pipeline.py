@@ -1,39 +1,21 @@
 
 import scrapy
-from itemadapter import ItemAdapter
 from scrapy.pipelines.images import ImagesPipeline
-import uuid
-from scrapy.exceptions import DropItem
+
 import os
 import datetime
 import hashlib
 import mimetypes
-from scrapy.utils.python import to_bytes
 from io import BytesIO
 from PIL import Image
 
-print(os.getcwd())
 import numpy as np
 import piexif
-import json
-import io
-from pathlib import Path
 from google.cloud import bigquery
 
 
 # IMPORTS FROM FilesPipeline
 import logging
-from itemadapter import ItemAdapter
-from twisted.internet import defer, threads
-
-from scrapy.exceptions import IgnoreRequest, NotConfigured
-from scrapy.http import Request
-from scrapy.pipelines.media import MediaPipeline
-from scrapy.settings import Settings
-from scrapy.utils.boto import is_botocore
-from scrapy.utils.datatypes import CaselessDict
-from scrapy.utils.ftp import ftp_store_file
-from scrapy.utils.log import failure_to_exc_info
 from scrapy.utils.misc import md5sum
 from scrapy.utils.python import to_bytes
 from scrapy.utils.request import referer_str
@@ -42,13 +24,16 @@ from scrapy.pipelines.files import FileException, FilesPipeline
 from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
 
-
 class ImageException(FileException):
     """General image error exception"""
 
 logger = logging.getLogger(__name__)
 
-class MbaCrawlerImagePipelineBase(ImagesPipeline):
+'''
+### Image Pipeline
+'''
+
+class MWScrapyImagePipelineBase(ImagesPipeline):
 
     def get_media_requests(self, item, info):
         # function 1

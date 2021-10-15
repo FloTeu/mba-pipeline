@@ -52,6 +52,7 @@ def str2bool(v):
 
 class MBASpider(scrapy.Spider):
     name = "mba_overview"
+    website_crawling_target = "overview"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products = pd.DataFrame(data={"title":[],"brand":[],"url_product":[],"url_image_lowq":[],"url_image_hq":[],"price":[],"asin":[],"uuid":[], "timestamp":[]})
     df_mba_images = pd.DataFrame(data={"asin":[],"url_image_lowq":[],"url_image_q2":[], "url_image_q3":[], "url_image_q4":[],"url_image_hq":[], "timestamp":[]})
@@ -78,6 +79,7 @@ class MBASpider(scrapy.Spider):
         #"ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
 
         'ITEM_PIPELINES': {
+            'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
             'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
         },
 
@@ -85,7 +87,7 @@ class MBASpider(scrapy.Spider):
         'GCS_PROJECT_ID': 'mba-pipeline'
     }
 
-    def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", **kwargs):
+    def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", debug=True, **kwargs):
 
         self.marketplace = marketplace
         self.pod_product = pod_product
@@ -93,6 +95,7 @@ class MBASpider(scrapy.Spider):
         self.keyword = keyword
         self.pages = int(pages)
         self.start_page = int(start_page)
+        self.debug = debug
         self.allowed_domains = ['amazon.' + marketplace]
         self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace)
         # all image quality url crawled

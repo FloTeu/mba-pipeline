@@ -1,4 +1,7 @@
-from mwfunctions.crawler.scrapy import MbaCrawlerImagePipelineBase
+from mwfunctions.crawler.scrapy.pipeline import MWScrapyImagePipelineBase, MWScrapyItemPipeline
 
-class MbaCrawlerImagePipeline(MbaCrawlerImagePipelineBase):
+class MbaCrawlerImagePipeline(MWScrapyImagePipelineBase):
+    pass
+
+class MbaCrawlerItemPipeline(MWScrapyItemPipeline):
     pass
