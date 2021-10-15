@@ -8,6 +8,11 @@ Installation:
 
 projector request must be with browser (selenium), because otherwise no interaction bewteen client and projector plugin is possible
 selenium notes:
+* install firefox:
+  ```
+  sudo apt-get update
+  sudo apt-get install firefox-esr
+  ```
 * download geckodriver:
   
     ```
@@ -23,5 +28,6 @@ selenium notes:
 selenium version 4.0.0 is compatable with geckodriver 0.30.0
 compatability: https://firefox-source-docs.mozilla.org/testing/geckodriver/Support.html#supported-platforms
 https://realpython.com/modern-web-automation-with-python-and-selenium/
+
 
 ### nltk files

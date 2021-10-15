@@ -65,9 +65,15 @@ def ping_projector_cloud_run(marketplace):#
 
     with suppress(Exception):
         from selenium.webdriver import Firefox
-        from selenium.webdriver.firefox.options import Options
-        opts = Options()
-        opts.set_headless()
-        assert opts.headless  # Operating in headless mode
-        browser = Firefox(options=opts)
+        from selenium.webdriver.firefox.options import Options as FirefoxOptions
+
+        def connectFirefox():
+            options = FirefoxOptions()
+            options.add_argument("--headless")
+            options.headless = True
+            assert options.headless  # Operating in headless mode
+            driver = Firefox(options=options)
+            return driver
+
+        browser = connectFirefox()
         browser.get(f"{PROJECTOR_CLOUD_RUN_MARKETPLACE2URL[marketplace]}/#mw_research")
