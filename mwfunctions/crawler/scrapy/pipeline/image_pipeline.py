@@ -25,7 +25,7 @@ from scrapy.pipelines.files import FileException, FilesPipeline
 from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
-
+from mwfunctions.pydantic.crawling_classes import MBAImageItems
 
 class ImageException(FileException):
     """General image error exception"""
@@ -38,12 +38,12 @@ logger = logging.getLogger(__name__)
 
 class MWScrapyImagePipelineBase(ImagesPipeline):
 
-    def get_media_requests(self, item, info):
+    def get_media_requests(self, item: MBAImageItems, info):
         # function 1
-        assert len(item["asins"]) == len(item['image_urls']), "Length of asins and of image_urls need to be same"
-        # self.change_bucket_if_debug(info)
-        for i, image_url in enumerate(item['image_urls']):
-            yield scrapy.Request(image_url, meta={"marketplace": item["marketplace"], "asin": item["asins"][i]})
+        if isinstance(item, MBAImageItems):
+            # self.change_bucket_if_debug(info)
+            for i, image_item in enumerate(item.image_items):
+                yield scrapy.Request(image_item.url, meta={"marketplace": item.marketplace, "asin": image_item.asin})
 
     def file_downloaded(self, response, request, info, *, item=None):
         return self.image_downloaded(response, request, info)
@@ -230,27 +230,29 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
 
         return most_common_dict_list
 
-    def item_completed(self, results, item, info):
-        # updating BQ
-        client = bigquery.Client()
+    def item_completed(self, results, item: MBAImageItems, info):
 
-        marketplace = item._values["marketplace"]
-        if info.spider.debug:
-            bq_table_id = f"merchwatch-dev.mba_{marketplace}.products_images"
-        else:
-            bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
+        if isinstance(item, MBAImageItems):
+            # updating BQ
+            client = bigquery.Client()
 
-        rows_to_insert = []
-        for i, image_url in enumerate(item._values["image_urls"]):
-            # if downloaded successfully
-            if results[i][0]:
-                with suppress(Exception):
-                    # inc. crawling job counter for images successfully crawled
-                    info.spider.crawling_job.count_inc("new_images_count")
-                file_path = self.get_storage_file_path(marketplace, item._values["asins"][i])
-                rows_to_insert.append(BQMBAProductsImages(asin=item._values["asins"][i], url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
-                url_mba_lowq=item._values["url_mba_lowqs"][i], url_mba_hq=image_url).dict(json_serializable=True))
+            marketplace = item.marketplace
+            if info.spider.debug:
+                bq_table_id = f"merchwatch-dev.mba_{marketplace}.products_images"
+            else:
+                bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
 
-        errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
+            rows_to_insert = []
+            for i, image_item in enumerate(item.image_items):
+                # if downloaded successfully
+                if results[i][0]:
+                    with suppress(Exception):
+                        # inc. crawling job counter for images successfully crawled
+                        info.spider.crawling_job.count_inc("new_images_count")
+                    file_path = self.get_storage_file_path(marketplace, image_item.asin)
+                    rows_to_insert.append(BQMBAProductsImages(asin=image_item.asin, url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
+                    url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url).dict(json_serializable=True))
+
+            errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
 
         return item

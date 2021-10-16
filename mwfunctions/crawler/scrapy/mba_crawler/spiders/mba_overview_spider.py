@@ -37,6 +37,7 @@ from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.scrapy.spider_base import MBAShirtSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
+from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem
 
 
 environment.set_cloud_logging()
@@ -461,9 +462,7 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
         proxy = self.get_proxy(response)
         url = response.url
         page = response.meta["page"]
-        image_urls = []
-        asins = []
-        url_mba_lowqs = []
+        mba_image_item_list = []
 
         #self.get_zip_code_location(response)
         #self.get_count_results(response)
@@ -574,18 +573,15 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
 
                     # crawl only image if not already crawled
                     if asin not in self.products_images_already_downloaded:
-                        image_urls.append(url_image_hq)
-                        asins.append(asin)
-                        url_mba_lowqs.append(url_image_lowq)
+                        mba_image_item_list.append(MBAImageItem(url=url_image_hq, asin=asin, url_lowq=url_image_lowq))
 
                 # crawl images
-                image_item = MbaCrawlerItem()
-                image_item["image_urls"] = image_urls if not self.debug else image_urls[0:2]
-                image_item["asins"] = asins
-                image_item["url_mba_lowqs"] = url_mba_lowqs
-                image_item["marketplace"] = self.marketplace
+                mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
+                if self.debug:
+                    mba_image_items.image_items = mba_image_items.image_items[0:2]
+
                 if self.marketplace in ["com", "de"]:# and not self.debug:
-                    yield image_item
+                    yield mba_image_items
                 
                 self.page_count = self.page_count + 1
                 self.status_update()

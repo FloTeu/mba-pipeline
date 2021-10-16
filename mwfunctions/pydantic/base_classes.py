@@ -71,4 +71,5 @@ class MWBaseModel(BaseModel):
     def __unicode__(self):
         return unicode(repr(self.__dict__))
 
-
+    class Config:
+        use_enum_values = True

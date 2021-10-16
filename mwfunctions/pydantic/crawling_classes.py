@@ -43,8 +43,6 @@ class CrawlingJob(MWBaseModel):
         else:
             return start_timestamp
 
-    class Config:
-        use_enum_values = True
 
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")
@@ -58,4 +56,21 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field("product", description="Crawling type, which indicates which pages and what data is the target of crawling")
+
+class MBAImageItem(BaseModel):
+    asin: str
+    url: str = Field(description="url which should be downloaded with image pipeline. Should be high quality image")
+    url_lowq: str = Field(description="url to low quality image")
+
+class MBAImageItems(MWBaseModel):
+    """Alles was wir für die Bilder brauchen
+
+
+       #Caution: Every list element except list_properties_not_for_fs_document() must have same length to make sure FS documents get right field value
+       #Caution: List properties should end with '_list' or 's' to make sure FS field name
+    """
+    marketplace: Marketplace
+    image_items: List[MBAImageItem]
+    fs_product_data_col_path: str = Field(description="path to product data e.g. de_shirts")
+    gs_path_element_list: list = Field([], description="Optional List of storage path elements e.g. categories which are used to create gs_url. For example ['men','clothes','t-shirt']")
 
