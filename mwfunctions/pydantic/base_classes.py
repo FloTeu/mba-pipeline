@@ -1,6 +1,10 @@
 from pydantic import BaseModel
 
 class MWBaseModel(BaseModel):
+
+    '''
+    ### Dict functions
+    '''
     def __setitem__(self, key, item):
         self.__dict__[key] = item
 
@@ -51,3 +55,4 @@ class MWBaseModel(BaseModel):
 
     def __unicode__(self):
         return unicode(repr(self.__dict__))
+

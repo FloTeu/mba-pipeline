@@ -12,6 +12,7 @@ from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
 from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob
+import mwfunctions.cloud.firestore as firestore_fns
 
 logger = logging.getLogger(__name__)
 
@@ -53,6 +54,9 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         else:
             self.debug = is_debug()
 
+        if self.debug:
+            os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch-dev"
+
         GCLOUD_PROJECT = get_gcp_project()
         assert "merchwatch" in GCLOUD_PROJECT, f"'{GCLOUD_PROJECT}' is not a merchwatch project"
 
@@ -62,7 +66,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
-        self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, )
+        self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace)
 
         # spider properties update
         spider.crawling_job = self.crawling_job
@@ -76,13 +80,10 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
     def close_spider(self, spider):
         # insert crawling job
 
-        # TODO: save crawling job in firestore
+        # save crawling job in firestore
         self.crawling_job.end_timestamp = datetime.now()
-        self.crawling_job.to_dict()
+        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
-
-        # Send message to telegram
-        #send("mvgroup", f"Crawler {spider.website_name} is finished")
 
     # def has_price_changed(self, product_id, item):
     #     return self.db.get_last_price(product_id) != item.price

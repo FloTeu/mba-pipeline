@@ -97,11 +97,11 @@ class MBASpider(scrapy.Spider):
         self.start_page = int(start_page)
         self.debug = debug
         self.allowed_domains = ['amazon.' + marketplace]
-        self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace)
+        self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace) if not self.debug else []
         # all image quality url crawled
-        self.products_mba_image_references_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace)
+        self.products_mba_image_references_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace) if not self.debug else []
         # all images which are already downloaded to storage
-        self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace)
+        self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace) if not self.debug else []
 
         if csv_path != "":
             self.df_search_terms = pd.read_csv(csv_path)
@@ -145,6 +145,7 @@ class MBASpider(scrapy.Spider):
             #     yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=headers, priority=i, data=self.change_zip_code_post_data,
             #                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
             # else:
+            self.crawling_job.count_inc("request_count")
             yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
                                     errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
 
@@ -159,8 +160,14 @@ class MBASpider(scrapy.Spider):
             # you can get the response
             response = failure.value.response
             try:
+                if response.status >= 500 and response.status < 600:
+                    self.crawling_job.count_inc("response_5XX_count")
+                if response.status >= 300 and response.status < 400:
+                    self.crawling_job.count_inc("response_3XX_count")
+
                 # if 404 update big query
                 if response.status == 404:
+                    self.crawling_job.count_inc("response_404_count")
                     crawlingdate = datetime.datetime.now()
                     df = pd.DataFrame(data={"asin":[response.meta["asin"]],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":[crawlingdate]})
                     self.df_products_details = self.df_products_details.append(df)
@@ -300,6 +307,7 @@ class MBASpider(scrapy.Spider):
         LOGGER.error(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
 
     def log_warning(self, e, custom_msg):
+        self.crawling_job.count_inc("warning_count")
         LOGGER.warning(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
 
     def is_captcha_required(self, response):
@@ -432,6 +440,7 @@ class MBASpider(scrapy.Spider):
         print(proxy)
         meta_dict = response.meta
         meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
+        self.crawling_job.count_inc("request_count")
         yield response.follow(url=response.meta["url"], callback=self.parse, headers=response.meta["headers"], priority=0,
                                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
         test = 0
@@ -459,6 +468,7 @@ class MBASpider(scrapy.Spider):
         #self.get_count_results(response)
 
         if self.is_captcha_required(response):
+            self.crawling_job.count_inc("response_captcha_count")
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
             self.captcha_count = self.captcha_count + 1
@@ -467,6 +477,7 @@ class MBASpider(scrapy.Spider):
             # send new request with high priority
             request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
                                     errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page, "url": response.meta["url"]})
+            self.crawling_job.count_inc("request_count")
             yield request
         else:
             
@@ -477,6 +488,7 @@ class MBASpider(scrapy.Spider):
                 # send new request with high priority
                 request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
                                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
+                self.crawling_job.count_inc("request_count")
                 yield request
                 # change zip code
                 # meta_dict = {"max_proxies_to_try": 30, 'page': page, "url": url, "headers": response.meta["headers"]}
@@ -487,6 +499,7 @@ class MBASpider(scrapy.Spider):
                 # yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=response.meta["headers"], priority=0, data=self.change_zip_code_post_data,
                 #                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
             else:
+                self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
                 shirts = response.css('div.sg-col-inner')
                 shirt_number_page = 0
@@ -570,7 +583,7 @@ class MBASpider(scrapy.Spider):
                 image_item["asins"] = asins
                 image_item["url_mba_lowqs"] = url_mba_lowqs
                 image_item["marketplace"] = self.marketplace
-                if self.marketplace in ["com", "de"]:
+                if self.marketplace in ["com", "de"] and not self.debug:
                     yield image_item
                 
                 self.page_count = self.page_count + 1
@@ -596,63 +609,64 @@ class MBASpider(scrapy.Spider):
         self.df_mba_images = self.df_mba_images[~self.df_mba_images['asin'].isin(self.products_mba_image_references_already_crawled)]
 
     def closed(self, reason):
-        try:
-            ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
-            ip_addr_str=""
-            for ip, count in ip_dict.items():
-                ip_addr_str = "{}{}: {}\n".format(ip_addr_str, ip, count)
-            proxy_str=""
-            for proxy, data in self.was_banned.items():
-                proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
-            #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
-            print("Used ip addresses: \n{}".format(ip_addr_str))
-            print( "Ban count proxies: \n{}".format(proxy_str))
-            print( "Captcha response count: {}".format(self.captcha_count))
-            #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
-            #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
-            #send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
-        except:
-            pass
+        if not self.debug:
+            try:
+                ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
+                ip_addr_str=""
+                for ip, count in ip_dict.items():
+                    ip_addr_str = "{}{}: {}\n".format(ip_addr_str, ip, count)
+                proxy_str=""
+                for proxy, data in self.was_banned.items():
+                    proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
+                #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
+                print("Used ip addresses: \n{}".format(ip_addr_str))
+                print( "Ban count proxies: \n{}".format(proxy_str))
+                print( "Captcha response count: {}".format(self.captcha_count))
+                #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
+                #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
+                #send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
+            except:
+                pass
 
-        self.drop_asins_already_crawled()
+            self.drop_asins_already_crawled()
 
-        #send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
-        LOGGER.info("Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason))
+            #send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
+            LOGGER.info("Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason))
 
-        # change types to fit with big query datatypes
-        self.df_products['timestamp'] = self.df_products['timestamp'].astype('datetime64[ns]')
-        self.df_mba_images['timestamp'] = self.df_mba_images['timestamp'].astype('datetime64[ns]')
-        self.df_mba_relevance['timestamp'] = self.df_mba_relevance['timestamp'].astype('datetime64[ns]')
-        self.df_mba_relevance['number'] = self.df_mba_relevance['number'].astype('int')
-        
-        # drop duplicates by asin
-        self.df_products = self.df_products.drop_duplicates(["asin"])
-        self.df_mba_images = self.df_mba_images.drop_duplicates(["asin"])
+            # change types to fit with big query datatypes
+            self.df_products['timestamp'] = self.df_products['timestamp'].astype('datetime64[ns]')
+            self.df_mba_images['timestamp'] = self.df_mba_images['timestamp'].astype('datetime64[ns]')
+            self.df_mba_relevance['timestamp'] = self.df_mba_relevance['timestamp'].astype('datetime64[ns]')
+            self.df_mba_relevance['number'] = self.df_mba_relevance['number'].astype('int')
 
- 
-        try:
-            self.df_products.to_gbq("mba_" + self.marketplace + ".products",project_id="mba-pipeline", if_exists="append")
-        except:
-            time.sleep(10)
+            # drop duplicates by asin
+            self.df_products = self.df_products.drop_duplicates(["asin"])
+            self.df_mba_images = self.df_mba_images.drop_duplicates(["asin"])
+
+
             try:
                 self.df_products.to_gbq("mba_" + self.marketplace + ".products",project_id="mba-pipeline", if_exists="append")
             except:
-                self.store_df()
+                time.sleep(10)
+                try:
+                    self.df_products.to_gbq("mba_" + self.marketplace + ".products",project_id="mba-pipeline", if_exists="append")
+                except:
+                    self.store_df()
 
-        try:
-            self.df_mba_images.to_gbq("mba_" + self.marketplace + ".products_mba_images",project_id="mba-pipeline", if_exists="append")
-        except:
-            time.sleep(10)
             try:
                 self.df_mba_images.to_gbq("mba_" + self.marketplace + ".products_mba_images",project_id="mba-pipeline", if_exists="append")
             except:
-                self.store_df()
+                time.sleep(10)
+                try:
+                    self.df_mba_images.to_gbq("mba_" + self.marketplace + ".products_mba_images",project_id="mba-pipeline", if_exists="append")
+                except:
+                    self.store_df()
 
-        try:
-            self.df_mba_relevance.to_gbq("mba_" + self.marketplace + ".products_mba_relevance",project_id="mba-pipeline", if_exists="append")
-        except:
-            time.sleep(10)
             try:
                 self.df_mba_relevance.to_gbq("mba_" + self.marketplace + ".products_mba_relevance",project_id="mba-pipeline", if_exists="append")
             except:
-                self.store_df()
+                time.sleep(10)
+                try:
+                    self.df_mba_relevance.to_gbq("mba_" + self.marketplace + ".products_mba_relevance",project_id="mba-pipeline", if_exists="append")
+                except:
+                    self.store_df()

@@ -1,3 +1,6 @@
+
+import uuid
+
 from pydantic import BaseModel, Field, validator
 from datetime import date, datetime
 from enum import Enum, IntEnum
@@ -15,6 +18,7 @@ class CrawlingType(Enum):
     realtime_research = "realtime_research"
 
 class CrawlingJob(MWBaseModel):
+    id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
     start_timestamp: Optional[datetime] = Field(description="Datetime of crawling start")
     end_timestamp: Optional[datetime] = Field(description="Datetime of crawling end")
     finished_with_error: Optional[bool] = Field(False, description="Whether crawler finished with errors")
@@ -25,13 +29,22 @@ class CrawlingJob(MWBaseModel):
     response_404_count: Optional[int] = Field(0, description="Count of status code 404 responses")
     response_5XX_count: Optional[int] = Field(0, description="Count of status code 5XX responses")
     response_3XX_count: Optional[int] = Field(0, description="Count of status code 3XX responses")
+    warning_count: Optional[int] = Field(0, description="Count of warnings. e.g. if price could not be crawled due to geographic proxy problems (eu proxy for usa product)")
 
-    @validator("start_timestamp", always=False)
+    def count_inc(self, field, increment=1):
+        assert "count" in field, f"field must contain 'count' but is {field}"
+        assert self.__contains__(field), f"{field} does not exist in model"
+        self[field] += increment
+
+    @validator("start_timestamp", always=True)
     def validate_type(cls, start_timestamp, values): # Only if type is not None
         if "start_timestamp" not in values:
             return datetime.now()
         else:
             return start_timestamp
+
+    class Config:
+        use_enum_values = True
 
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")

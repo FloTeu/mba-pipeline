@@ -1,6 +1,8 @@
 import logging
 from contextlib import AbstractContextManager, suppress
 
+class FSDocumentNotFoundError(Exception):
+    pass
 
 class log_suppress(AbstractContextManager):
     """ Log but suppress exception """
