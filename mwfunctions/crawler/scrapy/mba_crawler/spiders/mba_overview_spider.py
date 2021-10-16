@@ -35,7 +35,9 @@ from mwfunctions.logger import get_logger
 from mwfunctions import environment
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
+from mwfunctions.crawler.scrapy.spider_base import MBAShirtSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
+
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "overview_page", "type": "scrapy"}, do_cloud_logging=True)
@@ -50,7 +52,7 @@ def str2bool(v):
     else:
         raise ValueError("Provided argument is not a bool")
 
-class MBASpider(scrapy.Spider):
+class MBAShirtOverviewSpider(MBAShirtSpider):
     name = "mba_overview"
     website_crawling_target = "overview"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
@@ -74,20 +76,21 @@ class MBASpider(scrapy.Spider):
             'actionSource': 'glow'
             }
  
-    custom_settings = {
-        # Set by settings.py
-        #"ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
-
-        'ITEM_PIPELINES': {
-            'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
-            'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
-        },
-
-        'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/',
-        'GCS_PROJECT_ID': 'mba-pipeline'
-    }
+    # custom_settings = {
+    #     # Set by settings.py
+    #     #"ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
+    #
+    #     'ITEM_PIPELINES': {
+    #         'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
+    #         'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
+    #     },
+    #
+    #     'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/',
+    #     'GCS_PROJECT_ID': 'mba-pipeline'
+    # }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", debug=True, **kwargs):
+        super(MBAShirtOverviewSpider, self).__init__(marketplace, **kwargs)
 
         self.marketplace = marketplace
         self.pod_product = pod_product
@@ -95,7 +98,6 @@ class MBASpider(scrapy.Spider):
         self.keyword = keyword
         self.pages = int(pages)
         self.start_page = int(start_page)
-        self.debug = debug
         self.allowed_domains = ['amazon.' + marketplace]
         self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace) if not self.debug else []
         # all image quality url crawled
@@ -112,7 +114,6 @@ class MBASpider(scrapy.Spider):
         #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
         #     })
         
-        super().__init__(**kwargs)  # python3
 
     def start_requests(self):
         urls_mba = []
@@ -579,11 +580,11 @@ class MBASpider(scrapy.Spider):
 
                 # crawl images
                 image_item = MbaCrawlerItem()
-                image_item["image_urls"] = image_urls
+                image_item["image_urls"] = image_urls if not self.debug else image_urls[0:2]
                 image_item["asins"] = asins
                 image_item["url_mba_lowqs"] = url_mba_lowqs
                 image_item["marketplace"] = self.marketplace
-                if self.marketplace in ["com", "de"] and not self.debug:
+                if self.marketplace in ["com", "de"]:# and not self.debug:
                     yield image_item
                 
                 self.page_count = self.page_count + 1

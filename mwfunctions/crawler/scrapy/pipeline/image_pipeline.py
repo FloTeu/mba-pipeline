@@ -8,6 +8,7 @@ import hashlib
 import mimetypes
 from io import BytesIO
 from PIL import Image
+from contextlib import suppress
 
 import numpy as np
 import piexif
@@ -23,6 +24,8 @@ from scrapy.pipelines.files import FileException, FilesPipeline
 
 from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
+
 
 class ImageException(FileException):
     """General image error exception"""
@@ -38,6 +41,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
     def get_media_requests(self, item, info):
         # function 1
         assert len(item["asins"]) == len(item['image_urls']), "Length of asins and of image_urls need to be same"
+        # self.change_bucket_if_debug(info)
         for i, image_url in enumerate(item['image_urls']):
             yield scrapy.Request(image_url, meta={"marketplace": item["marketplace"], "asin": item["asins"][i]})
 
@@ -124,15 +128,16 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
         image.save(buf, 'JPEG', exif=exif_bytes)
         return image, buf
 
+    @staticmethod
+    def get_storage_file_path(marketplace, asin):
+        return os.path.join(marketplace, asin + ".jpg")
+
     def file_path(self, request, response=None, info=None, *, item=None):
         # function 2
         img_path = ""
         try:
             # HERE ARE CUSTOM CHANGES
-            marketplace = request.meta.get("marketplace")
-            asin = request.meta.get("asin")
-
-            img_path = os.path.join(marketplace, asin + ".jpg")
+            img_path = self.get_storage_file_path(request.meta.get("marketplace"), request.meta.get("asin"))
         except:
             media_guid = hashlib.sha1(to_bytes(request.url)).hexdigest()
             media_ext = os.path.splitext(request.url)[1]
@@ -230,16 +235,21 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
         client = bigquery.Client()
 
         marketplace = item._values["marketplace"]
-        bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
+        if info.spider.debug:
+            bq_table_id = f"merchwatch-dev.mba_{marketplace}.products_images"
+        else:
+            bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
+
         rows_to_insert = []
         for i, image_url in enumerate(item._values["image_urls"]):
-            asin = item._values["asins"][i]
-            url_mba_lowq = item._values["url_mba_lowqs"][i]
-            url_gs = f"gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/{marketplace}/{asin}.jpg"
-            url = f"https://storage.cloud.google.com/5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/{marketplace}/{asin}.jpg"
-            rows_to_insert.append(
-                {u"asin": asin, u"url": url, u"url_gs": url_gs, u"url_mba_lowq": url_mba_lowq, u"url_mba_hq": image_url,
-                 u"timestamp": str(datetime.datetime.now())})
+            # if downloaded successfully
+            if results[i][0]:
+                with suppress(Exception):
+                    # inc. crawling job counter for images successfully crawled
+                    info.spider.crawling_job.count_inc("new_images_count")
+                file_path = self.get_storage_file_path(marketplace, item._values["asins"][i])
+                rows_to_insert.append(BQMBAProductsImages(asin=item._values["asins"][i], url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
+                url_mba_lowq=item._values["url_mba_lowqs"][i], url_mba_hq=image_url).dict(json_serializable=True))
 
         errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
 

@@ -37,7 +37,7 @@ class CrawlingJob(MWBaseModel):
         self[field] += increment
 
     @validator("start_timestamp", always=True)
-    def validate_type(cls, start_timestamp, values): # Only if type is not None
+    def validate_start_timestamp(cls, start_timestamp, values): # Only if type is not None
         if "start_timestamp" not in values:
             return datetime.now()
         else:
@@ -51,9 +51,11 @@ class MBACrawlingJob(CrawlingJob):
     crawling_type: CrawlingType = Field(description="Crawling type, which indicates which pages and what data is the target of crawling")
 
 class MBAOverviewCrawlingJob(MBACrawlingJob):
-    products_count_new: int = Field(0, description="Count of new products, which where not already in db")
-    products_count_already_crawled: int = Field(0, description="Count of already crawled products")
+    new_products_count: int = Field(0, description="Count of new products, which where not already in db")
+    already_crawled_products_count: int = Field(0, description="Count of already crawled products")
     crawling_type: CrawlingType = Field("overview", description="Crawling type, which indicates which pages and what data is the target of crawling")
+    new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field("product", description="Crawling type, which indicates which pages and what data is the target of crawling")
+

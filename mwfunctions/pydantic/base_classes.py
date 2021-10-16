@@ -1,6 +1,21 @@
 from pydantic import BaseModel
+from datetime import date, datetime
+import json
+
+def dumper(obj):
+    if type(obj) in [datetime, date]:
+        return str(obj)
+    else:
+        return obj
 
 class MWBaseModel(BaseModel):
+
+    def dict(self, json_serializable=False):
+        output_dict = super(MWBaseModel, self).dict()
+        if json_serializable:
+            return json.loads(json.dumps(output_dict, default=dumper))
+        else:
+            return output_dict
 
     '''
     ### Dict functions
@@ -55,4 +70,5 @@ class MWBaseModel(BaseModel):
 
     def __unicode__(self):
         return unicode(repr(self.__dict__))
+
 

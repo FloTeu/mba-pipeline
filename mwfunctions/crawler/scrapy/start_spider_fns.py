@@ -2,7 +2,7 @@ import os
 
 from scrapy.crawler import CrawlerProcess
 from pathlib import Path
-from mwfunctions.crawler.scrapy.mba_crawler.spiders.mba_overview_spider import MBASpider as mba_overview_spider
+from mwfunctions.crawler.scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.scrapy.mba_crawler.spiders.mba_product_general_spider import MBASpider as mba_product_spider
 from os import system
 

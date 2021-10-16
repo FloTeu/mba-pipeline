@@ -54,6 +54,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         else:
             self.debug = is_debug()
 
+        #spider.update_settings(spider.settings)
+
         if self.debug:
             os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch-dev"
 

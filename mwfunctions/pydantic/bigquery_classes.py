@@ -1,7 +1,8 @@
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, validator
 # TODO_ lteral is only available since python3.8, but instance has python 3.7
-from typing import Union, Dict, List #, Literal
+from typing import Union, Dict, List, Optional #, Literal
+from datetime import datetime, date
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.text import TextRank4Keyword, KEYWORDS_TO_REMOVE_MARKETPLACE_DICT
@@ -51,7 +52,20 @@ class BQKeywordDataRaw(MWBaseModel):
         # filter keywords
         return filter_keywords(marketplace, keywords)
 
+class BQMBAProductsImages(MWBaseModel):
+    asin: str
+    url_gs: str
+    url: Optional[str]
+    url_mba_lowq: str
+    url_mba_hq: str
+    timestamp: Optional[datetime] = Field(datetime.now())
 
+    @validator("url", always=True)
+    def validate_url(cls, url, values):
+        if "url" not in values:
+            return values["url_gs"].replace("gs://", "https://storage.cloud.google.com/")
+        else:
+            return url
 
 """
 ### functions
