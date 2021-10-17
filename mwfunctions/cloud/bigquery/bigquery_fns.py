@@ -1,9 +1,13 @@
 
 
 import logging
+import json
+
 from google.cloud import bigquery
 from google.cloud.exceptions import NotFound
 from typing import List
+from datetime import date, datetime
+import pandas as pd
 
 logging.basicConfig(level="INFO")
 logger = logging.getLogger(__name__)
@@ -102,3 +106,29 @@ def table_exists(bq_params):
     except NotFound:
         logging.info("Table {} is not found.".format(bq_params.table_id))
         return False
+
+def json_serializable_dumper(obj):
+    # makes dict value to json serializable value
+    if type(obj) in [datetime, date]:
+        return str(obj)
+    else:
+        return obj
+
+def stream_dict_list2bq(bq_table_id, dict_list, client=None):
+    """
+        Gets a list of dicts which should contain consistent types e.g. datetimes should not be converted to string
+        if table exists:
+            types will be transformed to json serilizable and streamed in bq table
+        else:
+            new table will be created
+    """
+    assert type(dict_list) == list, f"'dict_list' must be of type 'list' but is '{type(dict_list)}'"
+    client = client if client else bigquery.Client()
+    bq_params = BQParams(bq_table_id)
+    if table_exists(bq_params):
+        json_dict_list = [json.loads(json.dumps(dict_i, default=json_serializable_dumper)) for dict_i in dict_list]
+        errors = client.insert_rows_json(bq_params.table_id, json_dict_list)  # Make an API request.
+    else:
+        df = pd.DataFrame(dict_list)
+        df.to_gbq(bq_params.destination_table, bq_params.project, if_exists="append")
+

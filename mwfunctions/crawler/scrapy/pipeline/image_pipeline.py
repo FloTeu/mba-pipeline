@@ -22,6 +22,7 @@ from scrapy.utils.python import to_bytes
 from scrapy.utils.request import referer_str
 from scrapy.pipelines.files import FileException, FilesPipeline
 
+from mwfunctions.cloud.bigquery import stream_dict_list2bq
 from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
@@ -233,9 +234,6 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
     def item_completed(self, results, item: MBAImageItems, info):
 
         if isinstance(item, MBAImageItems):
-            # updating BQ
-            client = bigquery.Client()
-
             marketplace = item.marketplace
             if info.spider.debug:
                 bq_table_id = f"merchwatch-dev.mba_{marketplace}.products_images"
@@ -251,8 +249,8 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
                         info.spider.crawling_job.count_inc("new_images_count")
                     file_path = self.get_storage_file_path(marketplace, image_item.asin)
                     rows_to_insert.append(BQMBAProductsImages(asin=image_item.asin, url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
-                    url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url).dict(json_serializable=True))
+                    url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url).dict(json_serializable=False))
 
-            errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
-
+            #errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
+            stream_dict_list2bq(bq_table_id, rows_to_insert)
         return item

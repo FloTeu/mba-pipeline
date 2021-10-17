@@ -1,5 +1,5 @@
 
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, validator, PrivateAttr
 # TODO_ lteral is only available since python3.8, but instance has python 3.7
 from typing import Union, Dict, List, Optional #, Literal
 from datetime import datetime, date
@@ -10,6 +10,9 @@ from mwfunctions.text import TextRank4Keyword, KEYWORDS_TO_REMOVE_MARKETPLACE_DI
 """
     Raw Data of merchwatch_shirts BQ table
 """
+
+class BQTable(MWBaseModel):
+    _bq_table_name: str = PrivateAttr() #Field(description="Table name in BQ. Can be used to upload data")
 
 class BQPlotDataRaw(MWBaseModel):
     plot_x:str = Field(description="Comma seperated string of dates related to bsr")
@@ -52,7 +55,9 @@ class BQKeywordDataRaw(MWBaseModel):
         # filter keywords
         return filter_keywords(marketplace, keywords)
 
-class BQMBAProductsImages(MWBaseModel):
+class BQMBAProductsImages(BQTable):
+    # mba-pipeline:mba_de.products_images
+    _bq_table_name: str = PrivateAttr("products_images")
     asin: str
     url_gs: str
     url: Optional[str]
@@ -66,6 +71,40 @@ class BQMBAProductsImages(MWBaseModel):
             return values["url_gs"].replace("gs://", "https://storage.cloud.google.com/")
         else:
             return url
+
+class BQMBAProductsMBAImages(BQTable):
+    # mba-pipeline:mba_de.products_mba_images
+    _bq_table_name: str = PrivateAttr("products_mba_images")
+    asin: str
+    url_image_lowq: str
+    url_image_q2: str
+    url_image_q3: str
+    url_image_q4: str
+    url_image_hq: str
+    timestamp: Optional[datetime] = Field(datetime.now())
+
+class BQMBAOverviewProduct(BQTable):
+    # mba-pipeline:mba_de.products
+    _bq_table_name: str = PrivateAttr("products")
+    asin: str
+    title: str
+    brand: Optional[str] = Field(None, description="brand of mba product")
+    url_product: str
+    url_image_lowq: str
+    url_image_hq: str
+    price: str
+    uuid: Optional[str] = Field(None)
+    timestamp: Optional[datetime] = Field(datetime.now())
+
+class BQMBAProductsMBARelevance(BQTable):
+    # mba-pipeline:products_mba_relevance
+    _bq_table_name: str = PrivateAttr("products_mba_relevance")
+    asin: str
+    sort: str = Field(description="MBA sorting like. newest, bestseller etc.")
+    number: int = Field(description="Number of apperance in overview crawling job")
+    timestamp: Optional[datetime] = Field(datetime.now())
+
+
 
 """
 ### functions

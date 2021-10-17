@@ -6,6 +6,7 @@ from mwfunctions.crawler.proxy import proxy_handler
 import pandas as pd
 import numpy as np
 from google.cloud import bigquery
+from typing import List
 from re import findall
 import re
 from bs4 import BeautifulSoup
@@ -21,7 +22,6 @@ from urllib.parse import urlparse
 from scrapy.exceptions import CloseSpider
 #import mba_url_creator as url_creator
 import time
-import traceback
 import os
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
@@ -31,17 +31,13 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRef
 from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
 
-from mwfunctions.logger import get_logger
-from mwfunctions import environment
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
-from mwfunctions.crawler.scrapy.spider_base import MBAShirtSpider
+from mwfunctions.crawler.scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem
+from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
 
-
-environment.set_cloud_logging()
-LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "overview_page", "type": "scrapy"}, do_cloud_logging=True)
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -53,7 +49,7 @@ def str2bool(v):
     else:
         raise ValueError("Provided argument is not a bool")
 
-class MBAShirtOverviewSpider(MBAShirtSpider):
+class MBAShirtOverviewSpider(MBAOverviewSpider):
     name = "mba_overview"
     website_crawling_target = "overview"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
@@ -91,11 +87,10 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
     # }
 
     def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", debug=True, **kwargs):
-        super(MBAShirtOverviewSpider, self).__init__(marketplace, **kwargs)
+        super(MBAShirtOverviewSpider, self).__init__(marketplace, sort, **kwargs)
 
         self.marketplace = marketplace
         self.pod_product = pod_product
-        self.sort = sort
         self.keyword = keyword
         self.pages = int(pages)
         self.start_page = int(start_page)
@@ -129,7 +124,7 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
         else:
             url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
             # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
-            LOGGER.info("Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
+            self.cloud_logger.info("Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
 
             # if start_page is other than one, crawler should start from differnt page
             until_page = 401
@@ -222,11 +217,6 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
             #self.send_request_again(request.url, request.meta["asin"])
 
 
-    def status_update(self):
-        if self.page_count % 10 == 0:
-            #send_msg(self.target, "Crawled {} pages".format(int(self.page_count)), self.api_key)
-            pass
-
     def get_ban_count(self, proxy):
         ban_count = 0
         if proxy in self.was_banned:
@@ -304,13 +294,6 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
         filename = "data/" + self.name + "/mba_relevance%s.csv" % datetime.datetime.now().date()
         self.df_mba_relevance.to_csv(filename, index=False)
         self.log('Saved file %s' % filename)
-
-    def log_error(self, e, custom_msg):
-        LOGGER.error(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
-
-    def log_warning(self, e, custom_msg):
-        self.crawling_job.count_inc("warning_count")
-        LOGGER.warning(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
 
     def is_captcha_required(self, response):
         return "captcha" in response.body.decode("utf-8").lower()
@@ -472,7 +455,7 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
             #self.response_is_ban(request, response, is_ban=True)
             print("Captcha required for proxy: " + proxy)
             self.captcha_count = self.captcha_count + 1
-            self.update_ban_count(proxy)            
+            self.update_ban_count(proxy)
             headers = get_random_headers(self.marketplace)
             # send new request with high priority
             request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
@@ -501,109 +484,42 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
             else:
                 self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
-                shirts = response.css('div.sg-col-inner')
-                shirt_number_page = 0
-                for i, shirt in enumerate(shirts):
-                    if not self.is_shirt(shirt):
-                        continue
-                    shirt_number_page = shirt_number_page + 1
-                    try:
-                        price = self.get_price(shirt)
-                    except Exception as e:
-                        self.log_error(e, "Could not get price data")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                    try:
-                        title = self.get_title(shirt)
-                    except Exception as e:
-                        self.log_error(e, "Could not get title")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                    try:
-                        brand = self.get_brand(shirt)
-                    except Exception as e:
-                        self.log_warning(e, "Could not get brand")
-                        #print("Could not get brand of shirt: ",title)
-                        brand = None
-                        # its possible that amazon does not show brand on overview page. Therefore raise is not neccessary.
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        #raise e
-                    try:
-                        url_product = self.get_url_product(shirt, url)
-                    except Exception as e:
-                        self.log_error(e, "Could not get url of product")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                    try:
-                        url_image_lowq,url_image_q2,url_image_q3,url_image_q4,url_image_hq = self.get_img_urls(shirt)
-                    except Exception as e:
-                        self.log_error(e, "Could not get image urls")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                    try:
-                        asin = self.get_asin(shirt)
-                    except Exception as e:
-                        self.log_error(e, "Could not get asin of product")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                    try:
-                        uuid = self.get_uuid(shirt)
-                    except Exception as e:
-                        self.log_error(e, "Could not get uuid of product")
-                        #self.save_content(response, url)
-                        #send_msg(self.target, str(e) + " | url: " + url, self.api_key)
-                        raise e
-                        
-                    crawlingdate = datetime.datetime.now()
-                    # append to general crawler
-                    df_products = pd.DataFrame(data={"title":[title],"brand":[brand],"url_product":[url_product],"url_image_lowq":[url_image_lowq],"url_image_hq":[url_image_hq],"price":[price],"asin":[asin],"uuid":[uuid], "timestamp":[crawlingdate]})
-                    df_mba_images = pd.DataFrame(data={"asin":[asin],"url_image_lowq":[url_image_lowq],"url_image_q2":[url_image_q2], "url_image_q3":[url_image_q3], "url_image_q4":[url_image_q4],"url_image_hq":[url_image_hq], "timestamp":[crawlingdate]})
-                    shirt_number = int(shirt_number_page + ((int(page)-1)*self.shirts_per_page))
-                    df_mba_relevance = pd.DataFrame(data={"asin":[asin],"sort":[self.sort],"number":[shirt_number],"timestamp":[crawlingdate]})
 
-                    self.df_products = self.df_products.append(df_products)
-                    self.df_mba_images = self.df_mba_images.append(df_mba_images)
-                    self.df_mba_relevance = self.df_mba_relevance.append(df_mba_relevance)
+                # TODO: Add only products which are not already crawled
+                bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
+                bq_mba_products_mba_images_list: List[BQMBAProductsMBAImages] = self.get_BQMBAProductsMBAImages_list(response)
+                bq_mba_products_mba_relevance_list: List[BQMBAProductsMBARelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
+
+                # store product data in bq
+                for bq_mba_overview_product in bq_mba_overview_product_list:
+                    if bq_mba_overview_product.asin not in self.products_already_crawled:
+                        yield bq_mba_overview_product
+                        self.products_already_crawled.append(bq_mba_overview_product.asin)
 
                     # crawl only image if not already crawled
-                    if asin not in self.products_images_already_downloaded:
-                        mba_image_item_list.append(MBAImageItem(url=url_image_hq, asin=asin, url_lowq=url_image_lowq))
+                    if bq_mba_overview_product.asin not in self.products_images_already_downloaded:
+                        mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))
+                        self.products_images_already_downloaded.append(bq_mba_overview_product.asin)
+
+                # store products_mba_images in BQ
+                for bq_mba_products_mba_images in bq_mba_products_mba_images_list:
+                    if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled:
+                        yield bq_mba_products_mba_images
+                        self.products_mba_image_references_already_crawled.append(bq_mba_products_mba_images.asin)
+
+                # store products_mba_relevance in BQ
+                for bq_mba_products_mba_relevance in bq_mba_products_mba_relevance_list:
+                    yield bq_mba_products_mba_relevance
 
                 # crawl images
                 mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
                 if self.debug:
                     mba_image_items.image_items = mba_image_items.image_items[0:2]
-
-                if self.marketplace in ["com", "de"]:# and not self.debug:
+                if self.marketplace in ["com", "de"]:
                     yield mba_image_items
                 
                 self.page_count = self.page_count + 1
-                self.status_update()
 
-
-                #url_next = "/".join(url.split("/")[0:3]) + response.css("ul.a-pagination li.a-last a::attr(href)").get()
-                
-                '''
-                if int(self.pages) != 0 and int(self.pages) == self.page_count:
-                    raise CloseSpider(reason='Max number of Pages achieved')
-                else:
-                    self.page_count = self.page_count + 1
-                    headers = get_random_headers(self.marketplace)
-                    yield scrapy.Request(url=url_next, callback=self.parse, headers=headers, priority=self.page_count,
-                                                errback=self.errback_httpbin, meta={"max_proxies_to_try": 30}) 
-                '''
-                #if self.captcha_count > self.settings.attributes["MAX_CAPTCHA_NUMBER"].value:
-                #    raise CloseSpider(reason='To many captchas received')
-
-    def drop_asins_already_crawled(self):
-        self.df_products = self.df_products[~self.df_products['asin'].isin(self.products_already_crawled)]
-        self.df_mba_images = self.df_mba_images[~self.df_mba_images['asin'].isin(self.products_mba_image_references_already_crawled)]
 
     def closed(self, reason):
         if not self.debug:
@@ -625,45 +541,3 @@ class MBAShirtOverviewSpider(MBAShirtSpider):
             except:
                 pass
 
-            self.drop_asins_already_crawled()
-
-            #send_msg(self.target, "Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason), self.api_key)
-            LOGGER.info("Finished scraper {} with {} new products {} new images {} pages and reason: {}".format(self.name, len(self.df_products), len(self.df_mba_images), self.page_count, reason))
-
-            # change types to fit with big query datatypes
-            self.df_products['timestamp'] = self.df_products['timestamp'].astype('datetime64[ns]')
-            self.df_mba_images['timestamp'] = self.df_mba_images['timestamp'].astype('datetime64[ns]')
-            self.df_mba_relevance['timestamp'] = self.df_mba_relevance['timestamp'].astype('datetime64[ns]')
-            self.df_mba_relevance['number'] = self.df_mba_relevance['number'].astype('int')
-
-            # drop duplicates by asin
-            self.df_products = self.df_products.drop_duplicates(["asin"])
-            self.df_mba_images = self.df_mba_images.drop_duplicates(["asin"])
-
-
-            try:
-                self.df_products.to_gbq("mba_" + self.marketplace + ".products",project_id="mba-pipeline", if_exists="append")
-            except:
-                time.sleep(10)
-                try:
-                    self.df_products.to_gbq("mba_" + self.marketplace + ".products",project_id="mba-pipeline", if_exists="append")
-                except:
-                    self.store_df()
-
-            try:
-                self.df_mba_images.to_gbq("mba_" + self.marketplace + ".products_mba_images",project_id="mba-pipeline", if_exists="append")
-            except:
-                time.sleep(10)
-                try:
-                    self.df_mba_images.to_gbq("mba_" + self.marketplace + ".products_mba_images",project_id="mba-pipeline", if_exists="append")
-                except:
-                    self.store_df()
-
-            try:
-                self.df_mba_relevance.to_gbq("mba_" + self.marketplace + ".products_mba_relevance",project_id="mba-pipeline", if_exists="append")
-            except:
-                time.sleep(10)
-                try:
-                    self.df_mba_relevance.to_gbq("mba_" + self.marketplace + ".products_mba_relevance",project_id="mba-pipeline", if_exists="append")
-                except:
-                    self.store_df()

@@ -12,7 +12,10 @@ from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
 from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob
+from mwfunctions.pydantic.bigquery_classes import BQTable
+from mwfunctions.cloud.bigquery import stream_dict_list2bq
 import mwfunctions.cloud.firestore as firestore_fns
+
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +36,10 @@ class MWScrapyItemPipelineAbstract(abc.ABC):
         # function which is called at the end of spider process
         pass
 
-    # @abc.abstractmethod
-    # def process_item(self, item, spider):
-    #     # function which is called after item (object scrapy.item.Item) is yielded
-    #     pass
+    @abc.abstractmethod
+    def process_item(self, item, spider):
+        # function which is called after item (object scrapy.item.Item) is yielded
+        pass
 
 class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
     def __init__(self):
@@ -59,8 +62,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         if self.debug:
             os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch-dev"
 
-        GCLOUD_PROJECT = get_gcp_project()
-        assert "merchwatch" in GCLOUD_PROJECT, f"'{GCLOUD_PROJECT}' is not a merchwatch project"
+        self.gcloud_project = get_gcp_project()
+        assert "merchwatch" in self.gcloud_project, f"'{self.gcloud_project}' is not a merchwatch project"
 
         website_crawling_target = spider.website_crawling_target # can be either "overview", "product" or "overview_and_product"
         if website_crawling_target not in ["overview", "product", "overview_and_product"]:
@@ -86,6 +89,10 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         self.crawling_job.end_timestamp = datetime.now()
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
+    def process_item(self, item, spider):
+        if isinstance(item, BQTable):
+            stream_dict_list2bq(f"{self.gcloud_project}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()])
+        return item
 
     # def has_price_changed(self, product_id, item):
     #     return self.db.get_last_price(product_id) != item.price
