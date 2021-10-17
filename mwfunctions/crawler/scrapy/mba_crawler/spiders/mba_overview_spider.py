@@ -485,7 +485,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                 self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
 
-                # TODO: Add only products which are not already crawled
                 bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
                 bq_mba_products_mba_images_list: List[BQMBAProductsMBAImages] = self.get_BQMBAProductsMBAImages_list(response)
                 bq_mba_products_mba_relevance_list: List[BQMBAProductsMBARelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)

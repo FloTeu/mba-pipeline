@@ -5,7 +5,6 @@ from typing import Union, Dict, List, Optional #, Literal
 from datetime import datetime, date
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
-from mwfunctions.text import TextRank4Keyword, KEYWORDS_TO_REMOVE_MARKETPLACE_DICT
 
 """
     Raw Data of merchwatch_shirts BQ table
@@ -36,7 +35,7 @@ class BQKeywordDataRaw(MWBaseModel):
         product_features = cut_product_feature_list(marketplace, product_features_list)
         return " ".join([self.title + "."] + [self.brand + "."] + product_features + [self.description])
 
-    def get_filtered_keyword_list(self, marketplace, tr4k_lang_dict: Dict[str, TextRank4Keyword], language: str=None):
+    def get_filtered_keyword_list(self, marketplace, tr4k_lang_dict: Dict[str, object], language: str=None): # object = TextRank4Keyword of mwfunctions.text
         assert language or self.language, "Either 'langugae' or attribute 'language' must be provided"
         language = language if language else self.language
         text = self.get_keyword_text(marketplace)
@@ -170,6 +169,7 @@ def cut_product_feature_list(marketplace, product_features_list):
 
 
 def filter_keywords(marketplace, keywords, single_words_to_filter=["t","du"]):
+    from mwfunctions.text import KEYWORDS_TO_REMOVE_MARKETPLACE_DICT
     keywords_filtered = []
     for keyword_in_text in keywords:
         if keyword_in_text[len(keyword_in_text)-2:len(keyword_in_text)] in [" t", " T"]:
