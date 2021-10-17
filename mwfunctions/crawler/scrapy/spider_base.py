@@ -275,9 +275,9 @@ class MBAOverviewSpider(MBASpider):
 
     def is_shirt(self, overview_response_product):
         try:
-            asin = self.get_overview_asin(overview_response_product)
+            asin = overview_selector.mba_get_asin(overview_response_product)
             return True
-        except:
+        except Exception as e:
             return False
 
     def get_overview_products_response_list(self, overview_response):
