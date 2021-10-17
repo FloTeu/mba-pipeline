@@ -1,7 +1,15 @@
 import scrapy
 import traceback
+import pandas as pd
 
 from typing import List
+from datetime import date, datetime
+
+from scrapy.spidermiddlewares.httperror import HttpError
+from twisted.internet.error import DNSLookupError
+from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
+from twisted.web._newclient import ResponseNeverReceived
+from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
 import mwfunctions.crawler.scrapy.selectors.overview as overview_selector
@@ -39,6 +47,7 @@ class MBASpider(scrapy.Spider):
         assert mba_product_type in MBA_PRODUCT_TYPE2GCS_DIR, f"mba_product_type '{mba_product_type}' not defined."
         self.marketplace = marketplace
         self.debug = debug
+        self.was_banned = {}
 
         self.custom_settings.update({
             'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
@@ -72,6 +81,125 @@ class MBASpider(scrapy.Spider):
     def log_warning(self, e, custom_msg):
         self.crawling_job.count_inc("warning_count")
         self.cloud_logger.warning(f"{custom_msg}. \nError message: {e}. \nTraceback {traceback.format_exc()}")
+
+    def errback_httpbin(self, failure):
+        # log all errback failures,
+        # you may need the failure's type
+        self.logger.error(repr(failure))
+
+        # if isinstance(failure.value, HttpError):
+        if failure.check(HttpError):
+            # you can get the response
+            response = failure.value.response
+            try:
+                if response.status >= 500 and response.status < 600:
+                    self.crawling_job.count_inc("response_5XX_count")
+                if response.status >= 300 and response.status < 400:
+                    self.crawling_job.count_inc("response_3XX_count")
+
+                # if 404 update big query
+                if response.status == 404:
+                    self.crawling_job.count_inc("response_404_count")
+                    # TODO: if product is the target yield BQ item with 404 data
+                    # crawlingdate = datetime.datetime.now()
+                    # df = pd.DataFrame(data={"asin":[response.meta["asin"]],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":[crawlingdate]})
+                    # self.df_products_details = self.df_products_details.append(df)
+                    # df = pd.DataFrame(data={"asin":[response.meta["asin"]],"price":[404.0],"price_str":['404'],"bsr":[404],"bsr_str":['404'], "array_bsr": [[404]], "array_bsr_categorie": [['404']],"customer_review_score_mean":[404.0],"customer_review_score": ["404"],"customer_review_count": [404], "timestamp":[crawlingdate]})
+                    # self.df_products_details_daily = self.df_products_details_daily.append(df)
+                    print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
+                                                                                            response.status,
+                                                                                            response.ip_address.compressed))
+                else:
+                    print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
+                                                                                            response.status,
+                                                                                            response.ip_address.compressed))
+                    proxy = self.get_proxy(response)
+                    self.update_ban_count(proxy)
+            except:
+                pass
+            self.logger.error('HttpError on %s', response.url)
+
+        elif failure.check(DNSLookupError):
+            # this is the original request
+            request = failure.request
+            proxy = self.get_proxy(request)
+            self.logger.error('DNSLookupError on %s', request.url)
+
+        elif failure.check(TimeoutError):
+            request = failure.request
+            proxy = self.get_proxy(request)
+            self.logger.error('TimeoutError on %s', request.url)
+
+        elif failure.check(TCPTimedOutError):
+            request = failure.request
+            proxy = self.get_proxy(request)
+            self.logger.error('TCPTimeoutError on %s', request.url)
+
+        elif failure.check(TunnelError):
+            request = failure.request
+            proxy = self.get_proxy(request)
+            self.logger.error('TunnelError on %s', request.url)
+
+    def get_ban_count(self, proxy):
+        ban_count = 0
+        if proxy in self.was_banned:
+            ban_count = self.was_banned[proxy][0]
+        return ban_count
+
+    def get_ban_timestamp(self, proxy):
+        ban_timestamp = None
+        if proxy in self.was_banned:
+            ban_timestamp = self.was_banned[proxy][1]
+        return ban_timestamp
+
+    def update_ban_count(self, proxy):
+        if proxy in self.was_banned:
+            self.was_banned[proxy] = [self.get_ban_count(proxy) + 1, datetime.now()]
+        else:
+            self.was_banned.update({proxy: [1, datetime.now()]})
+        self.crawling_job.count_inc("proxy_ban_count")
+
+    def was_already_banned(self, proxy):
+        was_already_banned = False
+        # should be banned if captcha was found and it was found in the last 30 minutes
+        if self.get_ban_timestamp(proxy) != None and (
+                (datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60 * 30)):
+            was_already_banned = True
+        return was_already_banned
+
+
+    def response_is_ban(self, request, response, is_ban=False):
+        if "_ban" in request.meta and request.meta["_ban"]:
+            is_ban = True
+        proxy = self.get_proxy(request)
+        is_ban = self.was_already_banned(proxy)
+        if response.status in [503, 403, 407, 406]:
+            self.update_ban_count(proxy)
+            is_ban = True
+        if is_ban:
+            print("Ban proxy: " + proxy)
+        should_be_banned = b'banned' in response.body or is_ban
+        return should_be_banned
+
+    def exception_is_ban(self, request, exception):
+        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError,
+                               ConnectionLost, ResponseNeverReceived]:
+            return True
+        else:
+            return None
+
+    def get_proxy(self, response):
+        proxy = ""
+        if "proxy" in response.meta:
+            proxy = response.meta["proxy"]
+        return proxy
+
+    def is_perfect_privacy_proxy(self, response):
+        proxy = self.get_proxy(response)
+        if "perfect-privacy" in proxy:
+            return True
+        return False
+
 
 class MBAOverviewSpider(MBASpider):
 

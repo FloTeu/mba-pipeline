@@ -30,6 +30,7 @@ class CrawlingJob(MWBaseModel):
     response_5XX_count: Optional[int] = Field(0, description="Count of status code 5XX responses")
     response_3XX_count: Optional[int] = Field(0, description="Count of status code 3XX responses")
     warning_count: Optional[int] = Field(0, description="Count of warnings. e.g. if price could not be crawled due to geographic proxy problems (eu proxy for usa product)")
+    proxy_ban_count: Optional[int] = Field(0, description="Count of proxy ban. Which is only temporary.")
 
     def count_inc(self, field, increment=1):
         assert "count" in field, f"field must contain 'count' but is {field}"

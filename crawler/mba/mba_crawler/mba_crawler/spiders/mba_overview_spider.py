@@ -428,17 +428,6 @@ class MBASpider(scrapy.Spider):
         yield response.follow(url=response.meta["url"], callback=self.parse, headers=response.meta["headers"], priority=0,
                                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
         test = 0
-        # proxies = {
-        #     "http":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128",
-        #     "https":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
-        # }
-        # r = requests.get(response.meta["url"], headers=response.meta["headers"], proxies=proxies)
-        # return scrapy.FormRequest.from_response(
-        #     response,
-        #     formdata=form_dict,
-        #     callback=self.parse,
-        #     #meta=response.meta
-        # )
 
     def parse(self, response):
         proxy = self.get_proxy(response)
@@ -471,14 +460,6 @@ class MBASpider(scrapy.Spider):
                 request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
                                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
                 yield request
-                # change zip code
-                # meta_dict = {"max_proxies_to_try": 30, 'page': page, "url": url, "headers": response.meta["headers"]}
-                # url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
-                # if self.is_perfect_privacy_proxy(response):
-                #     proxy = "http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
-                # meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
-                # yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=response.meta["headers"], priority=0, data=self.change_zip_code_post_data,
-                #                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
             else:
                 self.ip_addresses.append(response.ip_address.compressed)
                 shirts = response.css('div.sg-col-inner')

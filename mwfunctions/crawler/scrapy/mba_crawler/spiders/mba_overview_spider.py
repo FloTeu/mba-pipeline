@@ -61,7 +61,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
     captcha_count = 0
-    was_banned = {}
     page_count = 0
     shirts_per_page = 48
     change_zip_code_post_data = {
@@ -146,127 +145,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
                                     errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
 
-    def errback_httpbin(self, failure):
-        # log all errback failures,
-        # in case you want to do something special for some errors,
-        # you may need the failure's type
-        self.logger.error(repr(failure))
-
-        #if isinstance(failure.value, HttpError):
-        if failure.check(HttpError):
-            # you can get the response
-            response = failure.value.response
-            try:
-                if response.status >= 500 and response.status < 600:
-                    self.crawling_job.count_inc("response_5XX_count")
-                if response.status >= 300 and response.status < 400:
-                    self.crawling_job.count_inc("response_3XX_count")
-
-                # if 404 update big query
-                if response.status == 404:
-                    self.crawling_job.count_inc("response_404_count")
-                    crawlingdate = datetime.datetime.now()
-                    df = pd.DataFrame(data={"asin":[response.meta["asin"]],"title":["404"],"brand":["404"],"url_brand":["404"],"price":["404"],"fit_types":[["404"]],"color_names":[["404"]],"color_count":[404],"product_features":[["404"]],"description":["404"],"weight": ["404"],"upload_date_str":["1995-01-01"],"upload_date": ["1995-01-01"],"customer_review_score": ["404"],"customer_review_count": [404],"mba_bsr_str": ["404"], "mba_bsr": [["404"]], "mba_bsr_categorie": [["404"]], "timestamp":[crawlingdate]})
-                    self.df_products_details = self.df_products_details.append(df)
-                    print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
-                else:
-                    #send_msg(self.target, "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed), self.api_key)
-                    print( "HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"], response.status, response.ip_address.compressed))
-                    proxy = self.get_proxy(response)
-                    self.update_ban_count(proxy)
-                    #self.send_request_again(response.url, response.meta["asin"])
-            except:
-                pass
-            self.logger.error('HttpError on %s', response.url)
-
-        #elif isinstance(failure.value, DNSLookupError):
-        elif failure.check(DNSLookupError):
-            # this is the original request
-            request = failure.request
-            proxy = self.get_proxy(request)
-            #send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
-            self.logger.error('DNSLookupError on %s', request.url)
-            #self.send_request_again(request.url, request.meta["asin"])
-
-        #elif isinstance(failure.value, TimeoutError):
-        elif failure.check(TimeoutError):
-            request = failure.request
-            proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
-            self.logger.error('TimeoutError on %s', request.url)
-            #self.send_request_again(request.url, request.meta["asin"])
-    
-        #elif isinstance(failure.value, TimeoutError):
-        elif failure.check(TCPTimedOutError):
-            request = failure.request
-            proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
-            self.logger.error('TCPTimeoutError on %s', request.url)
-            #self.send_request_again(request.url, request.meta["asin"])
-    
-        #elif isinstance(failure.value, TimeoutError):
-        elif failure.check(TunnelError):
-            request = failure.request
-            proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
-            self.logger.error('TunnelError on %s', request.url)
-            #self.send_request_again(request.url, request.meta["asin"])
-
-
-    def get_ban_count(self, proxy):
-        ban_count = 0
-        if proxy in self.was_banned:
-            ban_count = self.was_banned[proxy][0]
-        return ban_count
-
-    def get_ban_timestamp(self, proxy):
-        ban_timestamp = None
-        if proxy in self.was_banned:
-            ban_timestamp = self.was_banned[proxy][1]
-        return ban_timestamp
-
-    def update_ban_count(self, proxy):
-        if proxy in self.was_banned:
-            self.was_banned[proxy] = [self.get_ban_count(proxy) + 1, datetime.datetime.now()]
-        else:
-            self.was_banned.update({proxy: [1, datetime.datetime.now()] })
-
-    def was_already_banned(self, proxy):
-        was_already_banned = False
-        # should be banned if captcha was found and it was found in the last 30 minutes
-        if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*30)):
-            was_already_banned = True
-        return was_already_banned
-
-        #if self.get_ban_timestamp(proxy) == None:
-        #    yield request
-        # last ban need to be longer away than one minute to prevent request loops
-        #elif (datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() > 60:
-        #    yield request
-
-    def response_is_ban(self, request, response, is_ban=False):
-        if "_ban" in request.meta and request.meta["_ban"]:
-            is_ban = True 
-        proxy = self.get_proxy(request)
-        is_ban = self.was_already_banned(proxy)
-        if response.status in [503, 403, 407, 406]:
-            self.update_ban_count(proxy)
-            is_ban = True
-        if is_ban:
-            print("Ban proxy: " + proxy)
-        should_be_banned = b'banned' in response.body or is_ban
-        return should_be_banned
-
-    def exception_is_ban(self, request, exception):
-        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError, ConnectionLost, ResponseNeverReceived]:
-            return True
-        else:
-            return None
-
     def get_asin_crawled(self, table_id):
         '''
             Returns a unique list of asins that are already crawled
@@ -297,92 +175,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
 
     def is_captcha_required(self, response):
         return "captcha" in response.body.decode("utf-8").lower()
-
-    def get_proxy(self, response):
-        proxy = ""
-        if "proxy" in response.meta:
-            proxy = response.meta["proxy"]
-        return proxy
-
-    def is_perfect_privacy_proxy(self, response):
-        proxy = self.get_proxy(response)
-        if "perfect-privacy" in proxy:
-            return True
-        return False
-
-    def get_title(self, response_shirt):
-        title = response_shirt.css("a.a-link-normal.a-text-normal")[0].css("span::text").get()
-        if title == None:
-            raise ValueError("Could not get title information for crawler " + self.name)
-        else:
-            return title.strip()
-
-    def get_brand(self, response_shirt):
-        brand = response_shirt.css("h5.s-line-clamp-1 span::text")[0].get()
-        if brand == None:
-            raise ValueError("Could not get brand information for crawler " + self.name)
-        else:
-            return brand.strip()
-
-    def get_url_product(self, response_shirt, url_mba):
-        url_product = response_shirt.css("div.a-section.a-spacing-none a::attr(href)").get()
-        if url_product == None:
-            raise ValueError("Could not get url_product information for crawler " + self.name)
-        else:
-            return "/".join(url_mba.split("/")[0:3]) + url_product
-
-    def get_img_urls(self, response_shirt):
-        is_url = re.compile(
-                r'^(?:http|ftp)s?://' # http:// or https://
-                r'(?:(?:[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?\.)+(?:[A-Z]{2,6}\.?|[A-Z0-9-]{2,}\.?)|' #domain...
-                r'localhost|' #localhost...
-                r'\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})' # ...or ip
-                r'(?::\d+)?' # optional port
-                r'(?:/?|[/?]\S+)$', re.IGNORECASE)
-
-        urls = response_shirt.css("div.a-section a img::attr(srcset)").get()
-        if urls == None:
-            raise ValueError("Could not get img_urls information for crawler " + self.name)
-        else:
-            img_url = []
-            for url in urls.split(" "):
-                if re.match(is_url, url) is not None:
-                    img_url.append(url)
-            if len(img_url) == 5:
-                return img_url[0],img_url[1],img_url[2],img_url[3],img_url[4]
-            else:
-                raise ValueError("Could not get all 5 img_urls information for crawler " + self.name)
-
-    def get_price(self, response_shirt):
-        if self.marketplace == "com":
-            price = response_shirt.css("span.a-price-whole::text")[0].get() + response_shirt.css("span.a-price-decimal::text")[0].get() + response_shirt.css("span.a-price-fraction::text")[0].get()
-        else:
-            price = response_shirt.css("span.a-price-whole::text")[0].get()
-        if price == None:
-            raise ValueError("Could not get price information for crawler " + self.name)
-        else:
-            return price.strip()
-            
-    def get_asin(self, response_shirt):
-        asin = response_shirt.xpath("..").attrib["data-asin"]
-        if asin == None:
-            raise ValueError("Could not get asin for crawler " + self.name)
-        else:
-            return asin.strip()
-            
-    def get_uuid(self, response_shirt):
-        uuid = response_shirt.xpath("..").attrib["data-uuid"]
-        if uuid == None:
-            raise ValueError("Could not get uuid for crawler " + self.name)
-        else:
-            return uuid.strip()
-
-    def is_shirt(self, response_shirt):
-        try:
-            asin = self.get_asin(response_shirt)
-            return True
-        except:
-            return False
 
     def get_zip_code_location(self, response):
         try:
@@ -429,17 +221,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         yield response.follow(url=response.meta["url"], callback=self.parse, headers=response.meta["headers"], priority=0,
                                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
         test = 0
-        # proxies = {
-        #     "http":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128",
-        #     "https":"http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
-        # }
-        # r = requests.get(response.meta["url"], headers=response.meta["headers"], proxies=proxies)
-        # return scrapy.FormRequest.from_response(
-        #     response,
-        #     formdata=form_dict,
-        #     callback=self.parse,
-        #     #meta=response.meta
-        # )
 
     def parse(self, response):
         proxy = self.get_proxy(response)
@@ -473,14 +254,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
                 self.crawling_job.count_inc("request_count")
                 yield request
-                # change zip code
-                # meta_dict = {"max_proxies_to_try": 30, 'page': page, "url": url, "headers": response.meta["headers"]}
-                # url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
-                # if self.is_perfect_privacy_proxy(response):
-                #     proxy = "http://nwtrs2017:hb7043GesRoP@" + response.meta["download_slot"] + ":3128"
-                # meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
-                # yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=response.meta["headers"], priority=0, data=self.change_zip_code_post_data,
-                #                     errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
             else:
                 self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
@@ -519,24 +292,4 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                 
                 self.page_count = self.page_count + 1
 
-
-    def closed(self, reason):
-        if not self.debug:
-            try:
-                ip_dict = {i:self.ip_addresses.count(i) for i in self.ip_addresses}
-                ip_addr_str=""
-                for ip, count in ip_dict.items():
-                    ip_addr_str = "{}{}: {}\n".format(ip_addr_str, ip, count)
-                proxy_str=""
-                for proxy, data in self.was_banned.items():
-                    proxy_str = "{}{}: {}\n".format(proxy_str, proxy, data[0])
-                #ip_addresses_str = "\n".join(list(set(self.ip_addresses)))
-                print("Used ip addresses: \n{}".format(ip_addr_str))
-                print( "Ban count proxies: \n{}".format(proxy_str))
-                print( "Captcha response count: {}".format(self.captcha_count))
-                #send_msg(self.target, "Used ip addresses: \n{}".format(ip_addr_str), self.api_key)
-                #send_msg(self.target, "Ban count proxies: \n{}".format(proxy_str), self.api_key)
-                #send_msg(self.target, "Captcha response count: {}".format(self.captcha_count), self.api_key)
-            except:
-                pass
 
