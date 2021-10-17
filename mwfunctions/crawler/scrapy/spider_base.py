@@ -11,9 +11,11 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRef
 from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
 
+from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
 import mwfunctions.crawler.scrapy.selectors.overview as overview_selector
 import mwfunctions.crawler.scrapy.selectors.product as product_selector
+from mwfunctions.environment import is_debug, get_gcp_project
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
@@ -50,10 +52,19 @@ class MBASpider(scrapy.Spider):
         self.was_banned = {}
 
         self.custom_settings.update({
-            'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
+            'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug or get_gcp_project() == "merchwatch-dev" else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
             'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
             })
 
+        # Change proxy list depending on marketplace and debug and target
+        if self.debug:
+            self.custom_settings.update({
+                "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(self.marketplace == "com"),
+            })
+        else:
+            self.custom_settings.update({
+                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
+            })
         super().__init__(**kwargs)  # python3
 
 
@@ -65,8 +76,7 @@ class MBASpider(scrapy.Spider):
         # init scrapy spider classes (child of MBASpider)
         spider = cls(*args, **kwargs)
 
-        # TODO: try to change proxy list depending on marketplace crawled
-        # Update setting with custom_settings
+        # Update setting with custom_settings (unfreeze it first to make it changable)
         crawler.settings.frozen = False
         crawler.settings.update(spider.custom_settings)
         crawler.settings.freeze()

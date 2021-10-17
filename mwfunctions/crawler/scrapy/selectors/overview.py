@@ -60,12 +60,14 @@ def mba_get_price(response, marketplace):
         return price.strip()
 
 def mba_get_asin(response):
-    asin = response.xpath("..").attrib["data-asin"]
+    try:
+        asin = response.xpath("..").attrib["data-asin"]
+    except Exception as e:
+        raise ValueError("Could not get asin. " + str(e))
     if asin == None:
         raise ValueError("Could not get asin")
     else:
         return asin.strip()
-
 
 def mba_get_uuid(response):
     uuid = response.xpath("..").attrib["data-uuid"]

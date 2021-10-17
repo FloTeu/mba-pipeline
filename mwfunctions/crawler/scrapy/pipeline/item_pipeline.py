@@ -84,6 +84,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
     def close_spider(self, spider):
         # save crawling job in firestore
+        print("Save crawling job to Firestore")
         self.crawling_job.end_timestamp = datetime.now()
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
