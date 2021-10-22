@@ -1,5 +1,6 @@
 
 import uuid
+import pytz
 
 from pydantic import BaseModel, Field, validator
 from datetime import date, datetime
@@ -9,13 +10,24 @@ from typing import Optional, Dict, List
 from mwfunctions.pydantic.base_classes import MWBaseModel
 
 class Marketplace(Enum):
-    de = "de"
-    com = "com"
+    DE="de"
+    COM="com"
 
 class CrawlingType(Enum):
-    overview = "overview"
-    product = "product"
-    realtime_research = "realtime_research"
+    OVERVIEW = "OVERVIEW"
+    PRODUCT = "PRODUCT"
+    REALTIME_RESEARCH = "REALTIME_RESEARCH"
+
+class PODProduct(Enum):
+    SHIRT = "shirt"
+
+class CrawlingSorting(Enum):
+    BEST_SELLER="best_seller"
+    NEWEST="newest"
+    OLDEST="oldest"
+    PRICE_ASC="price_up"
+    PRICE_DESC="price_down"
+    CUSTOMER_REVIEW_DESC='cust_review_desc'
 
 class CrawlingJob(MWBaseModel):
     id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
@@ -40,10 +52,9 @@ class CrawlingJob(MWBaseModel):
     @validator("start_timestamp", always=True)
     def validate_start_timestamp(cls, start_timestamp, values): # Only if type is not None
         if "start_timestamp" not in values:
-            return datetime.now()
+            return datetime.now(pytz.timezone("Europe/Berlin"))
         else:
             return start_timestamp
-
 
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")
@@ -75,3 +86,13 @@ class MBAImageItems(MWBaseModel):
     fs_product_data_col_path: str = Field(description="path to product data e.g. de_shirts")
     gs_path_element_list: list = Field([], description="Optional List of storage path elements e.g. categories which are used to create gs_url. For example ['men','clothes','t-shirt']")
 
+class CrawlingMBARequest(MWBaseModel):
+    marketplace: Marketplace
+    debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
+
+class CrawlingMBAOverviewRequest(CrawlingMBARequest):
+    sort: CrawlingSorting = Field(description="Sorting of MBA overview page")
+    pod_product: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
+    keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
+    pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
+    start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
