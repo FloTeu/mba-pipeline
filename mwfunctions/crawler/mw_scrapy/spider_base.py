@@ -13,9 +13,10 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
-import mwfunctions.crawler.scrapy.selectors.overview as overview_selector
-import mwfunctions.crawler.scrapy.selectors.product as product_selector
+import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
+import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.environment import is_debug, get_gcp_project
+import mwfunctions.cloud.firestore as firestore_fns
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
@@ -210,12 +211,21 @@ class MBASpider(scrapy.Spider):
             return True
         return False
 
+    def closed(self, reason):
+        # save crawling job in firestore
+        print("Save crawling job to Firestore")
+        self.crawling_job.end_timestamp = datetime.now()
+        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
 class MBAOverviewSpider(MBASpider):
 
-    def __init__(self, marketplace, sort, *args, **kwargs):
+    def __init__(self, sort, pages=0, start_page=1, keyword="", *args, **kwargs):
+        super(MBAOverviewSpider, self).__init__(*args, **kwargs)
+
         self.sort = sort # e.g. newest
-        super(MBAOverviewSpider, self).__init__(marketplace, *args, **kwargs)
+        self.keyword = keyword
+        self.pages = int(pages)
+        self.start_page = int(start_page)
 
     def get_overview_price(self, overview_response_product):
         try:

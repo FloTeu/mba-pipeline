@@ -2,7 +2,7 @@ import abc
 import uuid
 import os
 from datetime import datetime, date
-
+from google.cloud import bigquery
 print(os.getcwd())
 
 
@@ -14,7 +14,6 @@ from mwfunctions.environment import is_debug, get_gcp_project
 from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
-import mwfunctions.cloud.firestore as firestore_fns
 
 
 logger = logging.getLogger(__name__)
@@ -46,7 +45,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         pass
 
     def open_spider(self, spider):
-        """ spider must have properties:
+        """ Function is executed after __init__ of spider
+        spider must have properties:
             * name (unique name of spider e.g. fashion_vinted)
             * marketplace (mba marketplace e.g. "de" or "com")
             * website_crawling_target (overview", product or overview_and_product)
@@ -59,6 +59,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
         #spider.update_settings(spider.settings)
 
+        # debug mode is only available for project 'merchwatch-dev'
         if self.debug:
             os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch-dev"
 
@@ -72,10 +73,13 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
         self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace)
+        bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
+        self.bq_client = bigquery.Client(project=bq_project_id)
 
         # spider properties update
         spider.crawling_job = self.crawling_job
         spider.debug = self.debug
+        spider.bq_client = self.bq_client
         spider.fs_product_data_col_path = self.fs_product_data_col_path
         spider.fs_log_col_path = self.fs_log_col_path
 
@@ -83,12 +87,9 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             print(f"START CRAWLING {spider.name} IN DEBUG MODE")
 
     def close_spider(self, spider):
-        # save crawling job in firestore
-        print("Save crawling job to Firestore")
-        self.crawling_job.end_timestamp = datetime.now()
-        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
+        pass
 
     def process_item(self, item, spider):
         if isinstance(item, BQTable):
-            stream_dict_list2bq(f"{self.gcloud_project}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()])
+            stream_dict_list2bq(f"{self.gcloud_project}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()], client=self.bq_client, check_if_table_exists=self.debug)
         return item

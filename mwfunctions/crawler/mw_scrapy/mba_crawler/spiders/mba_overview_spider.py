@@ -1,6 +1,5 @@
 import scrapy
 import json
-import datetime
 from pathlib import Path
 from mwfunctions.crawler.proxy import proxy_handler
 import pandas as pd
@@ -33,7 +32,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
-from mwfunctions.crawler.scrapy.spider_base import MBAOverviewSpider
+from mwfunctions.crawler.mw_scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
@@ -53,9 +52,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     name = "mba_overview"
     website_crawling_target = "overview"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
-    df_products = pd.DataFrame(data={"title":[],"brand":[],"url_product":[],"url_image_lowq":[],"url_image_hq":[],"price":[],"asin":[],"uuid":[], "timestamp":[]})
-    df_mba_images = pd.DataFrame(data={"asin":[],"url_image_lowq":[],"url_image_q2":[], "url_image_q3":[], "url_image_q4":[],"url_image_hq":[], "timestamp":[]})
-    df_mba_relevance = pd.DataFrame(data={"asin":[],"sort":[],"number":[],"timestamp":[]})
     df_search_terms = pd.DataFrame()
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
@@ -85,20 +81,11 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     #     'GCS_PROJECT_ID': 'mba-pipeline'
     # }
 
-    def __init__(self, marketplace, pod_product, sort, keyword="", pages=0, start_page=1, csv_path="", debug=True, **kwargs):
-        super(MBAShirtOverviewSpider, self).__init__(marketplace, sort, **kwargs)
-
-        self.marketplace = marketplace
+    def __init__(self, pod_product, csv_path="", *args, **kwargs):
+        super(MBAShirtOverviewSpider, self).__init__(*args, **kwargs)
+        # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
         self.pod_product = pod_product
-        self.keyword = keyword
-        self.pages = int(pages)
-        self.start_page = int(start_page)
-        self.allowed_domains = ['amazon.' + marketplace]
-        self.products_already_crawled = self.get_asin_crawled("mba_%s.products" % marketplace) if not self.debug else []
-        # all image quality url crawled
-        self.products_mba_image_references_already_crawled = self.get_asin_crawled("mba_%s.products_mba_images" % marketplace) if not self.debug else []
-        # all images which are already downloaded to storage
-        self.products_images_already_downloaded = self.get_asin_crawled("mba_%s.products_images" % marketplace) if not self.debug else []
+        self.allowed_domains = ['amazon.' + self.marketplace]
 
         if csv_path != "":
             self.df_search_terms = pd.read_csv(csv_path)
@@ -109,8 +96,14 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
         #     })
         
-
+    # called after start_spider of item pipeline
     def start_requests(self):
+        self.products_already_crawled = self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
+        # all image quality url crawled
+        self.products_mba_image_references_already_crawled = self.get_asin_crawled(f"mba_{self.marketplace}.products_mba_images") #if not self.debug else []
+        # all images which are already downloaded to storage
+        self.products_images_already_downloaded = self.get_asin_crawled(f"mba_{self.marketplace}.products_images") #if not self.debug else []
+
         urls_mba = []
         headers = get_random_headers(self.marketplace)
         # case use a csv with search terms
@@ -149,10 +142,9 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         '''
             Returns a unique list of asins that are already crawled
         '''
-        bq_client = bigquery.Client(project='mba-pipeline')
-        # todo: change table name in future | 
+        # todo: change table name in future |
         try:
-            list_asin = bq_client.query("SELECT asin FROM " + table_id + " group by asin").to_dataframe().drop_duplicates(["asin"])["asin"].tolist()
+            list_asin = self.bq_client.query("SELECT asin FROM " + table_id + " group by asin").to_dataframe().drop_duplicates(["asin"])["asin"].tolist()
         except Exception as e:
             print(str(e))
             list_asin = []
@@ -162,15 +154,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         filename = "data/" + self.name + "/content/%s.html" % url.replace("/","_")
         with open(filename, 'wb') as f:
             f.write(response.body)
-        self.log('Saved file %s' % filename)
-
-    def store_df(self):
-        filename = "data/" + self.name + "/products_%s.csv" % datetime.datetime.now().date()
-        self.df_products.to_csv(filename, index=False)
-        filename = "data/" + self.name + "/mba_images_%s.csv" % datetime.datetime.now().date()
-        self.df_mba_images.to_csv(filename, index=False)
-        filename = "data/" + self.name + "/mba_relevance%s.csv" % datetime.datetime.now().date()
-        self.df_mba_relevance.to_csv(filename, index=False)
         self.log('Saved file %s' % filename)
 
     def is_captcha_required(self, response):
@@ -223,73 +206,78 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         test = 0
 
     def parse(self, response):
-        proxy = self.get_proxy(response)
-        url = response.url
-        page = response.meta["page"]
-        mba_image_item_list = []
+        try:
+            proxy = self.get_proxy(response)
+            url = response.url
+            page = response.meta["page"]
+            mba_image_item_list = []
 
-        #self.get_zip_code_location(response)
-        #self.get_count_results(response)
+            #self.get_zip_code_location(response)
+            #self.get_count_results(response)
 
-        if self.is_captcha_required(response):
-            self.crawling_job.count_inc("response_captcha_count")
-            #self.response_is_ban(request, response, is_ban=True)
-            print("Captcha required for proxy: " + proxy)
-            self.captcha_count = self.captcha_count + 1
-            self.update_ban_count(proxy)
-            headers = get_random_headers(self.marketplace)
-            # send new request with high priority
-            request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page, "url": response.meta["url"]})
-            self.crawling_job.count_inc("request_count")
-            yield request
-        else:
-            
-            if self.should_zip_code_be_changed(response):
-                print("Proxy does not get all .com results: " + proxy)
-                self.update_ban_count(proxy)   
+            if self.is_captcha_required(response):
+                self.crawling_job.count_inc("response_captcha_count")
+                #self.response_is_ban(request, response, is_ban=True)
+                print("Captcha required for proxy: " + proxy)
+                self.captcha_count = self.captcha_count + 1
+                self.update_ban_count(proxy)
                 headers = get_random_headers(self.marketplace)
                 # send new request with high priority
-                request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                        errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
+                request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                        errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page, "url": response.meta["url"]})
                 self.crawling_job.count_inc("request_count")
                 yield request
             else:
-                self.crawling_job.count_inc("response_successful_count")
-                self.ip_addresses.append(response.ip_address.compressed)
 
-                bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
-                bq_mba_products_mba_images_list: List[BQMBAProductsMBAImages] = self.get_BQMBAProductsMBAImages_list(response)
-                bq_mba_products_mba_relevance_list: List[BQMBAProductsMBARelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
+                if self.should_zip_code_be_changed(response):
+                    print("Proxy does not get all .com results: " + proxy)
+                    self.update_ban_count(proxy)
+                    headers = get_random_headers(self.marketplace)
+                    # send new request with high priority
+                    request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                            errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
+                    self.crawling_job.count_inc("request_count")
+                    yield request
+                else:
+                    self.crawling_job.count_inc("response_successful_count")
+                    self.ip_addresses.append(response.ip_address.compressed)
 
-                # store product data in bq
-                for bq_mba_overview_product in bq_mba_overview_product_list:
-                    if bq_mba_overview_product.asin not in self.products_already_crawled:
-                        yield bq_mba_overview_product
-                        self.products_already_crawled.append(bq_mba_overview_product.asin)
+                    bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
+                    bq_mba_products_mba_images_list: List[BQMBAProductsMBAImages] = self.get_BQMBAProductsMBAImages_list(response)
+                    bq_mba_products_mba_relevance_list: List[BQMBAProductsMBARelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
+                    # store product data in bq
+                    for bq_mba_overview_product in bq_mba_overview_product_list:
+                        if bq_mba_overview_product.asin not in self.products_already_crawled:
+                            yield bq_mba_overview_product
+                            self.crawling_job.count_inc("new_products_count")
+                            self.products_already_crawled.append(bq_mba_overview_product.asin)
 
-                    # crawl only image if not already crawled
-                    if bq_mba_overview_product.asin not in self.products_images_already_downloaded:
-                        mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))
-                        self.products_images_already_downloaded.append(bq_mba_overview_product.asin)
+                        # crawl only image if not already crawled
+                        if bq_mba_overview_product.asin not in self.products_images_already_downloaded:
+                            mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))
+                            self.products_images_already_downloaded.append(bq_mba_overview_product.asin)
 
-                # store products_mba_images in BQ
-                for bq_mba_products_mba_images in bq_mba_products_mba_images_list:
-                    if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled:
-                        yield bq_mba_products_mba_images
-                        self.products_mba_image_references_already_crawled.append(bq_mba_products_mba_images.asin)
+                    # store products_mba_images in BQ
+                    for bq_mba_products_mba_images in bq_mba_products_mba_images_list:
+                        if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled:
+                            yield bq_mba_products_mba_images
+                            self.products_mba_image_references_already_crawled.append(bq_mba_products_mba_images.asin)
 
-                # store products_mba_relevance in BQ
-                for bq_mba_products_mba_relevance in bq_mba_products_mba_relevance_list:
-                    yield bq_mba_products_mba_relevance
+                    # store products_mba_relevance in BQ
+                    for bq_mba_products_mba_relevance in bq_mba_products_mba_relevance_list:
+                        yield bq_mba_products_mba_relevance
 
-                # crawl images
-                mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
-                if self.debug:
-                    mba_image_items.image_items = mba_image_items.image_items[0:2]
-                if self.marketplace in ["com", "de"]:
-                    yield mba_image_items
-                
-                self.page_count = self.page_count + 1
+                    # crawl images
+                    mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
+                    # if self.debug:
+                    #     mba_image_items.image_items = mba_image_items.image_items[0:2]
+                    if self.marketplace in ["com", "de"]:
+                        yield mba_image_items
+
+                    self.page_count = self.page_count + 1
+        except Exception as e:
+            self.crawling_job.finished_with_error = True
+            self.crawling_job.error_msg = str(e)
+            raise e
 
 
