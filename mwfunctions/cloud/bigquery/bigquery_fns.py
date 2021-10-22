@@ -123,13 +123,15 @@ def stream_dict_list2bq(bq_table_id, dict_list, client=None, check_if_table_exis
             new table will be created
     """
     assert type(dict_list) == list, f"'dict_list' must be of type 'list' but is '{type(dict_list)}'"
-    client = client if client else bigquery.Client()
-    bq_params = BQParams(bq_table_id)
-    # if table not exists it should be created with pandas_gbq
-    if check_if_table_exists and not table_exists(bq_params):
-        df = pd.DataFrame(dict_list)
-        df.to_gbq(bq_params.destination_table, bq_params.project, if_exists="append")
-    else: # stream data into BQ
-        json_dict_list = [json.loads(json.dumps(dict_i, default=json_serializable_dumper)) for dict_i in dict_list]
-        errors = client.insert_rows_json(bq_params.table_id, json_dict_list)  # Make an API request.
+    # ignore empty lists
+    if dict_list:
+        client = client if client else bigquery.Client()
+        bq_params = BQParams(bq_table_id)
+        # if table not exists it should be created with pandas_gbq
+        if check_if_table_exists and not table_exists(bq_params):
+            df = pd.DataFrame(dict_list)
+            df.to_gbq(bq_params.destination_table, bq_params.project, if_exists="append")
+        else: # stream data into BQ
+            json_dict_list = [json.loads(json.dumps(dict_i, default=json_serializable_dumper)) for dict_i in dict_list]
+            errors = client.insert_rows_json(bq_params.table_id, json_dict_list)  # Make an API request.
 

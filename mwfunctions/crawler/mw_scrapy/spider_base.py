@@ -1,10 +1,12 @@
 import scrapy
 import traceback
 import pandas as pd
+import time
 
 from typing import List
 from datetime import date, datetime
 
+from scrapy.exceptions import CloseSpider
 from scrapy.spidermiddlewares.httperror import HttpError
 from twisted.internet.error import DNSLookupError
 from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
@@ -20,7 +22,7 @@ import mwfunctions.cloud.firestore as firestore_fns
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
-
+from mwfunctions.time import get_berlin_timestamp
 
 MBA_PRODUCT_TYPE2GCS_DIR = {
     "shirt": "mba-shirts"
@@ -59,6 +61,7 @@ class MBASpider(scrapy.Spider):
 
         # Change proxy list depending on marketplace and debug and target
         if self.debug:
+            # use only private proxies for debugging
             self.custom_settings.update({
                 "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(self.marketplace == "com"),
             })
@@ -172,12 +175,14 @@ class MBASpider(scrapy.Spider):
 
     def was_already_banned(self, proxy):
         was_already_banned = False
-        # should be banned if captcha was found and it was found in the last 30 minutes
-        if self.get_ban_timestamp(proxy) != None and (
-                (datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60 * 30)):
-            was_already_banned = True
+        # should be banned if captcha was found and it was found in the last 5 minutes for private proxies and 10 minutes for public proxies
+        if "perfect-privacy" in proxy:
+            if self.get_ban_timestamp(proxy) != None and ((datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*5)):
+                was_already_banned = True
+        else:
+            if self.get_ban_timestamp(proxy) != None and ((datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*10)):
+                was_already_banned = True
         return was_already_banned
-
 
     def response_is_ban(self, request, response, is_ban=False):
         if "_ban" in request.meta and request.meta["_ban"]:
@@ -193,9 +198,12 @@ class MBASpider(scrapy.Spider):
         return should_be_banned
 
     def exception_is_ban(self, request, exception):
-        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError,
-                               ConnectionLost, ResponseNeverReceived]:
+        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError, ConnectionLost, ResponseNeverReceived]:
             return True
+        elif type(exception) == CloseSpider:
+            print("Spider should be closed. Sleep 3 minutes")
+            time.sleep(60*3)
+            return None
         else:
             return None
 
@@ -214,7 +222,7 @@ class MBASpider(scrapy.Spider):
     def closed(self, reason):
         # save crawling job in firestore
         print("Save crawling job to Firestore")
-        self.crawling_job.end_timestamp = datetime.now()
+        self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
 class MBAOverviewSpider(MBASpider):
@@ -319,3 +327,9 @@ class MBAOverviewSpider(MBASpider):
             bq_mba_products_mba_relevance_list.append(BQMBAProductsMBARelevance(asin=self.get_overview_asin(overview_response_product), sort=self.sort,
                                                                                 number=number))
         return bq_mba_products_mba_relevance_list
+
+
+class MBAProductSpider(MBASpider):
+
+    def __init__(self, *args, **kwargs):
+        super(MBAProductSpider, self).__init__(*args, **kwargs)

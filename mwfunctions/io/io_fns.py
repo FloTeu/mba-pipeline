@@ -12,3 +12,14 @@ def copy_dir2dir(src, dst):
 def remove_dir(dir):
     if os.path.exists(dir):
         shutil.rmtree(dir)
+
+
+def str2bool(v):
+    if isinstance(v, bool):
+        return v
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise ValueError("Provided argument is not a bool")

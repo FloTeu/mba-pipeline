@@ -1,16 +1,8 @@
 import scrapy
-import json
 import datetime
 from pathlib import Path
 #from proxy import proxy_handler
 import pandas as pd
-from re import findall
-from bs4 import BeautifulSoup
-import sys
-sys.path.append("...")
-#import os
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
-#from proxy.utils import get_random_headers, send_msg
 from urllib.parse import urlparse
 import dateparser
 from scrapy.exceptions import CloseSpider
@@ -30,23 +22,16 @@ from mwfunctions.logger import get_logger
 from mwfunctions import environment
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
+from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
+from mwfunctions.io import str2bool
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
 
 
-def str2bool(v):
-    if isinstance(v, bool):
-        return v
-    if v.lower() in ('yes', 'true', 't', 'y', '1'):
-        return True
-    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
-        return False
-    else:
-        raise ValueError("Provided argument is not a bool")
 
-class MBASpider(scrapy.Spider):
-    name = "mba_general_de"
+class MBALocalProductSpider(MBAProductSpider):
+    name = "mba_product"
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products_details = pd.DataFrame(data={"asin":[],"title":[],"brand":[],"url_brand":[],"price":[], "fit_types": [], "color_names": [],"color_count":[],"product_features": [],"description":[],"weight": [],"upload_date_str": [],"upload_date": [],"customer_review_score": [],"customer_review_count": [],"mba_bsr_str": [],"mba_bsr": [],"mba_bsr_categorie": [],"timestamp": []})
     df_products_details_daily = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
@@ -63,10 +48,11 @@ class MBASpider(scrapy.Spider):
     #     "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
     # }
 
-    def __init__(self, marketplace, daily=True, url_data_path=None, *args, **kwargs):
-        self.marketplace = marketplace
+    def __init__(self, daily=True, url_data_path=None, *args, **kwargs):
+        super(MBALocalProductSpider, self).__init__(*args, **kwargs)
+        # TODO: Add functionality to download url data directly within init
         self.daily = str2bool(daily)
-        self.allowed_domains = ['amazon.' + marketplace]
+        self.allowed_domains = ['amazon.' + self.marketplace]
         if url_data_path:
             self.url_data_path = url_data_path
         else:
@@ -75,14 +61,6 @@ class MBASpider(scrapy.Spider):
             else:
                 self.url_data_path = f"mba_crawler/url_data/urls_mba_general_{self.marketplace}.csv"
 
-        # does not work currently
-        # if self.marketplace == "com":
-        #     self.custom_settings.update({
-        #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
-        #     })
-        # self.settings.attributes["ROTATING_PROXY_LIST"] = proxy_handler.get_http_proxy_list(only_usa=True)
-        super().__init__(*args, **kwargs)  # python3
-        
 
     def start_requests(self):
         self.reset_was_banned_every_hour()
@@ -132,8 +110,6 @@ class MBASpider(scrapy.Spider):
             # this is the original request
             request = failure.request
             proxy = self.get_proxy(request)
-            #send_msg(self.target, "DNSLookupError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
             self.logger.error('DNSLookupError on %s', request.url)
             #self.send_request_again(request.url, request.meta["asin"])
 
@@ -141,8 +117,6 @@ class MBASpider(scrapy.Spider):
         elif failure.check(TimeoutError):
             request = failure.request
             proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
             self.logger.error('TimeoutError on %s', request.url)
             #self.send_request_again(request.url, request.meta["asin"])
     
@@ -150,8 +124,6 @@ class MBASpider(scrapy.Spider):
         elif failure.check(TCPTimedOutError):
             request = failure.request
             proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
             self.logger.error('TCPTimeoutError on %s', request.url)
             #self.send_request_again(request.url, request.meta["asin"])
     
@@ -159,8 +131,6 @@ class MBASpider(scrapy.Spider):
         elif failure.check(TunnelError):
             request = failure.request
             proxy = self.get_proxy(request)
-            #send_msg(self.target, "TimeoutError on url: {} proxy: {}".format(request.url, proxy), self.api_key)
-            #self.update_ban_count(proxy)
             self.logger.error('TunnelError on %s', request.url)
             #self.send_request_again(request.url, request.meta["asin"])
 
@@ -190,52 +160,6 @@ class MBASpider(scrapy.Spider):
         if proxy in self.was_banned:
             ban_timestamp = self.was_banned[proxy][1]
         return ban_timestamp
-
-    def update_ban_count(self, proxy):
-        if proxy in self.was_banned:
-            self.was_banned[proxy] = [self.get_ban_count(proxy) + 1, datetime.datetime.now()]
-        else:
-            self.was_banned.update({proxy: [1, datetime.datetime.now()] })
-
-    def was_already_banned(self, proxy):
-        was_already_banned = False
-        # should be banned if captcha was found and it was found in the last 30 minutes
-        if "perfect-privacy" in proxy:
-            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*5)):
-                was_already_banned = True
-        else:
-            if self.get_ban_timestamp(proxy) != None and ((datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() < (60*10)):
-                was_already_banned = True
-        return was_already_banned
-
-        #if self.get_ban_timestamp(proxy) == None:
-        #    yield request
-        # last ban need to be longer away than one minute to prevent request loops
-        #elif (datetime.datetime.now() - self.get_ban_timestamp(proxy)).total_seconds() > 60:
-        #    yield request
-
-    def response_is_ban(self, request, response, is_ban=False):
-        if "_ban" in request.meta and request.meta["_ban"]:
-            is_ban = True 
-        proxy = self.get_proxy(request)
-        is_ban = self.was_already_banned(proxy)
-        if response.status in [503, 403, 407, 406]:
-            self.update_ban_count(proxy)
-            is_ban = True
-        if is_ban:
-            print("Ban proxy: " + proxy)
-        should_be_banned = b'banned' in response.body or is_ban
-        return should_be_banned
-
-    def exception_is_ban(self, request, exception):
-        if type(exception) in [TimeoutError, TCPTimedOutError, DNSLookupError, TunnelError, ConnectionRefusedError, ConnectionLost, ResponseNeverReceived]:
-            return True
-        elif type(exception) == CloseSpider:
-            print("Spider should be closed. Sleep 3 minutes")
-            time.sleep(60*3)
-            return None
-        else:
-            return None
 
     def save_content(self, response, asin):
         filename = "data/" + self.name + "/content/%s.html" % asin

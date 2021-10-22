@@ -6,15 +6,17 @@ from typing import Union, Dict, List, Optional #, Literal
 from datetime import datetime, date
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
+from mwfunctions.time import get_berlin_timestamp
+
+class BQTable(MWBaseModel):
+    ''' Child of BQTable must contain all columns of an BQ table so that new rows can directly be uploaded.
+        Hint: Bigquery shows datetime obj with timezone "Etc/GMT0" by default. You can change timezone to Berlin with query: DATETIME(timestamp, 'Europe/Berlin')
+    '''
+    _bq_table_name: str = PrivateAttr() #Field(description="Table name in BQ. Can be used to upload data")
 
 """
     Raw Data of merchwatch_shirts BQ table
 """
-
-class BQTable(MWBaseModel):
-    ''' Child of BQTable must contain all columns of an BQ table so that new rows can directly be uploaded.
-    '''
-    _bq_table_name: str = PrivateAttr() #Field(description="Table name in BQ. Can be used to upload data")
 
 class BQPlotDataRaw(MWBaseModel):
     plot_x:str = Field(description="Comma seperated string of dates related to bsr")
@@ -65,7 +67,7 @@ class BQMBAProductsImages(BQTable):
     url: Optional[str]
     url_mba_lowq: str
     url_mba_hq: str
-    timestamp: Optional[datetime] = Field(datetime.now(pytz.timezone("Europe/Berlin")))
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
     @validator("url", always=True)
     def validate_url(cls, url, values):
@@ -83,7 +85,7 @@ class BQMBAProductsMBAImages(BQTable):
     url_image_q3: str
     url_image_q4: str
     url_image_hq: str
-    timestamp: Optional[datetime] = Field(datetime.now(pytz.timezone("Europe/Berlin")))
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
 class BQMBAOverviewProduct(BQTable):
     # mba-pipeline:mba_de.products
@@ -96,7 +98,7 @@ class BQMBAOverviewProduct(BQTable):
     url_image_hq: str
     price: str
     uuid: Optional[str] = Field(None)
-    timestamp: Optional[datetime] = Field(datetime.now(pytz.timezone("Europe/Berlin")))
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
 class BQMBAProductsMBARelevance(BQTable):
     # mba-pipeline:products_mba_relevance
@@ -104,7 +106,7 @@ class BQMBAProductsMBARelevance(BQTable):
     asin: str
     sort: str = Field(description="MBA sorting like. newest, bestseller etc.")
     number: int = Field(description="Number of apperance in overview crawling job")
-    timestamp: Optional[datetime] = Field(datetime.now(pytz.timezone("Europe/Berlin")))
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
 
 

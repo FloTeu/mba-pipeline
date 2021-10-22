@@ -51,6 +51,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             * marketplace (mba marketplace e.g. "de" or "com")
             * website_crawling_target (overview", product or overview_and_product)
         """
+        # TODO: Decide which functionality should be outsourced to dhis function or to MBASpider parent class
         # is debug can either be defined by spider property or from environment
         if hasattr(spider, 'debug'):
             self.debug = spider.debug

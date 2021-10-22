@@ -8,6 +8,7 @@ from enum import Enum, IntEnum
 from typing import Optional, Dict, List
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
+from mwfunctions.time import get_berlin_timestamp
 
 class Marketplace(Enum):
     DE="de"
@@ -31,7 +32,7 @@ class CrawlingSorting(Enum):
 
 class CrawlingJob(MWBaseModel):
     id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
-    start_timestamp: Optional[datetime] = Field(description="Datetime of crawling start")
+    start_timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True), description="Datetime of crawling start")
     end_timestamp: Optional[datetime] = Field(description="Datetime of crawling end")
     finished_with_error: Optional[bool] = Field(False, description="Whether crawler finished with errors")
     error_msg: Optional[str] = Field(None, description="Optional. Python error message")
@@ -49,12 +50,6 @@ class CrawlingJob(MWBaseModel):
         assert self.__contains__(field), f"{field} does not exist in model"
         self[field] += increment
 
-    @validator("start_timestamp", always=True)
-    def validate_start_timestamp(cls, start_timestamp, values): # Only if type is not None
-        if "start_timestamp" not in values:
-            return datetime.now(pytz.timezone("Europe/Berlin"))
-        else:
-            return start_timestamp
 
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")
