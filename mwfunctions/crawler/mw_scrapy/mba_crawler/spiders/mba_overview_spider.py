@@ -34,7 +34,7 @@ from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
-from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem
+from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
 
 
@@ -50,7 +50,7 @@ def str2bool(v):
 
 class MBAShirtOverviewSpider(MBAOverviewSpider):
     name = "mba_overview"
-    website_crawling_target = "overview"
+    website_crawling_target = CrawlingType.OVERVIEW.value
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_search_terms = pd.DataFrame()
     target="869595848"
@@ -81,10 +81,10 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     #     'GCS_PROJECT_ID': 'mba-pipeline'
     # }
 
-    def __init__(self, pod_product, csv_path="", *args, **kwargs):
-        super(MBAShirtOverviewSpider, self).__init__(*args, **kwargs)
+    def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
+        super(MBAShirtOverviewSpider, self).__init__(*args, **mba_overview_request.dict())
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
-        self.pod_product = pod_product
+        self.pod_product = mba_overview_request.pod_product
         self.allowed_domains = ['amazon.' + self.marketplace]
 
         if csv_path != "":

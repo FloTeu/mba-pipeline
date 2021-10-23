@@ -10,8 +10,8 @@ def dumper(obj):
 
 class MWBaseModel(BaseModel):
 
-    def dict(self, json_serializable=False):
-        output_dict = super(MWBaseModel, self).dict()
+    def dict(self, json_serializable=False, *args, **kwargs):
+        output_dict = super(MWBaseModel, self).dict(*args, **kwargs)
         if json_serializable:
             return json.loads(json.dumps(output_dict, default=dumper))
         else:

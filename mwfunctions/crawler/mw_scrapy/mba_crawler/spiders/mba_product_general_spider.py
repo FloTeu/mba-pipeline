@@ -5,6 +5,7 @@ from pathlib import Path
 import pandas as pd
 from urllib.parse import urlparse
 import dateparser
+from typing import List
 from scrapy.exceptions import CloseSpider
 
 import time
@@ -23,6 +24,8 @@ from mwfunctions import environment
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
+from mwfunctions.crawler.preprocessing import create_url_csv
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType
 from mwfunctions.io import str2bool
 
 environment.set_cloud_logging()
@@ -32,6 +35,7 @@ LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "produ
 
 class MBALocalProductSpider(MBAProductSpider):
     name = "mba_product"
+    website_crawling_target = CrawlingType.PRODUCT.value
     Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_products_details = pd.DataFrame(data={"asin":[],"title":[],"brand":[],"url_brand":[],"price":[], "fit_types": [], "color_names": [],"color_count":[],"product_features": [],"description":[],"weight": [],"upload_date_str": [],"upload_date": [],"customer_review_score": [],"customer_review_count": [],"mba_bsr_str": [],"mba_bsr": [],"mba_bsr_categorie": [],"timestamp": []})
     df_products_details_daily = pd.DataFrame(data={"asin":[],"price":[],"price_str":[],"bsr":[],"bsr_str":[], "array_bsr": [], "array_bsr_categorie": [],"customer_review_score_mean":[],"customer_review_score": [],"customer_review_count": [], "timestamp":[]})
@@ -48,31 +52,32 @@ class MBALocalProductSpider(MBAProductSpider):
     #     "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
     # }
 
-    def __init__(self, daily=True, url_data_path=None, *args, **kwargs):
-        super(MBALocalProductSpider, self).__init__(*args, **kwargs)
+    def __init__(self, mba_product_request: CrawlingMBAProductRequest, url_data_path=None, *args, **kwargs):
+        super(MBALocalProductSpider, self).__init__(*args, **mba_product_request.dict())
         # TODO: Add functionality to download url data directly within init
-        self.daily = str2bool(daily)
+        self.daily = str2bool(mba_product_request.daily)
         self.allowed_domains = ['amazon.' + self.marketplace]
-        if url_data_path:
-            self.url_data_path = url_data_path
-        else:
-            if self.daily:
-                self.url_data_path = f"mba_crawler/url_data/urls_mba_daily_{self.marketplace}.csv"
-            else:
-                self.url_data_path = f"mba_crawler/url_data/urls_mba_general_{self.marketplace}.csv"
+        self.mba_product_request = mba_product_request
+        self.url_data_path = url_data_path
 
 
     def start_requests(self):
         self.reset_was_banned_every_hour()
-        urls = pd.read_csv(self.url_data_path)["url"].tolist()
-        asins = pd.read_csv(self.url_data_path)["asin"].tolist()
+
+        if self.url_data_path:
+            urls = pd.read_csv(self.url_data_path)["url"].tolist()
+            asins = pd.read_csv(self.url_data_path)["asin"].tolist()
+        else:
+            crawling_input_items: List[create_url_csv.CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id)
+            urls = [crawling_input_item.url for crawling_input_item in crawling_input_items]
+            asins = [crawling_input_item.asin for crawling_input_item in crawling_input_items]
+
         # send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
         LOGGER.info("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
-        for i, url in enumerate(urls):
+        for url, asin in zip(urls, asins):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
-            asin = asins[i]
             yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=1,
                                     errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url}) # "proxy": proxies["http"], 
 

@@ -81,6 +81,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         spider.crawling_job = self.crawling_job
         spider.debug = self.debug
         spider.bq_client = self.bq_client
+        spider.bq_project_id = bq_project_id
         spider.fs_product_data_col_path = self.fs_product_data_col_path
         spider.fs_log_col_path = self.fs_log_col_path
 

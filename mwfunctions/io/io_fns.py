@@ -22,4 +22,5 @@ def str2bool(v):
     elif v.lower() in ('no', 'false', 'f', 'n', '0'):
         return False
     else:
+        # maybe argparse.ArgumentTypeError('Boolean value expected.') must be raised in case of argparse
         raise ValueError("Provided argument is not a bool")

@@ -5,19 +5,20 @@ import pytz
 from pydantic import BaseModel, Field, validator
 from datetime import date, datetime
 from enum import Enum, IntEnum
-from typing import Optional, Dict, List
+from typing import Optional, Dict, List, Any
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.time import get_berlin_timestamp
+from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 
 class Marketplace(Enum):
     DE="de"
     COM="com"
 
 class CrawlingType(Enum):
-    OVERVIEW = "OVERVIEW"
-    PRODUCT = "PRODUCT"
-    REALTIME_RESEARCH = "REALTIME_RESEARCH"
+    OVERVIEW = "overview"
+    PRODUCT = "product"
+    REALTIME_RESEARCH = "realtime_research"
 
 class PODProduct(Enum):
     SHIRT = "shirt"
@@ -91,3 +92,27 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
     pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
+
+class CrawlingMBADailyProportions(MWBaseModel):
+    """ Proportions decide which prodicts should be crawled
+        Sum of integers must be 1
+    """
+    best_seller: float = Field(0.7, description="70 % random pick of best sellers(Last crawled date in table products_mba_relevance)")
+    lowest_bsr_count: float = Field(0.2, description="20% products which were crawled the least")
+    # random must be last field due to validator
+    random: float = Field(0.1, description="10% random pick of products")
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        assert sum(self.values()) > 0.99 and sum(self.values()) < 1.01, "Sum of proportions must be 1"
+
+class Test(MWBaseModel):
+    test_b: int
+
+class CrawlingMBAProductRequest(CrawlingMBARequest):
+    daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
+    number_products: int = Field(description="Number of products that should be crawled")
+    top_n: Optional[int] = Field(60, description="Number of top n bestellers/trending products etc. which should be prioritized for crawling")
+    proportions: CrawlingMBADailyProportions = Field(description="Proportions of crawling products with sum equals 1")
+    #test: Test
+    excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")

@@ -5,7 +5,7 @@ from scrapy.utils.project import get_project_settings
 from scrapy.crawler import CrawlerProcess
 from pathlib import Path
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
-from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBASpider as mba_product_spider
+from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest
 from os import system
 from enum import Enum
@@ -28,7 +28,9 @@ class Scraper:
         self.spider = spider.value # The spider you want to crawl
 
     def run_spider(self, crawling_mba_request: CrawlingMBARequest):
-        self.process.crawl(self.spider, **crawling_mba_request.dict())
+        # init of spider
+        self.process.crawl(self.spider, crawling_mba_request)
+        # start_requests of spider
         self.process.start()  # the script will block here until the crawling is finished
 
 

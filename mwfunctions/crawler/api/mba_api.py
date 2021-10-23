@@ -17,14 +17,13 @@ import time
 from datetime import datetime
 import sys
 from pathlib import Path
-from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 
 file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append("..")
 sys.path.append(str(root))
 
-from mwfunctions.crawler.preprocessing import create_url_csv
+import create_url_csv
 #from create_url_csv import get_asins_daily_to_crawl
 
 # constants
@@ -50,6 +49,21 @@ RESOURCE_PRODUCT_TYPE = "product_type"
 RESOURCE_AFFILIATE_URL = "affiliate_url"
 
 
+EXCLUDE_ASINS = ["B00N3THBE8", "B076LTLG1Q", "B001EAQB12", "B001EAQB12", "B00OLG9GOK", "B07VPQHZHZ", "B076LX1H2V",
+    "B0097B9SKQ", "B001EAQBH6", "B084X5Z1RX", "B07VPQHZHZ", "B07N4CHR77", "B002LBVRJO", "B00O1QQNGE",
+    "B084ZRCLBD", "B084JBK66T", "B07VRY4WL3", "B078KR341N", "B00MP1PPHK", "B000YEVF4C", "B07WL5C9G9"
+    ,"B07WVM8QBX", "B076LTN3ZV", "B016QM4XAI", "B007VATVL6", "B00U6U8GXC", "B00JZQHZ6C", "B00B69A928", "B0731RSZ8V"
+    , "B01N2I5UO7", "B01MU11HZ4", "B00K5R9XCY", "B07BP9MDDR", "B0845C7JWN", "B0731RB39G", "B00Q4L52EI", "B0731R9KN4",
+    "B084ZRG8T8", "B07W7F64J1", "B084WYWVDY", "B00PK2JBIA", "B07G5JXZZZ", "B07MVM8QBX", "B08P45JK6P", "B08P49MY6P", "B07G57GSW3",
+    "B07SPXP8G4", "B00N3THB8E", "B01LZ3CICA", "B07V5P1VCP", "B0731RGXDP", "B076LWZHPC", "B0731T51WL", "B073D183X3",
+    "B07NQ41MLR", "B0719BMPLY", "B083QNVF1P", "B076LX7HR2", "B083QNKLY5", "B083QNX4RM", "B07RJRXRPZ", "B07G5HX57H",
+    "B07G57MJHF", "B0779HF6W1", "B002LBVQS6", "B014N6DPJY", "B003Q6CM8I", "B07VCTKYLH", "B07YZB46DM", "B0731RY1SM",
+    "B08CJJ612P", "B08CCXZ62B"]
+STRANGE_LAYOUT = ["B08P4P6NW2", "B08P9RSFPB", "B08P715HSQ", "B08P6ZZZYD", "B08NPN1BSM", "B08P6W8DF5", "B08P6Z741L", "B08NF2KRVD",
+"B08P6YR7H1", "B08P745NZF", "B08P11VQT1", "B08P7254PL", "B08P6Y478X", "B08P4WF7BJ", "B08P4W854L", "B08P5WJN16", "B08P5BLGCG", "B08PB5H8MX",
+"B08P9TJT15", "B08P96596Z", "B08P7DN9DK","B08P6S9BFW", "B08P6L9YNY", "B08P6Z6398", "B08P9HGNV1", "B08P94XH62", "B08P9T4DPT"
+, "B08P761ZZ7", "B08P72GHH8", "B08PBPR798", "B08PBHYMTT", "B08NJMYW38", "B07X9H69QR","B08PGXQHHB", "B08PFJ28B3", "B08PGRSQKT",
+"B08PM69M79", "B08PGX58MF", "B08PGL55LR"]
 
 def parse_response(item_response_list):
     """
@@ -351,7 +365,7 @@ class MBADataUpdater(object):
         self.bq_mba_images_table_id = f"mba_{self.marketplace}.products_mba_images"
 
         # asins which should not be updated        
-        self.exclude_asins = EXCLUDED_ASINS + STRANGE_LAYOUT
+        self.exclude_asins = EXCLUDE_ASINS + STRANGE_LAYOUT
 
     def set_asins_to_update(self, proportions=[0.7,0.2,0.1], file_path=None):
         if file_path:
