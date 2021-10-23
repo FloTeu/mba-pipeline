@@ -35,7 +35,7 @@ from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType
-from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMBAImages, BQMBAProductsMBARelevance
+from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
 
 
 def str2bool(v):
@@ -127,6 +127,8 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                 if page_number <= 400:
                     url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
                     urls_mba.append(url_mba_page)
+
+        self.crawling_job.number_of_target_pages = len(urls_mba)
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
             # if self.marketplace == "com": 
@@ -155,9 +157,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         with open(filename, 'wb') as f:
             f.write(response.body)
         self.log('Saved file %s' % filename)
-
-    def is_captcha_required(self, response):
-        return "captcha" in response.body.decode("utf-8").lower()
 
     def get_zip_code_location(self, response):
         try:
@@ -216,19 +215,8 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             #self.get_count_results(response)
 
             if self.is_captcha_required(response):
-                self.crawling_job.count_inc("response_captcha_count")
-                #self.response_is_ban(request, response, is_ban=True)
-                print("Captcha required for proxy: " + proxy)
-                self.captcha_count = self.captcha_count + 1
-                self.update_ban_count(proxy)
-                headers = get_random_headers(self.marketplace)
-                # send new request with high priority
-                request = scrapy.Request(url=response.meta["url"], callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                        errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page, "url": response.meta["url"]})
-                self.crawling_job.count_inc("request_count")
-                yield request
+                self.yield_again_if_captcha_required(url, proxy)
             else:
-
                 if self.should_zip_code_be_changed(response):
                     print("Proxy does not get all .com results: " + proxy)
                     self.update_ban_count(proxy)
@@ -243,15 +231,16 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     self.ip_addresses.append(response.ip_address.compressed)
 
                     bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
-                    bq_mba_products_mba_images_list: List[BQMBAProductsMBAImages] = self.get_BQMBAProductsMBAImages_list(response)
-                    bq_mba_products_mba_relevance_list: List[BQMBAProductsMBARelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
+                    bq_mba_products_mba_images_list: List[BQMBAProductsMbaImages] = self.get_BQMBAProductsMBAImages_list(response)
+                    bq_mba_products_mba_relevance_list: List[BQMBAProductsMbaRelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
                     # store product data in bq
                     for bq_mba_overview_product in bq_mba_overview_product_list:
                         if bq_mba_overview_product.asin not in self.products_already_crawled:
                             yield bq_mba_overview_product
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)
-
+                        else:
+                            self.crawling_job.count_inc("already_crawled_products_count")
                         # crawl only image if not already crawled
                         if bq_mba_overview_product.asin not in self.products_images_already_downloaded:
                             mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))

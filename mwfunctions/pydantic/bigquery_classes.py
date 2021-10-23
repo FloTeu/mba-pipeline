@@ -76,7 +76,7 @@ class BQMBAProductsImages(BQTable):
         else:
             return url
 
-class BQMBAProductsMBAImages(BQTable):
+class BQMBAProductsMbaImages(BQTable):
     # mba-pipeline:mba_de.products_mba_images
     _bq_table_name: str = PrivateAttr("products_mba_images")
     asin: str
@@ -100,7 +100,7 @@ class BQMBAOverviewProduct(BQTable):
     uuid: Optional[str] = Field(None)
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
-class BQMBAProductsMBARelevance(BQTable):
+class BQMBAProductsMbaRelevance(BQTable):
     # mba-pipeline:products_mba_relevance
     _bq_table_name: str = PrivateAttr("products_mba_relevance")
     asin: str
@@ -109,11 +109,57 @@ class BQMBAProductsMBARelevance(BQTable):
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
 
+class BQMBAProductsDetails(BQTable):
+    _bq_table_name: str = PrivateAttr("products_details")
+    asin: str
+    title: str
+    brand: str = Field(description="brand of mba product")
+    url_brand: str
+    price: str
+    fit_types: str
+    color_names: str
+    color_count: int
+    product_features: str
+    description: str
+    weight: str
+    upload_date_str: str
+    upload_date: datetime
+    customer_review_score: str
+    customer_review_count: int
+    mba_bsr_str: str
+    mba_bsr: str
+    mba_bsr_categorie: str
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
+
+class BQMBAProductsDetailsDaily(BQTable):
+    _bq_table_name: str = PrivateAttr("products_details_daily")
+    asin: str
+    price: float
+    price_str: str
+    bsr: int
+    bsr_str: str
+    array_bsr: str
+    array_bsr_categorie: str
+    customer_review_score_mean: float
+    customer_review_score: str
+    customer_review_count: int
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
+
+class BQMBAProductsNoBsr(BQTable):
+    _bq_table_name: str = PrivateAttr("products_no_bsr")
+    asin: str
+    url:str
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
+
+class BQMBAProductsNoMbaShirt(BQTable):
+    asin: str
+    url: str
+    timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
+
 
 """
 ### functions
 """
-
 
 def bq_list_str_to_list(list_str):
     # create list out of BQ dumped list

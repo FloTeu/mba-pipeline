@@ -11,7 +11,7 @@ import logging
 from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
-from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob
+from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 
@@ -73,7 +73,13 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
-        self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace)
+        if website_crawling_target == CrawlingType.OVERVIEW.value:
+            self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace)
+        elif website_crawling_target == CrawlingType.PRODUCT.value:
+            self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily)
+        else:
+            raise NotImplementedError
+
         bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
         self.bq_client = bigquery.Client(project=bq_project_id)
 

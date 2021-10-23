@@ -20,6 +20,15 @@ class CrawlingType(Enum):
     PRODUCT = "product"
     REALTIME_RESEARCH = "realtime_research"
 
+class CrawlingInputItem(BaseModel):
+    asin: str
+    marketplace: str
+    url: Optional[str] = Field(description="Urls which should be crawled")
+
+    @validator("url", always=True)
+    def validate_url(cls, url, values):
+        return url if url in values else f"https://www.amazon.{values['marketplace']}/dp/{values['asin']}"
+
 class PODProduct(Enum):
     SHIRT = "shirt"
 
@@ -34,9 +43,11 @@ class CrawlingSorting(Enum):
 class CrawlingJob(MWBaseModel):
     id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
     start_timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True), description="Datetime of crawling start")
-    end_timestamp: Optional[datetime] = Field(description="Datetime of crawling end")
+    end_timestamp: Optional[datetime] = Field(None, description="Datetime of crawling end")
+    duration_in_min: Optional[float] = Field(0.0, description="Duration of crawling task in minutes")
     finished_with_error: Optional[bool] = Field(False, description="Whether crawler finished with errors")
     error_msg: Optional[str] = Field(None, description="Optional. Python error message")
+    number_of_target_pages: Optional[int] = Field(None, description="E.g. number of overview pages or number of product pages")
     request_count: Optional[int] = Field(0, description="Number of total requests sended")
     response_successful_count: Optional[int] = Field(0, description="Count of successfull responses with status code 200 and without captcha blocking")
     response_captcha_count: Optional[int] = Field(0, description="Count of captcha blocked responses")
@@ -46,11 +57,21 @@ class CrawlingJob(MWBaseModel):
     warning_count: Optional[int] = Field(0, description="Count of warnings. e.g. if price could not be crawled due to geographic proxy problems (eu proxy for usa product)")
     proxy_ban_count: Optional[int] = Field(0, description="Count of proxy ban. Which is only temporary.")
 
+    class Config:
+        validate_assignment = True
+
     def count_inc(self, field, increment=1):
         assert "count" in field, f"field must contain 'count' but is {field}"
         assert self.__contains__(field), f"{field} does not exist in model"
         self[field] += increment
 
+    # @validator("end_timestamp")
+    # def validate_end_timestamp(cls, end_timestamp, values):
+    #     values["duration_in_min"] = float("%.2f" % ((end_timestamp - values["start_timestamp"]).seconds / 60)) if "start_timestamp" in values and end_timestamp else 0
+    #     return end_timestamp
+
+    def set_duration_in_min(self):
+        self.duration_in_min = float("%.2f" % ((self.end_timestamp - self.start_timestamp).seconds / 60)) if self.start_timestamp and self.end_timestamp else 0
 
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")
@@ -63,7 +84,9 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
     new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
+    daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
     crawling_type: CrawlingType = Field("product", description="Crawling type, which indicates which pages and what data is the target of crawling")
+    price_not_found_count: int = Field(0, description="Count of successfull responses without price information")
 
 class MBAImageItem(BaseModel):
     asin: str
@@ -116,3 +139,4 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     proportions: CrawlingMBADailyProportions = Field(description="Proportions of crawling products with sum equals 1")
     #test: Test
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
+    asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")

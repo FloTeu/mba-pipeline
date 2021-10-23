@@ -27,9 +27,9 @@ class Scraper:
         self.process = CrawlerProcess(get_project_settings())
         self.spider = spider.value # The spider you want to crawl
 
-    def run_spider(self, crawling_mba_request: CrawlingMBARequest):
+    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # init of spider
-        self.process.crawl(self.spider, crawling_mba_request)
+        self.process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
         # start_requests of spider
         self.process.start()  # the script will block here until the crawling is finished
 

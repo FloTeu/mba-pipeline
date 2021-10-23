@@ -11,7 +11,7 @@ from pydantic import BaseModel, validator, Field
 from typing import List, Optional
 from contextlib import suppress
 
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingInputItem
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 from mwfunctions.io import str2bool
 
@@ -127,15 +127,6 @@ def get_sql_top_categories(marketplace, top_n=10):
     (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba-pipeline.mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_change LIMIT {1})
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
-
-class CrawlingInputItem(BaseModel):
-    asin: str
-    marketplace: str
-    url: Optional[str] = Field(description="Urls which should be crawled")
-
-    @validator("url", always=True)
-    def validate_url(cls, url, values):
-        return url if url in values else f"https://amazon.{values['marketplace']}/dp/{values['asin']}"
 
 def get_crawling_input_items(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline") -> List[CrawlingInputItem]:
     asin_list = get_asins_to_crawl(mba_product_request, bq_project_id)
