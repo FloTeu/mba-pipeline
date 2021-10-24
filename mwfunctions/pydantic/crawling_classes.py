@@ -135,7 +135,7 @@ class Test(MWBaseModel):
 
 class CrawlingMBAProductRequest(CrawlingMBARequest):
     daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
-    number_products: int = Field(description="Number of products that should be crawled")
+    number_products: int = Field(description="Number of products that should be crawled. If -1 and daily=false -> every product shoule be crawled")
     top_n: Optional[int] = Field(60, description="Number of top n bestellers/trending products etc. which should be prioritized for crawling")
     proportions: CrawlingMBADailyProportions = Field(description="Proportions of crawling products with sum equals 1")
     #test: Test

@@ -146,7 +146,8 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
             df_product_details = bq_client.query(
                 "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 order by t0.timestamp").to_dataframe().drop_duplicates(
                 ["asin"])
-        return df_product_details["asin"].to_list()
+
+        return df_product_details["asin"].to_list() if mba_product_request.number_products == -1 else df_product_details["asin"].to_list()[0:mba_product_request.number_products]
         # raise NotImplementedError("daily = False crawling asins are not defined at the moment")
 
 
