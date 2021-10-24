@@ -62,7 +62,6 @@ class MBASpider(scrapy.Spider):
             'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
             })
 
-        # self.no_bsr_products = [] #List[BQMBAProductsNoBsr]
 
         # Change proxy list depending on marketplace and debug and target
         if self.debug:
@@ -247,9 +246,6 @@ class MBASpider(scrapy.Spider):
         yield request
 
     def closed(self, reason):
-        # if self.website_crawling_target == CrawlingType.PRODUCT:
-        #     for no_bsr_product in self.no_bsr_products:
-        #         yield no_bsr_product
         # save crawling job in firestore
         print("Save crawling job to Firestore")
         self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
@@ -372,6 +368,9 @@ class MBAProductSpider(MBASpider):
     def __init__(self, *args, **kwargs):
         super(MBAProductSpider, self).__init__(*args, **kwargs)
 
+        # list of BQ table rows which will be inserted to BQ at closing spider event
+        self.no_bsr_products: List[BQMBAProductsNoBsr] = []
+
     def is_mba_shirt(self, response):
         # mba shirts have always fit type (Herren, Damen, Kinder)
         return len(response.css('div#variation_fit_type span')) > 0
@@ -404,8 +403,8 @@ class MBAProductSpider(MBASpider):
         except Exception as e:
             self.log_error(e, "Could not get BSR data")
             if "no bsr" in str(e): #  catch error no bsr but review count
-                # cw_input = CrawlingInputItem(marketplace=self.marketplace, asin=asin)
-                # self.no_bsr_products.append(BQMBAProductsNoBsr(asin=asin, url=cw_input.url))
+                cw_input = CrawlingInputItem(marketplace=self.marketplace, asin=asin)
+                self.no_bsr_products.append(BQMBAProductsNoBsr(asin=asin, url=cw_input.url))
                 # self.yield_BQMBAProductsNoBsr(asin)
                 pass
             if self.daily:

@@ -122,6 +122,10 @@ class MBALocalProductSpider(MBAProductSpider):
 
                 self.status_update()
 
+            # yield no_bsr_products
+            while len(self.no_bsr_products) > 0:
+                yield self.no_bsr_products.pop(0)
+
         except Exception as e:
             self.crawling_job.finished_with_error = True
             self.crawling_job.error_msg = str(e)
