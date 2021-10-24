@@ -245,6 +245,12 @@ class MBASpider(scrapy.Spider):
         self.crawling_job.count_inc("request_count")
         yield request
 
+    def save_content(self, response, file_name):
+        filename = "data/" + self.name + "/content/%s.html" % file_name
+        with open(filename, 'wb') as f:
+            f.write(response.body)
+        self.log('Saved file %s' % filename)
+
     def closed(self, reason):
         # save crawling job in firestore
         print("Save crawling job to Firestore")
@@ -328,7 +334,7 @@ class MBAOverviewSpider(MBASpider):
     def is_shirt(self, overview_response_product):
         try:
             asin = overview_selector.mba_get_asin(overview_response_product)
-            return True
+            return asin not in ["", None]
         except Exception as e:
             return False
 

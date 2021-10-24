@@ -129,6 +129,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     urls_mba.append(url_mba_page)
 
         self.crawling_job.number_of_target_pages = len(urls_mba)
+        self.crawling_job.keyword = self.keyword
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
             # if self.marketplace == "com": 

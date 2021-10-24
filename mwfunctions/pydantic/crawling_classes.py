@@ -82,6 +82,7 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
     already_crawled_products_count: int = Field(0, description="Count of already crawled products")
     crawling_type: CrawlingType = Field("overview", description="Crawling type, which indicates which pages and what data is the target of crawling")
     new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
+    keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")

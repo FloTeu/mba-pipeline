@@ -235,10 +235,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
 
         if isinstance(item, MBAImageItems):
             marketplace = item.marketplace
-            if info.spider.debug:
-                bq_table_id = f"merchwatch-dev.mba_{marketplace}.products_images"
-            else:
-                bq_table_id = f"mba-pipeline.mba_{marketplace}.products_images"
+            bq_table_id = f"{info.spider.bq_project_id}.mba_{marketplace}.products_images"
 
             rows_to_insert = []
             for i, image_item in enumerate(item.image_items):

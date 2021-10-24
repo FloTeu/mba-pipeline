@@ -85,12 +85,6 @@ class MBALocalProductSpider(MBAProductSpider):
             yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=1,
                                     errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url}) # "proxy": proxies["http"],
 
-    def save_content(self, response, asin):
-        filename = "data/" + self.name + "/content/%s.html" % asin
-        with open(filename, 'wb') as f:
-            f.write(response.body)
-        self.log('Saved file %s' % filename)
-
     def status_update(self):
         if self.page_count % 100 == 0:
             print("Crawled {} pages".format(self.page_count))
