@@ -62,6 +62,8 @@ class MBASpider(scrapy.Spider):
             'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
             })
 
+        # self.no_bsr_products = [] #List[BQMBAProductsNoBsr]
+
         # Change proxy list depending on marketplace and debug and target
         if self.debug:
             # use only private proxies for debugging
@@ -245,11 +247,15 @@ class MBASpider(scrapy.Spider):
         yield request
 
     def closed(self, reason):
+        # if self.website_crawling_target == CrawlingType.PRODUCT:
+        #     for no_bsr_product in self.no_bsr_products:
+        #         yield no_bsr_product
         # save crawling job in firestore
         print("Save crawling job to Firestore")
         self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         self.crawling_job.set_duration_in_min()
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
+
 
 class MBAOverviewSpider(MBASpider):
 
@@ -398,7 +404,10 @@ class MBAProductSpider(MBASpider):
         except Exception as e:
             self.log_error(e, "Could not get BSR data")
             if "no bsr" in str(e): #  catch error no bsr but review count
-                self.yield_BQMBAProductsNoBsr(asin)
+                # cw_input = CrawlingInputItem(marketplace=self.marketplace, asin=asin)
+                # self.no_bsr_products.append(BQMBAProductsNoBsr(asin=asin, url=cw_input.url))
+                # self.yield_BQMBAProductsNoBsr(asin)
+                pass
             if self.daily:
                 return "", 0, [], []
             else:

@@ -77,7 +77,7 @@ class MBALocalProductSpider(MBAProductSpider):
         LOGGER.info("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         self.crawling_job.number_of_target_pages = len(urls)
-        
+
         for url, asin in zip(urls, asins):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
@@ -105,8 +105,10 @@ class MBALocalProductSpider(MBAProductSpider):
                 self.yield_again_if_captcha_required(url, proxy, asin=asin)
             # do not proceed if its not a mba shirt
             elif not self.is_mba_shirt(response):
+                self.crawling_job.count_inc("response_successful_count")
                 yield BQMBAProductsNoMbaShirt(asin=asin, url=url)
             else:
+                self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
 
                 if self.daily:

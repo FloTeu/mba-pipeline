@@ -152,6 +152,7 @@ class BQMBAProductsNoBsr(BQTable):
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
 class BQMBAProductsNoMbaShirt(BQTable):
+    _bq_table_name: str = PrivateAttr("products_no_mba_shirt")
     asin: str
     url: str
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))

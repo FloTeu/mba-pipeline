@@ -5,6 +5,7 @@ import dateutil.parser
 from deep_translator import GoogleTranslator
 from urllib.parse import urlparse
 from datetime import datetime
+from contextlib import suppress
 
 def get_price(response, marketplace):
     # old code outcommented
@@ -221,7 +222,9 @@ def get_weight(response):
 
 
 def get_upload_date(response):
+    possible_datetime_formats = ["%d, %B %Y", "%d %B %Y", "%drd %B %Y", "%dth %B %Y", "%B %d, %Y", "%d. %B %Y"]
     upload_date_str = None
+    upload_date_str_en = None
     product_information = response.css('div#detailBullets li')
     if product_information == None or product_information == []:
         product_information = response.css('div#dpx-detail-bullets_feature_div li')
@@ -233,13 +236,16 @@ def get_upload_date(response):
                     upload_date_str = li.css("span span::text").getall()[1]
                     # TODO check if this code works for different proxy locations and marketplaces. What happens if amazon changes format??
                     upload_date_str_en = GoogleTranslator(source='auto', target='en').translate(upload_date_str)
-                    upload_date_obj = datetime.strptime(upload_date_str_en, '%d. %B %Y')
+                    while len(possible_datetime_formats) > 0:
+                        with suppress(Exception):
+                            upload_date_obj = datetime.strptime(upload_date_str_en, possible_datetime_formats.pop())
+                            break
                     #upload_date_obj = dateparser.parse(upload_date_str)
                     upload_date = upload_date_obj.strftime('%Y-%m-%d')
                     return upload_date.strip(), upload_date_obj
             except:
-                if upload_date_str:
-                    raise ValueError(f"Could not get upload date. upload string {upload_date_str}")
+                if upload_date_str and upload_date_str_en:
+                    raise ValueError(f"Could not get upload date. upload string {upload_date_str}, translated: {upload_date_str_en}")
                 else:
                     raise ValueError("Could not get upload date")
     else:

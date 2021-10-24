@@ -10,6 +10,7 @@ from pathlib import Path
 from pydantic import BaseModel, validator, Field
 from typing import List, Optional
 from contextlib import suppress
+from google.api_core.exceptions import NotFound
 
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingInputItem
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
@@ -88,7 +89,7 @@ def get_sql_best_seller(marketplace):
 
 def get_sql_watchlist(marketplace):
     SQL_STATEMENT = '''
-    SELECT asin, operation FROM  `mba-pipeline.mba_{0}.watchlist` 
+    SELECT asin, operation FROM  `mba_{0}.watchlist` 
     order by timestamp desc
     '''.format(marketplace)
     return SQL_STATEMENT
@@ -118,13 +119,13 @@ def get_sql_random(marketplace, number_products):
 
 def get_sql_top_categories(marketplace, top_n=10):
     SQL_STATEMENT = '''
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba-pipeline.mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_last LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_last LIMIT {1})
     UNION ALL
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba-pipeline.mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_mean LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_mean LIMIT {1})
     UNION ALL
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba-pipeline.mba_{0}.merchwatch_shirts` where price_last != 404.0 order by trend_nr LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by trend_nr LIMIT {1})
     UNION ALL
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba-pipeline.mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_change LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_change LIMIT {1})
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
 
@@ -136,7 +137,17 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
     if mba_product_request.daily:
         return get_asins_daily_to_crawl(mba_product_request, bq_project_id)
     else:
-        raise NotImplementedError("daily = False crawling asins are not defined at the moment")
+        bq_client = bigquery.Client(project=bq_project_id)
+        try:
+            df_product_details = bq_client.query(
+                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 LEFT JOIN mba_" + mba_product_request.marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(
+                ["asin"])
+        except NotFound: # case products_details does not exist
+            df_product_details = bq_client.query(
+                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 order by t0.timestamp").to_dataframe().drop_duplicates(
+                ["asin"])
+        return df_product_details["asin"].to_list()
+        # raise NotImplementedError("daily = False crawling asins are not defined at the moment")
 
 
 def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline") -> list:# marketplace, exclude_asins, number_products, top_n=60, proportions=[0.7,0.2,0.1]):
