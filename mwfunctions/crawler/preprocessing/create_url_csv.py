@@ -138,6 +138,12 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
         return get_asins_daily_to_crawl(mba_product_request, bq_project_id)
     else:
         bq_client = bigquery.Client(project=bq_project_id)
+        exclude_asins = mba_product_request.excluded_asins
+        # exclude asins with no mba shirt
+        with suppress(Exception):
+            exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(mba_product_request.marketplace),
+                                                        project_id=bq_project_id)["asin"].to_list()
+
         try:
             df_product_details = bq_client.query(
                 "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 LEFT JOIN mba_" + mba_product_request.marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(
@@ -147,6 +153,8 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
                 "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 order by t0.timestamp").to_dataframe().drop_duplicates(
                 ["asin"])
 
+        # drop excluded asins
+        df_product_details = df_product_details[~df_product_details['asin'].isin(exclude_asins)]
         return df_product_details["asin"].to_list() if mba_product_request.number_products == -1 else df_product_details["asin"].to_list()[0:mba_product_request.number_products]
         # raise NotImplementedError("daily = False crawling asins are not defined at the moment")
 
