@@ -129,20 +129,21 @@ def get_sql_top_categories(marketplace, top_n=10):
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
 
-def get_crawling_input_items(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline") -> List[CrawlingInputItem]:
-    asin_list = get_asins_to_crawl(mba_product_request, bq_project_id)
+def get_crawling_input_items(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline", progress_bar_type=None) -> List[CrawlingInputItem]:
+    # progress_bar_type is equal to parameter of pandas.read_gbq
+    asin_list = get_asins_to_crawl(mba_product_request, bq_project_id, progress_bar_type=progress_bar_type)
     return [CrawlingInputItem(asin=asin, marketplace=mba_product_request.marketplace) for asin in asin_list]
 
-def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline") -> list:
+def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline", progress_bar_type=None) -> list:
     if mba_product_request.daily:
-        return get_asins_daily_to_crawl(mba_product_request, bq_project_id)
+        return get_asins_daily_to_crawl(mba_product_request, bq_project_id, progress_bar_type=progress_bar_type)
     else:
         bq_client = bigquery.Client(project=bq_project_id)
         exclude_asins = mba_product_request.excluded_asins
         # exclude asins with no mba shirt
         with suppress(Exception):
             exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(mba_product_request.marketplace),
-                                                        project_id=bq_project_id)["asin"].to_list()
+                                                        project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
 
         try:
             df_product_details = bq_client.query(
@@ -159,7 +160,7 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
         # raise NotImplementedError("daily = False crawling asins are not defined at the moment")
 
 
-def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline") -> list:# marketplace, exclude_asins, number_products, top_n=60, proportions=[0.7,0.2,0.1]):
+def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_project_id="mba-pipeline", progress_bar_type=None) -> list:# marketplace, exclude_asins, number_products, top_n=60, proportions=[0.7,0.2,0.1]):
     '''
         Logic of daily crawling:
         70% random pick of best sellers (Last crawled date in table products_mba_relevance)
@@ -174,22 +175,22 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     # get asins which should be excluded
     exclude_asins = mba_product_request.excluded_asins
     with suppress(Exception):
-        pd.read_gbq(get_sql_exclude_asins(mba_product_request.marketplace), project_id=bq_project_id)["asin"].to_list()
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
     with suppress(Exception):
-        exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins_api(mba_product_request.marketplace), project_id=bq_project_id)["asin"].to_list()
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_exclude_asins_api(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
 
     # exclude asins with no bsr information
     with suppress(Exception):
-        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_bsr(mba_product_request.marketplace), project_id=bq_project_id)["asin"].to_list()
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_bsr(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
 
     # exclude asins with no mba shirt
     with suppress(Exception):
-        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(mba_product_request.marketplace), project_id=bq_project_id)["asin"].to_list()
+        exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
 
     # get 70% random best seller
     number_best_sellers = int(int(mba_product_request.number_products) * mba_product_request.proportions.best_seller)
     with suppress(Exception):
-        df_best_seller = pd.read_gbq(get_sql_best_seller(mba_product_request.marketplace), project_id=bq_project_id)
+        df_best_seller = pd.read_gbq(get_sql_best_seller(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_best_seller = df_best_seller[~df_best_seller['asin'].isin(exclude_asins)]
         if df_best_seller.shape[0] > number_best_sellers:
             df_best_seller = df_best_seller.sample(number_best_sellers)
@@ -200,7 +201,7 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     # get 20% lowest bsr_count
     with suppress(Exception):
         number_lowest_bsr_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.lowest_bsr_count)
-        df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(mba_product_request.marketplace), project_id=bq_project_id)
+        df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_lowest_bsr_count = df_lowest_bsr_count[~df_lowest_bsr_count['asin'].isin(exclude_asins)]
         if df_lowest_bsr_count.shape[0] > number_lowest_bsr_count:
             df_lowest_bsr_count = df_lowest_bsr_count.iloc[0:number_lowest_bsr_count]
@@ -212,7 +213,7 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     with suppress(Exception):
         number_random_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.random)
         # get two times more to filter alreay existent asins later
-        df_random = pd.read_gbq(get_sql_random(mba_product_request.marketplace, number_random_count*4), project_id=bq_project_id)
+        df_random = pd.read_gbq(get_sql_random(mba_product_request.marketplace, number_random_count*4), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_random = df_random[~df_random['asin'].isin(exclude_asins)]
         if df_random.shape[0] > number_random_count:
             df_random = df_random.sample(number_random_count)
@@ -223,14 +224,14 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
 
     # get 40 top 10 best_seller + trend + bsr_change + bsr_last
     try:
-        df_ranking = pd.read_gbq(get_sql_top_categories(mba_product_request.marketplace, top_n=mba_product_request.top_n), project_id=bq_project_id)
+        df_ranking = pd.read_gbq(get_sql_top_categories(mba_product_request.marketplace, top_n=mba_product_request.top_n), project_id=bq_project_id, progress_bar_type=progress_bar_type)
     except:
         df_ranking = df_random.iloc[0:2]
     df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
 
     # get watchlist data
     try:
-        df_watchlist = pd.read_gbq(get_sql_watchlist(mba_product_request.marketplace), project_id=bq_project_id)
+        df_watchlist = pd.read_gbq(get_sql_watchlist(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_watchlist = df_watchlist.drop_duplicates(subset=['asin'], keep='first')
         df_watchlist = df_watchlist[df_watchlist["operation"] == "insert"]
     except:

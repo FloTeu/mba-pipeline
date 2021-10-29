@@ -3,6 +3,7 @@ import traceback
 import pandas as pd
 import time
 import threading
+import logging
 
 from typing import List
 from datetime import date, datetime
@@ -25,7 +26,7 @@ import mwfunctions.cloud.firestore as firestore_fns
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
-from mwfunctions.time import get_berlin_timestamp
+from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
 
 MBA_PRODUCT_TYPE2GCS_DIR = {
     "shirt": "mba-shirts"
@@ -57,6 +58,10 @@ class MBASpider(scrapy.Spider):
         self.debug = debug
         self.was_banned = {}
 
+        if not self.debug:
+            # prevent log everything in cloud run/ and normal logging
+            logging.getLogger('scrapy').setLevel(logging.WARNING)
+
         self.custom_settings.update({
             'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug or get_gcp_project() == "merchwatch-dev" else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
             'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
@@ -72,6 +77,7 @@ class MBASpider(scrapy.Spider):
         else:
             self.custom_settings.update({
                 "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
+                #"ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
             })
         super().__init__(**kwargs)  # python3
 
@@ -252,9 +258,16 @@ class MBASpider(scrapy.Spider):
         self.log('Saved file %s' % filename)
 
     def closed(self, reason):
+        try:
+            self.reset_ban.cancel()
+        except Exception as e:
+            #send_msg(self.target, "Could not cancel ban reset function", self.api_key)
+            self.cloud_logger.info("Could not cancel ban reset function {}".format(str(e)))
+
         # save crawling job in firestore
         print("Save crawling job to Firestore")
-        self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
+        # self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
+        self.crawling_job.end_timestamp = get_england_timestamp(without_tzinfo=False)
         self.crawling_job.set_duration_in_min()
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
 
@@ -382,6 +395,7 @@ class MBAProductSpider(MBASpider):
         return len(response.css('div#variation_fit_type span')) > 0
 
     def reset_was_banned_every_hour(self, reset_time_sec=60 * 60):
+        # TODO: This function prevents fastapi from sending response, because proces.start() never finsihses
         # reset proxies every hour
         self.reset_ban = threading.Timer(reset_time_sec, self.reset_was_banned_every_hour)
         self.reset_ban.start()
@@ -398,10 +412,10 @@ class MBAProductSpider(MBASpider):
             self.log_warning(e, "Could not get price data")
             return "", 0.0
 
-    def yield_BQMBAProductsNoBsr(self, asin):
-        cw_input = CrawlingInputItem(marketplace=self.marketplace, asin=asin)
-        # Hint: if yield is in exception statement, function returns always a generator
-        yield BQMBAProductsNoBsr(asin=asin, url=cw_input.url)
+    # def yield_BQMBAProductsNoBsr(self, asin):
+    #     cw_input = CrawlingInputItem(marketplace=self.marketplace, asin=asin)
+    #     # Hint: if yield is in exception statement, function returns always a generator
+    #     yield BQMBAProductsNoBsr(asin=asin, url=cw_input.url)
 
     def get_product_bsr(self, response, asin):
         try:

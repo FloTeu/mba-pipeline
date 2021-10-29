@@ -69,7 +69,7 @@ class MBALocalProductSpider(MBAProductSpider):
             urls = [CrawlingInputItem(asin=asin, marketplace=self.marketplace).url for asin in asins]
         # get crawling input from BQ
         else:
-            crawling_input_items: List[create_url_csv.CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id)
+            crawling_input_items: List[create_url_csv.CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id, progress_bar_type="tqdm" if self.debug else None)
             urls = [crawling_input_item.url for crawling_input_item in crawling_input_items]
             asins = [crawling_input_item.asin for crawling_input_item in crawling_input_items]
 
@@ -105,10 +105,11 @@ class MBALocalProductSpider(MBAProductSpider):
                 self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
 
-                if self.daily:
-                    bq_mba_products_details_daily: BQMBAProductsDetailsDaily = self.get_BQMBAProductsDetailsDaily(response, asin)
-                    yield bq_mba_products_details_daily
-                else:
+                # daily table should always be filled (also in case of first time general product crawling)
+                bq_mba_products_details_daily: BQMBAProductsDetailsDaily = self.get_BQMBAProductsDetailsDaily(response, asin)
+                yield bq_mba_products_details_daily
+
+                if not self.daily:
                     bq_mba_products_details: BQMBAProductsDetails = self.get_BQMBAProductsDetails(response, asin)
                     yield bq_mba_products_details
 

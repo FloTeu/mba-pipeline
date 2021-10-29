@@ -8,7 +8,7 @@ from enum import Enum, IntEnum
 from typing import Optional, Dict, List, Any
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
-from mwfunctions.time import get_berlin_timestamp
+from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 
 class Marketplace(Enum):
@@ -42,7 +42,7 @@ class CrawlingSorting(Enum):
 
 class CrawlingJob(MWBaseModel):
     id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
-    start_timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True), description="Datetime of crawling start")
+    start_timestamp: Optional[datetime] = Field(get_england_timestamp(without_tzinfo=False), description="Datetime of crawling start")
     end_timestamp: Optional[datetime] = Field(None, description="Datetime of crawling end")
     duration_in_min: Optional[float] = Field(0.0, description="Duration of crawling task in minutes")
     finished_with_error: Optional[bool] = Field(False, description="Whether crawler finished with errors")

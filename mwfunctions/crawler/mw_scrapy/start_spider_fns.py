@@ -1,21 +1,28 @@
 import os
 import sys
+import subprocess
 
 from scrapy.utils.project import get_project_settings
-from scrapy.crawler import CrawlerProcess
+from scrapy.crawler import CrawlerProcess, CrawlerRunner
+from multiprocessing import Process, Queue
+from twisted.internet import reactor
 from pathlib import Path
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
+from mwfunctions.crawler.mw_scrapy.run_mba_spider import TestingSpider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest
 from os import system
 from enum import Enum
+#from mwfunctions.crawler.mw_scrapy import run_mba_spider
 
-class ScrapySpider(Enum):
+class ScrapyMBASpider(Enum):
     OVERVIEW = mba_overview_spider
     PRODUCT = mba_product_spider
+    TESTING = TestingSpider
 
+# Similar problem (twisted.internet.error.ReactorNotRestartable): https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
 class Scraper:
-    def __init__(self, spider: ScrapySpider):
+    def __init__(self, spider: ScrapyMBASpider):
         # TODO. change working dir to dir crawler
         # TODO. appand sys path to dir crawler
         # change working directory to spider project root dir
@@ -24,14 +31,67 @@ class Scraper:
         sys.path.append(crawler_dir)
         settings_file_path = 'mba_crawler.settings' # The path seen from root, ie. from main.py
         os.environ.setdefault('SCRAPY_SETTINGS_MODULE', settings_file_path)
-        self.process = CrawlerProcess(get_project_settings())
+        #self.process = CrawlerProcess(get_project_settings())
         self.spider = spider.value # The spider you want to crawl
 
+    def run_spider_handle_twisted_reactor(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
+        # start multiple process even if twisted reactor is already started (https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable)
+        def f(q):
+            try:
+                runner = CrawlerRunner(get_project_settings())
+                deferred = runner.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+                deferred.addBoth(lambda _: reactor.stop())
+                reactor.run()
+                q.put(None)
+            except Exception as e:
+                q.put(e)
+
+        q = Queue()
+        p = Process(target=f, args=(q,))
+        p.start()
+        result = q.get()
+        p.join()
+
+        if result is not None:
+            raise result
+
     def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
+        # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
+        if crawling_mba_request.debug:
+            process = CrawlerProcess(get_project_settings())
+            process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+            process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+        else:
+            self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
+
+    def run_spider_old(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # init of spider
-        self.process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+        deferred = self.process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+        spider = next(iter(self.process.crawlers)).spider
+        #if spider.debug:
         # start_requests of spider
-        self.process.start()  # the script will block here until the crawling is finished
+        # if started twice twisted.internet.error.ReactorNotRestartable happens
+        #process_reactor = self.process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+        # else:
+        #     crawling_bash_cmd = f'scrapy crawl {spider.name}'
+        #     for spider_param, spider_param_value in crawling_mba_request.dict().items():
+        #         crawling_bash_cmd = crawling_bash_cmd + f" -a {spider_param}={spider_param_value}"
+        #     system(crawling_bash_cmd)
+        #self.process.stop()
+
+        # this works!!
+        #process = subprocess.Popen("python3 go_daily_mba_spider.py".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+
+        #run_mba_spider.main(self.spider, crawling_mba_request)
+
+        #output, error = process.communicate()
+        #system()
+        # process = CrawlerProcess(get_project_settings())
+        # process.crawl(self.spider, crawling_mba_request)
+        # process.start()
+        test = 0
+        # make sure process is stoped
+        #self.process._stop_reactor() #  triggers close() function of spider
 
 
 if __name__ == "__main__":
@@ -61,5 +121,5 @@ def start_product_spider(marketplace, daily=True):
     process.crawl(mba_product_spider, marketplace=marketplace, daily=daily)
     process.start() # the script will block here until the crawling is finished
 
-    #Scraper(ScrapySpider.OVERVIEW)
+    #Scraper(ScrapyMBASpider.OVERVIEW)
     #start_overview_spider("de", "shirt", "newest", keyword="", pages=1, start_page=1, csv_path="")
