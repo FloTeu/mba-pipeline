@@ -1,6 +1,7 @@
 import argparse
 import json
 import os
+import sys
 
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
@@ -11,9 +12,9 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spide
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
 
-def main(crawling_data_class_file_path, crawling_type, **kwargs):
-    with open(crawling_data_class_file_path) as json_file:
-        data_class_dict = json.load(json_file)
+def main(crawling_type, crawling_data_class_json_str, **kwargs):
+    #with open(crawling_data_class_file_path) as json_file:
+    data_class_dict = json.loads(crawling_data_class_json_str.replace('\\',''))
 
     if crawling_type == CrawlingType.OVERVIEW.name:
         spider = mba_overview_spider
@@ -34,8 +35,14 @@ def main(crawling_data_class_file_path, crawling_type, **kwargs):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Start a mba crawler')
     parser.add_argument('crawling_type', help="Type of crawliing which is defined in Enum CrawlingType")
-    parser.add_argument('crawling_data_class_file_path', help='File path to json file which can be transformed to crawling data class')
+    #parser.add_argument('crawling_data_class_file_path', help='File path to json file which can be transformed to crawling data class')
+    #parser.add_argument('-i', '--crawling_data_class_json_str', help='File path to json file which can be transformed to crawling data class', required=True)
+    parser.add_argument('crawling_data_class_json_str', help='File path to json file which can be transformed to crawling data class')
 
-    args = parser.parse_args()
-
-    main(args.crawling_data_class_file_path, args.crawling_type)
+    print("TRY TO GET DATA")
+    argv = sys.argv
+    crawling_type = sys.argv[1]
+    crawling_data_class_json_str = " ".join(sys.argv[2:len(argv)])
+    #args = parser.parse_args()
+    print(crawling_type, crawling_data_class_json_str)
+    main(crawling_type, crawling_data_class_json_str)

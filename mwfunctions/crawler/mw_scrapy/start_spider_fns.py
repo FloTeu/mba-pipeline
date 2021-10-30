@@ -84,8 +84,12 @@ class Scraper:
         with open(json_file_path, 'w') as fp:
             json.dump(crawling_mba_request.dict(), fp)
 
+        # crawling_mba_request_str = json.dumps(crawling_mba_request.dict(), indent=2)
+        #crawling_mba_request_str = crawling_mba_request.json().replace('"','\"')
+        crawling_mba_request_str = json.dumps(json.dumps(crawling_mba_request.dict()))[1:-1]
+
         #run_mba_spider.main(json_file_path, self.crawling_type)
-        process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {json_file_path}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+        process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
 
         test = 1
         # if crawling_mba_request.debug:
