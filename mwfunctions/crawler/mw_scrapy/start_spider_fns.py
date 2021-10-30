@@ -80,9 +80,9 @@ class Scraper:
     def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
 
-        json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
-        with open(json_file_path, 'w') as fp:
-            json.dump(crawling_mba_request.dict(), fp)
+        # json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
+        # with open(json_file_path, 'w') as fp:
+        #     json.dump(crawling_mba_request.dict(), fp)
 
         # crawling_mba_request_str = json.dumps(crawling_mba_request.dict(), indent=2)
         #crawling_mba_request_str = crawling_mba_request.json().replace('"','\"')
