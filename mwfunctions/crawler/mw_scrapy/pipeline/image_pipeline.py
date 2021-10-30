@@ -27,6 +27,7 @@ from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import pil_add_metadata, print_metadata
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
 from mwfunctions.pydantic.crawling_classes import MBAImageItems
+from mwfunctions.time import get_berlin_timestamp
 
 class ImageException(FileException):
     """General image error exception"""
@@ -246,7 +247,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
                         info.spider.crawling_job.count_inc("new_images_count")
                     file_path = self.get_storage_file_path(marketplace, image_item.asin)
                     rows_to_insert.append(BQMBAProductsImages(asin=image_item.asin, url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
-                    url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url).dict(json_serializable=False))
+                    url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url, timestamp=get_berlin_timestamp(without_tzinfo=True)).dict(json_serializable=False))
 
             #errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
             stream_dict_list2bq(bq_table_id, rows_to_insert)

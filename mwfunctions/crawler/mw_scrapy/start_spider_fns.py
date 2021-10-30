@@ -1,5 +1,6 @@
 import os
 import sys
+import json
 import subprocess
 
 from scrapy.utils.project import get_project_settings
@@ -9,16 +10,36 @@ from twisted.internet import reactor
 from pathlib import Path
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
-from mwfunctions.crawler.mw_scrapy.run_mba_spider import TestingSpider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest
+from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
+from mwfunctions.crawler.mw_scrapy import run_mba_spider
+from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
 from os import system
 from enum import Enum
+from pydantic import BaseModel, Field
+from typing import Union
+
 #from mwfunctions.crawler.mw_scrapy import run_mba_spider
+
+
+# class ScrapyMBASpider(Enum):
+#     OVERVIEW = mba_overview_spider
+#     PRODUCT = mba_product_spider
+#     TESTING = TestingSpider
+#
+#
+# class ScrapyMBASpiderItem(BaseModel):
+#     spider_module: object = Field(description="Class of spider i.e. imported class")
+#     crawling_data_class: Union[CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]
+#
+#     class Config:
+#         arbitrary_types_allowed = True
+
 
 class ScrapyMBASpider(Enum):
     OVERVIEW = mba_overview_spider
     PRODUCT = mba_product_spider
     TESTING = TestingSpider
+
 
 # Similar problem (twisted.internet.error.ReactorNotRestartable): https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
 class Scraper:
@@ -32,6 +53,7 @@ class Scraper:
         settings_file_path = 'mba_crawler.settings' # The path seen from root, ie. from main.py
         os.environ.setdefault('SCRAPY_SETTINGS_MODULE', settings_file_path)
         #self.process = CrawlerProcess(get_project_settings())
+        self.crawling_type = spider.name
         self.spider = spider.value # The spider you want to crawl
 
     def run_spider_handle_twisted_reactor(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
@@ -57,12 +79,21 @@ class Scraper:
 
     def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
-        if crawling_mba_request.debug:
-            process = CrawlerProcess(get_project_settings())
-            process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
-            process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
-        else:
-            self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
+
+        json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
+        with open(json_file_path, 'w') as fp:
+            json.dump(crawling_mba_request.dict(), fp)
+
+        #run_mba_spider.main(json_file_path, self.crawling_type)
+        process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {json_file_path}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+
+        test = 1
+        # if crawling_mba_request.debug:
+        #     process = CrawlerProcess(get_project_settings())
+        #     process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+        #     process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+        # else:
+        #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
 
     def run_spider_old(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # init of spider

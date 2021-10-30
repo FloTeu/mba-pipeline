@@ -107,6 +107,7 @@ class MBAImageItems(MWBaseModel):
     gs_path_element_list: list = Field([], description="Optional List of storage path elements e.g. categories which are used to create gs_url. For example ['men','clothes','t-shirt']")
 
 class CrawlingMBARequest(MWBaseModel):
+    crawling_job_id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job. Will set id of crawling_job")
     marketplace: Marketplace
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
 

@@ -64,6 +64,10 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         if self.debug:
             os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch-dev"
 
+        # in case mba-pipeline normal prod project should be merchwatch (for FS for example) storage and BQ will be set to mba-pipeline if project is merchwatch
+        if get_gcp_project() == "mba-pipeline":
+            os.environ["GOOGLE_CLOUD_PROJECT"] = "merchwatch"
+
         self.gcloud_project = get_gcp_project()
         assert "merchwatch" in self.gcloud_project, f"'{self.gcloud_project}' is not a merchwatch project"
 
@@ -74,9 +78,9 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
         if website_crawling_target == CrawlingType.OVERVIEW.value:
-            self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace)
+            self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
-            self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily)
+            self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id)
         else:
             raise NotImplementedError
 

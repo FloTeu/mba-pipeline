@@ -44,7 +44,7 @@ class MBASpider(scrapy.Spider):
         },
     }
 
-    def __init__(self, marketplace, mba_product_type="shirt", debug=True, *args, **kwargs):
+    def __init__(self, marketplace, crawling_job_id, mba_product_type="shirt", debug=True, *args, **kwargs):
         """
             mba_product_type:   Which mba product type should be crawled can be 'shirt' or in future hoodies, tank tops etc.
                                 Value decides where to store images in cloud storage
@@ -56,6 +56,7 @@ class MBASpider(scrapy.Spider):
         assert mba_product_type in MBA_PRODUCT_TYPE2GCS_DIR, f"mba_product_type '{mba_product_type}' not defined."
         self.marketplace = marketplace
         self.debug = debug
+        self.crawling_job_id=crawling_job_id
         self.was_banned = {}
 
         if not self.debug:
@@ -361,7 +362,7 @@ class MBAOverviewSpider(MBASpider):
             bq_mba_overview_product_list.append(BQMBAOverviewProduct(asin=self.get_overview_asin(overview_response_product), title=self.get_overview_title(overview_response_product),
                                  brand=self.get_overview_brand(overview_response_product), url_product=self.get_overview_url_product(overview_response_product, response_url),
                                  url_image_lowq=self.get_overview_url_image_lowq(overview_response_product), url_image_hq=self.get_overview_url_image_hq(overview_response_product),
-                                 price=self.get_overview_price(overview_response_product), uuid=self.get_overview_uuid(overview_response_product)))
+                                 price=self.get_overview_price(overview_response_product), uuid=self.get_overview_uuid(overview_response_product), timestamp=get_berlin_timestamp(without_tzinfo=True)))
         return bq_mba_overview_product_list
 
     def get_BQMBAProductsMBAImages_list(self, overview_response) -> List[BQMBAProductsMbaImages]:
@@ -370,6 +371,7 @@ class MBAOverviewSpider(MBASpider):
             url_image_lowq,url_image_q2,url_image_q3,url_image_q4,url_image_hq = self.get_overview_image_urls(overview_response_product)
             bq_mba_products_mba_images_list.append(BQMBAProductsMbaImages(asin=self.get_overview_asin(overview_response_product), url_image_lowq=url_image_lowq,
                                                                           url_image_q2=url_image_q2, url_image_q3=url_image_q3, url_image_q4=url_image_q4, url_image_hq=url_image_hq
+                                                                          , timestamp=get_berlin_timestamp(without_tzinfo=True)
                                                                           ))
         return bq_mba_products_mba_images_list
 
@@ -378,7 +380,7 @@ class MBAOverviewSpider(MBASpider):
         for shirt_number_page, overview_response_product in enumerate(self.get_overview_products_response_list(overview_response)):
             number = int(shirt_number_page + ((int(page) - 1) * products_per_page))
             bq_mba_products_mba_relevance_list.append(BQMBAProductsMbaRelevance(asin=self.get_overview_asin(overview_response_product), sort=self.sort,
-                                                                                number=number))
+                                                                                number=number, timestamp=get_berlin_timestamp(without_tzinfo=True)))
         return bq_mba_products_mba_relevance_list
 
 
@@ -511,7 +513,7 @@ class MBAProductSpider(MBASpider):
                                     price=price_str,fit_types=str(self.get_product_fit_types(response)),color_names=str(color_names), color_count=color_count,
                                     product_features=str(self.get_product_product_features(response)), description=self.get_product_description(response),weight=self.get_product_weight(response),
                                     upload_date=upload_date, upload_date_str=upload_date_str,customer_review_count=customer_review_count, customer_review_score=customer_review_score,
-                                    mba_bsr_str=mba_bsr_str,mba_bsr=mba_bsr, mba_bsr_categorie=str(mba_bsr_categorie))
+                                    mba_bsr_str=mba_bsr_str,mba_bsr=mba_bsr, mba_bsr_categorie=str(mba_bsr_categorie), timestamp=get_berlin_timestamp(without_tzinfo=True))
 
     def get_BQMBAProductsDetailsDaily(self, response, asin) -> BQMBAProductsDetailsDaily:
         mba_bsr_str, mba_bsr, array_bsr, mba_bsr_categorie = self.get_product_bsr(response, asin)
@@ -520,4 +522,4 @@ class MBAProductSpider(MBASpider):
         return BQMBAProductsDetailsDaily(asin=asin, price=price, price_str=price_str, bsr=mba_bsr,
                                          bsr_str=mba_bsr_str, array_bsr=str(array_bsr), array_bsr_categorie=str(mba_bsr_categorie),
                                          customer_review_score_mean=customer_review_score_mean, customer_review_score=customer_review_score_mean,
-                                         customer_review_count=customer_review_count)
+                                         customer_review_count=customer_review_count, timestamp=get_berlin_timestamp(without_tzinfo=True))
