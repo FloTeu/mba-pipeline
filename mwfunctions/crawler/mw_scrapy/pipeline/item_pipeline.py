@@ -84,14 +84,14 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         else:
             raise NotImplementedError
 
-        bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
-        self.bq_client = bigquery.Client(project=bq_project_id)
+        self.bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
+        self.bq_client = bigquery.Client(project=self.bq_project_id)
 
         # spider properties update
         spider.crawling_job = self.crawling_job
         spider.debug = self.debug
         spider.bq_client = self.bq_client
-        spider.bq_project_id = bq_project_id
+        spider.bq_project_id = self.bq_project_id
         spider.fs_product_data_col_path = self.fs_product_data_col_path
         spider.fs_log_col_path = self.fs_log_col_path
 
@@ -103,5 +103,5 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
     def process_item(self, item, spider):
         if isinstance(item, BQTable):
-            stream_dict_list2bq(f"{self.gcloud_project}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()], client=self.bq_client, check_if_table_exists=self.debug)
+            stream_dict_list2bq(f"{self.bq_project_id}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()], client=self.bq_client, check_if_table_exists=self.debug)
         return item

@@ -152,10 +152,10 @@ if __name__ == '__main__':
     import sys
     from api_key import API_KEY
 
-    crawling_mba_overview_request = CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=2, start_page=38)
+    crawling_mba_overview_request = CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=2, start_page=42)
     try:
-        #r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_overview_crawler?access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
-        r = requests.post(f"http://0.0.0.0:8080/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+        r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+        #r = requests.post(f"http://0.0.0.0:8080/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
     except:
         pass
 
@@ -166,8 +166,8 @@ if __name__ == '__main__':
             "random": 0.1
         })
     try:
-        #r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_product_crawler?access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
-        r = requests.post(f"http://0.0.0.0:8080/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
+        r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
+        #r = requests.post(f"http://0.0.0.0:8080/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
     except:
         pass
 

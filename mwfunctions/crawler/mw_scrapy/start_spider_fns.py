@@ -13,6 +13,7 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spide
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
+from mwfunctions.environment import get_gcp_project
 from os import system
 from enum import Enum
 from pydantic import BaseModel, Field
@@ -89,13 +90,14 @@ class Scraper:
         crawling_mba_request_str = json.dumps(json.dumps(crawling_mba_request.dict()))[1:-1]
 
         #run_mba_spider.main(json_file_path, self.crawling_type)
-        process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+        if True:#crawling_mba_request.debug:
+            process = CrawlerProcess(get_project_settings())
+            process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+            process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+        else:
+            process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
 
         test = 1
-        # if crawling_mba_request.debug:
-        #     process = CrawlerProcess(get_project_settings())
-        #     process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
-        #     process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
 
