@@ -78,7 +78,7 @@ class Scraper:
         if result is not None:
             raise result
 
-    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
+    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
 
         # json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
@@ -90,12 +90,14 @@ class Scraper:
         crawling_mba_request_str = json.dumps(json.dumps(crawling_mba_request.dict()))[1:-1]
 
         #run_mba_spider.main(json_file_path, self.crawling_type)
-        if True:#crawling_mba_request.debug:
+        if crawling_mba_request.debug:
             process = CrawlerProcess(get_project_settings())
             process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
             process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            if wait_until_finished:
+                process.wait()
 
         test = 1
         # else:

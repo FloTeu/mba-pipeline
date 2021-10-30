@@ -152,22 +152,22 @@ if __name__ == '__main__':
     import sys
     from api_key import API_KEY
 
-    crawling_mba_overview_request = CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=2, start_page=42)
+    crawling_mba_overview_request = CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=4, start_page=44)
     try:
-        r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
-        #r = requests.post(f"http://0.0.0.0:8080/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+        # r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+        r = requests.post(f"http://0.0.0.0:8080/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
     except:
         pass
 
-    crawling_mba_request = CrawlingMBAProductRequest(marketplace="de", daily=False, number_products=30, top_n=60,
+    crawling_mba_request = CrawlingMBAProductRequest(marketplace="de", daily=False, number_products=10, top_n=60,
                                                      debug=False, proportions={
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
             "random": 0.1
         })
     try:
-        r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
-        #r = requests.post(f"http://0.0.0.0:8080/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
+        #r = requests.post(f"https://mw-crawler-api-ruzytvhzvq-ey.a.run.app/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
+        r = requests.post(f"http://0.0.0.0:8080/start_mba_product_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_request.json(), timeout=6)
     except:
         pass
 
