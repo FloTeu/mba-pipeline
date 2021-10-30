@@ -69,7 +69,7 @@ class MBALocalProductSpider(MBAProductSpider):
             urls = [CrawlingInputItem(asin=asin, marketplace=self.marketplace).url for asin in asins]
         # get crawling input from BQ
         else:
-            crawling_input_items: List[create_url_csv.CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id, progress_bar_type="tqdm" if self.debug else None)
+            crawling_input_items: List[CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id, progress_bar_type="tqdm" if self.debug else None)
             urls = [crawling_input_item.url for crawling_input_item in crawling_input_items]
             asins = [crawling_input_item.asin for crawling_input_item in crawling_input_items]
 

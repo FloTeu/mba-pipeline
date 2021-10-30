@@ -134,4 +134,4 @@ def stream_dict_list2bq(bq_table_id, dict_list, client=None, check_if_table_exis
         else: # stream data into BQ
             json_dict_list = [json.loads(json.dumps(dict_i, default=json_serializable_dumper)) for dict_i in dict_list]
             errors = client.insert_rows_json(bq_params.table_id, json_dict_list)  # Make an API request.
-
+        test = 0

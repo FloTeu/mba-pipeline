@@ -9,8 +9,12 @@ import time
 import os
 import random
 
+from mwfunctions.crawler.mw_scrapy import Scraper, ScrapyMBASpider
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingMBARequest
+
+
 DAY, NIGHT = 1, 2
-MARKETPLACES = ["com", "de"]
+MARKETPLACES = ["de","com"]
 
 def check_time(time_to_check, on_time, off_time):
     if on_time > off_time:
@@ -78,7 +82,15 @@ def main(argv):
     while_condition = True
     while while_condition: 
         if marketplace_rotation:    
-            marketplace = MARKETPLACES[count%len(MARKETPLACES)]  
+            marketplace = MARKETPLACES[count%len(MARKETPLACES)]
+
+        crawling_mba_product_request = CrawlingMBAProductRequest(marketplace=marketplace, daily=True, number_products=number_products, top_n=60, proportions={
+                "best_seller": 0.7,
+                "lowest_bsr_count": 0.2,
+                "random": 0.1
+              })
+        crawling_mba_product_request.reset_crawling_job_id()
+
         current_time = datetime.datetime.now().time()
         when, matching = check_time(current_time, on_time, off_time)
         #matching = True
@@ -87,29 +99,36 @@ def main(argv):
             # sleep random to prevent com crawler and de crawler change their settings
             #time.sleep(random.randint(0,60))
             # create crawling data csv
-            command = """sudo python3 create_url_csv.py {0} True --number_products={1} --proportion_priority_low_bsr_count={2}
-            """.format(marketplace, number_products, proportion_priority_low_bsr_count)
-            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-            process.wait()
+            # command = """sudo python3 create_url_csv.py {0} True --number_products={1} --proportion_priority_low_bsr_count={2}
+            # """.format(marketplace, number_products, proportion_priority_low_bsr_count)
+            # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            # process.wait()
 
             # change settings
             # currently also us is crawled by all (also european) crawlers. Reason: only price is not shown in this case but BSR information can be crawled.
-            command = """sudo python3 change_spider_settings.py de --use_public_proxies True
-            """.format(marketplace)
-            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-            process.wait()
-            
+            # command = """sudo python3 change_spider_settings.py de --use_public_proxies True
+            # """.format(marketplace)
+            # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            # process.wait()
+            #
             # start crawling
-            command = """sudo scrapy crawl mba_general_de -a marketplace={0} -a daily=True
-            """.format(marketplace, number_products, proportion_priority_low_bsr_count)
-            process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-            process.wait()
+            # command = """sudo scrapy crawl mba_general_de -a marketplace={0} -a daily=True
+            # """.format(marketplace, number_products, proportion_priority_low_bsr_count)
+            # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+            # process.wait()
+            scraper = Scraper(ScrapyMBASpider.PRODUCT)
+            scraper.run_spider(crawling_mba_product_request, wait_until_finished=True)
+
 
             if general_crawling_after_n_iter != 0 and (count%general_crawling_after_n_iter == 0):
                 # start general crawling after every n iteration loops
-                command = "sh crawl_general_product_page.sh"
-                process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
-                process.wait()
+                # command = "sh crawl_general_product_page.sh"
+                # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
+                # process.wait()
+
+                crawling_mba_product_request.daily = False
+                crawling_mba_product_request.reset_crawling_job_id()
+                scraper.run_spider(crawling_mba_product_request, wait_until_finished=True)
             
             if not repeat:
                 while_condition = False

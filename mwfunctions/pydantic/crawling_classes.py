@@ -111,6 +111,9 @@ class CrawlingMBARequest(MWBaseModel):
     marketplace: Marketplace
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
 
+    def reset_crawling_job_id(self):
+        self.crawling_job_id = uuid.uuid4().hex
+
 class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     sort: CrawlingSorting = Field(description="Sorting of MBA overview page")
     pod_product: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
@@ -142,3 +145,4 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     #test: Test
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
+
