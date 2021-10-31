@@ -43,6 +43,7 @@ if __name__ == '__main__':
     argv = sys.argv
     crawling_type = sys.argv[1]
     crawling_data_class_json_str = " ".join(sys.argv[2:len(argv)])
+    crawling_data_class_json_str = crawling_data_class_json_str.replace("'",'"')
     #args = parser.parse_args()
     print(crawling_type, crawling_data_class_json_str)
     main(crawling_type, crawling_data_class_json_str)
