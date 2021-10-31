@@ -2,3 +2,6 @@
 # package>=version
 oauth2client
 google-api-python-client
+git+git://github.com/Flo95x/mba-pipeline.git
+pydantic
+pytz

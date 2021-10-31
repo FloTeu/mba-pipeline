@@ -110,9 +110,7 @@ yes Y | gcloud compute instances stop crawler-mba-auto-daily --zone us-west1-b
     return startup_script
 
 
-def start_crawler(event, context):
-    from pprint import pprint
-
+def instance_run(event, context):
     from googleapiclient import discovery
     from oauth2client.client import GoogleCredentials
 
@@ -121,29 +119,30 @@ def start_crawler(event, context):
     service = discovery.build('compute', 'v1', credentials=credentials)
 
     # Project ID for this request.
-    project = 'mba-pipeline' 
+    project = 'mba-pipeline'
 
     # The name of the zone for this request.
-    zone = 'us-west1-b' 
+    zone = 'us-west1-b'
 
     # Name of the instance resource to start.
-    instance = 'crawler-mba-auto-daily' 
+    instance = 'crawler-mba-auto-daily'
 
     region_space = get_region_space()
     daily_script = is_daily_script()
     number_products_total = get_number_products_total()
-    startup_script = get_startup_script(daily_script, region_space, instance, number_products_total=number_products_total)
+    startup_script = get_startup_script(daily_script, region_space, instance,
+                                        number_products_total=number_products_total)
 
     request = service.instances().get(project=project, zone=zone, instance=instance)
     response = request.execute()
     fingerprint = response["metadata"]["fingerprint"]
-    
+
     metadata_body = {
         "fingerprint": fingerprint,
         "items": [
             {
-            "key": "startup-script",
-            "value": startup_script
+                "key": "startup-script",
+                "value": startup_script
             }
         ]
     }
@@ -153,3 +152,70 @@ def start_crawler(event, context):
     request = service.instances().start(project=project, zone=zone, instance=instance)
     response = request.execute()
 
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingMBARequest, CrawlingMBAOverviewRequest
+from mwfunctions.environment import get_gcp_project
+import requests
+import ast
+
+def start_crawler(event, context):
+    from pprint import pprint
+    from api_key import API_KEY
+
+    if 'data' in event:
+        data_dict_str = base64.b64decode(event['data']).decode('utf-8')
+        data_dict = ast.literal_eval(data_dict_str)
+    else:
+        data_dict = {}
+
+    start_page = int(data_dict["start_page"]) if "start_page" in data_dict else 1
+    pages = int(data_dict["pages"]) if "pages" in data_dict else 50
+    pod_product = data_dict["pod_product"] if "pod_product" in data_dict else "shirt"
+
+    print(start_page, pages, pod_product, is_daily_script())
+
+    crawling_mba_overview_request_list = []
+    # cloud run crawling can only handle 50 overview pages under 1 hour
+    # TODO: put image pipeline to another service like cloud functions to store images in storage (reduces max memory of cloud run + faster execution of overview request)
+    # monday to saturday
+    crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product=pod_product,
+                               pages=pages, start_page=start_page))
+    crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product=pod_product,
+                               pages=pages, start_page=start_page))
+    if is_daily_script():
+        # only first 10 pages should be crawled for "newest" page on daily basis
+        if start_page == 1:
+            crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
+                                       pages=10, start_page=start_page))
+            crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
+                                       pages=10, start_page=start_page))
+    # on sunday newsest page should be crawled like best_seller page
+    else:
+        crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
+                                   pages=pages, start_page=start_page))
+        crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
+                                   pages=pages, start_page=start_page))
+
+
+        # Testing
+        # crawling_mba_overview_request_list = [
+        #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product="shirt",
+        #                                pages=10, start_page=1),
+        #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product="shirt",
+        #                                pages=11, start_page=200),
+        #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=12,
+        #                                start_page=1),
+        #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product="shirt", pages=13,
+        #                                start_page=200)]
+
+    if get_gcp_project() in ["mba-pipeline","merchwatch"]:
+        endpoint_url = "https://mw-crawler-api-mhttow5wga-ey.a.run.app"
+    else:
+        endpoint_url = "https://mw-crawler-api-ruzytvhzvq-ey.a.run.app"
+
+    #instance_run(event, context)
+    for crawling_mba_overview_request in crawling_mba_overview_request_list:
+        crawling_mba_overview_request.reset_crawling_job_id()
+        try:
+            r = requests.post(f"{endpoint_url}/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+        except:
+            pass
