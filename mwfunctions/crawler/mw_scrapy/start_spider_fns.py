@@ -18,6 +18,7 @@ from os import system
 from enum import Enum
 from pydantic import BaseModel, Field
 from typing import Union
+import time
 
 #from mwfunctions.crawler.mw_scrapy import run_mba_spider
 
@@ -78,7 +79,7 @@ class Scraper:
         if result is not None:
             raise result
 
-    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True):
+    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True, wait_n_minutes=None):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
 
         # json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
@@ -96,7 +97,11 @@ class Scraper:
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
             process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
-            if wait_until_finished:
+            # TODO find out why process does not finish correctly in local instance on google cloud
+            if wait_n_minutes:
+                time.sleep(wait_n_minutes * 60)
+                print(f"Waiting time of {wait_n_minutes} min reached")
+            elif wait_until_finished:
                 process.wait()
 
         test = 1

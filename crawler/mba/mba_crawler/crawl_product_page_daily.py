@@ -117,8 +117,7 @@ def main(argv):
             # process = subprocess.Popen(command, shell=True, stdout=subprocess.PIPE)
             # process.wait()
             scraper = Scraper(ScrapyMBASpider.PRODUCT)
-            scraper.run_spider(crawling_mba_product_request, wait_until_finished=True)
-
+            scraper.run_spider(crawling_mba_product_request, wait_n_minutes=20)
 
             if general_crawling_after_n_iter != 0 and (count%general_crawling_after_n_iter == 0):
                 # start general crawling after every n iteration loops
@@ -128,7 +127,7 @@ def main(argv):
 
                 crawling_mba_product_request.daily = False
                 crawling_mba_product_request.reset_crawling_job_id()
-                scraper.run_spider(crawling_mba_product_request, wait_until_finished=True)
+                scraper.run_spider(crawling_mba_product_request, wait_n_minutes=10)
             
             if not repeat:
                 while_condition = False
