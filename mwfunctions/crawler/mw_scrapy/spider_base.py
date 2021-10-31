@@ -21,7 +21,7 @@ from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAPro
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.crawler.proxy.utils import get_random_headers
-from mwfunctions.environment import is_debug, get_gcp_project
+from mwfunctions.environment import is_debug, get_gcp_project, set_default_gcp_project_if_not_exists
 import mwfunctions.cloud.firestore as firestore_fns
 
 from mwfunctions.logger import get_logger
@@ -62,6 +62,8 @@ class MBASpider(scrapy.Spider):
         if not self.debug:
             # prevent log everything in cloud run/ and normal logging
             logging.getLogger('scrapy').setLevel(logging.WARNING)
+
+        set_default_gcp_project_if_not_exists()
 
         self.custom_settings.update({
             'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug or get_gcp_project() == "merchwatch-dev" else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',

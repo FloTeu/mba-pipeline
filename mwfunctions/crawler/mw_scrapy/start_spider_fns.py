@@ -139,26 +139,26 @@ if __name__ == "__main__":
 
 ############ deprecated
 
-process = CrawlerProcess(settings={
-    "FEEDS": {
-        "items.json": {"format": "json"},
-    },
-})
-# Tutorial : https://stackoverflow.com/questions/31662797/getting-scrapy-project-settings-when-script-is-outside-of-root-directory
-def start_overview_spider(crawling_mba_overview, csv_path=""):
-    """
-    pod_product = "shirt"
-    sort = "newest","best_seller"
-    """
-
-    #system(f'scrapy crawl mba_overview -a marketplace={crawling_mba_overview.marketplace} -a pod_product={crawling_mba_overview.pod_product} -a sort={crawling_mba_overview.sort} -a keyword={crawling_mba_overview.keyword} -a pages={crawling_mba_overview.pages} -a start_page={crawling_mba_overview.start_page} -a csv_path={csv_path}')
-    process.crawl(mba_overview_spider, marketplace=crawling_mba_overview.marketplace, pod_product=crawling_mba_overview.pod_product, sort=crawling_mba_overview.sort, keyword=crawling_mba_overview.keyword, pages=crawling_mba_overview.pages, start_page=crawling_mba_overview.start_page, csv_path=csv_path)
-    process.start() # the script will block here until the crawling is finished
-
-
-def start_product_spider(marketplace, daily=True):
-    process.crawl(mba_product_spider, marketplace=marketplace, daily=daily)
-    process.start() # the script will block here until the crawling is finished
-
-    #Scraper(ScrapyMBASpider.OVERVIEW)
-    #start_overview_spider("de", "shirt", "newest", keyword="", pages=1, start_page=1, csv_path="")
+# process = CrawlerProcess(settings={
+#     "FEEDS": {
+#         "items.json": {"format": "json"},
+#     },
+# })
+# # Tutorial : https://stackoverflow.com/questions/31662797/getting-scrapy-project-settings-when-script-is-outside-of-root-directory
+# def start_overview_spider(crawling_mba_overview, csv_path=""):
+#     """
+#     pod_product = "shirt"
+#     sort = "newest","best_seller"
+#     """
+#
+#     #system(f'scrapy crawl mba_overview -a marketplace={crawling_mba_overview.marketplace} -a pod_product={crawling_mba_overview.pod_product} -a sort={crawling_mba_overview.sort} -a keyword={crawling_mba_overview.keyword} -a pages={crawling_mba_overview.pages} -a start_page={crawling_mba_overview.start_page} -a csv_path={csv_path}')
+#     process.crawl(mba_overview_spider, marketplace=crawling_mba_overview.marketplace, pod_product=crawling_mba_overview.pod_product, sort=crawling_mba_overview.sort, keyword=crawling_mba_overview.keyword, pages=crawling_mba_overview.pages, start_page=crawling_mba_overview.start_page, csv_path=csv_path)
+#     process.start() # the script will block here until the crawling is finished
+#
+#
+# def start_product_spider(marketplace, daily=True):
+#     process.crawl(mba_product_spider, marketplace=marketplace, daily=daily)
+#     process.start() # the script will block here until the crawling is finished
+#
+#     #Scraper(ScrapyMBASpider.OVERVIEW)
+#     #start_overview_spider("de", "shirt", "newest", keyword="", pages=1, start_page=1, csv_path="")

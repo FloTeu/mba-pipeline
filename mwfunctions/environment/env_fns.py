@@ -2,6 +2,8 @@ import os
 import logging
 from re import I
 
+DEFAULT_GOOGLE_CLOUD_PROJECT = "mba-pipeline"
+
 _mv_env_vars = [
     "DEBUG",
     "LOG_LEVEL",
@@ -54,6 +56,11 @@ def overwrite_gcp_credentials(credentials_path):
 
 def overwrite_gcp_project(project_id):
     os.environ["GOOGLE_CLOUD_PROJECT"] = project_id
+
+def set_default_gcp_project_if_not_exists():
+    if "GOOGLE_CLOUD_PROJECT" not in os.environ:
+        overwrite_gcp_project(DEFAULT_GOOGLE_CLOUD_PROJECT)
+
 
 def assert_gcp_auth(credentials=None, project_id=None):
     """
