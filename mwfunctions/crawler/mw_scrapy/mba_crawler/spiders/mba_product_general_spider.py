@@ -100,18 +100,19 @@ class MBALocalProductSpider(MBAProductSpider):
             # do not proceed if its not a mba shirt
             elif not self.is_mba_shirt(response):
                 self.crawling_job.count_inc("response_successful_count")
-                yield BQMBAProductsNoMbaShirt(asin=asin, url=url)
+                yield {"pydantic_class": BQMBAProductsNoMbaShirt(asin=asin, url=url)}
             else:
                 self.crawling_job.count_inc("response_successful_count")
                 self.ip_addresses.append(response.ip_address.compressed)
 
                 # daily table should always be filled (also in case of first time general product crawling)
                 bq_mba_products_details_daily: BQMBAProductsDetailsDaily = self.get_BQMBAProductsDetailsDaily(response, asin)
-                yield bq_mba_products_details_daily
+                # workaround for error Spider must return request, item, or None
+                yield {"pydantic_class": bq_mba_products_details_daily}
 
                 if not self.daily:
                     bq_mba_products_details: BQMBAProductsDetails = self.get_BQMBAProductsDetails(response, asin)
-                    yield bq_mba_products_details
+                    yield {"pydantic_class": bq_mba_products_details}
 
                 self.page_count = self.page_count + 1
 
@@ -119,7 +120,7 @@ class MBALocalProductSpider(MBAProductSpider):
 
             # yield no_bsr_products
             while len(self.no_bsr_products) > 0:
-                yield self.no_bsr_products.pop(0)
+                yield {"pydantic_class": self.no_bsr_products.pop(0)}
 
         except Exception as e:
             self.crawling_job.finished_with_error = True

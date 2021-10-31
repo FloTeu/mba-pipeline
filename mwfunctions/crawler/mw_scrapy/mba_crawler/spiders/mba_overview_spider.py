@@ -1,7 +1,6 @@
 import scrapy
 import json
 from pathlib import Path
-from mwfunctions.crawler.proxy import proxy_handler
 import pandas as pd
 import numpy as np
 from google.cloud import bigquery
@@ -237,7 +236,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # store product data in bq
                     for bq_mba_overview_product in bq_mba_overview_product_list:
                         if bq_mba_overview_product.asin not in self.products_already_crawled:
-                            yield bq_mba_overview_product
+                            yield {"pydantic_class": bq_mba_overview_product}
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)
                         else:
@@ -250,19 +249,19 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # store products_mba_images in BQ
                     for bq_mba_products_mba_images in bq_mba_products_mba_images_list:
                         if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled:
-                            yield bq_mba_products_mba_images
+                            yield {"pydantic_class": bq_mba_products_mba_images}
                             self.products_mba_image_references_already_crawled.append(bq_mba_products_mba_images.asin)
 
                     # store products_mba_relevance in BQ
                     for bq_mba_products_mba_relevance in bq_mba_products_mba_relevance_list:
-                        yield bq_mba_products_mba_relevance
+                        yield {"pydantic_class": bq_mba_products_mba_relevance}
 
                     # crawl images
                     mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
                     # if self.debug:
                     #     mba_image_items.image_items = mba_image_items.image_items[0:2]
                     if self.marketplace in ["com", "de"]:
-                        yield mba_image_items
+                        yield {"pydantic_class": mba_image_items}
 
                     self.page_count = self.page_count + 1
         except Exception as e:

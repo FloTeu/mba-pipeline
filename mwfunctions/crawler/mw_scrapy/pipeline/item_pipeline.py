@@ -102,6 +102,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         pass
 
     def process_item(self, item, spider):
+        if type(item) == dict and "pydantic_class" in item:
+            item = item["pydantic_class"]
         if isinstance(item, BQTable):
             stream_dict_list2bq(f"{self.bq_project_id}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()], client=self.bq_client, check_if_table_exists=self.debug)
         return item

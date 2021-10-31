@@ -41,6 +41,9 @@ logger = logging.getLogger(__name__)
 class MWScrapyImagePipelineBase(ImagesPipeline):
 
     def get_media_requests(self, item: MBAImageItems, info):
+        if type(item) == dict and "pydantic_class" in item:
+            item = item["pydantic_class"]
+
         # function 1
         if isinstance(item, MBAImageItems):
             # self.change_bucket_if_debug(info)
@@ -233,6 +236,9 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
         return most_common_dict_list
 
     def item_completed(self, results, item: MBAImageItems, info):
+
+        if type(item) == dict and "pydantic_class" in item:
+            item = item["pydantic_class"]
 
         if isinstance(item, MBAImageItems):
             marketplace = item.marketplace
