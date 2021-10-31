@@ -11,10 +11,11 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider impor
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
+from mwfunctions.image.conversion import b64_str2dict
 
-def main(crawling_type, crawling_data_class_json_str, **kwargs):
+def main(crawling_type, data_class_dict, **kwargs):
     #with open(crawling_data_class_file_path) as json_file:
-    data_class_dict = json.loads(crawling_data_class_json_str.replace('\\',''))
+    #data_class_dict = json.loads(crawling_data_class_json_str.replace('\\',''))
 
     if crawling_type == CrawlingType.OVERVIEW.name:
         spider = mba_overview_spider
@@ -37,13 +38,15 @@ if __name__ == '__main__':
     parser.add_argument('crawling_type', help="Type of crawliing which is defined in Enum CrawlingType")
     #parser.add_argument('crawling_data_class_file_path', help='File path to json file which can be transformed to crawling data class')
     #parser.add_argument('-i', '--crawling_data_class_json_str', help='File path to json file which can be transformed to crawling data class', required=True)
-    parser.add_argument('crawling_data_class_json_str', help='File path to json file which can be transformed to crawling data class')
+    parser.add_argument('crawling_data_class_dict_b64_str', help='File path to json file which can be transformed to crawling data class')
 
     print("TRY TO GET DATA")
-    argv = sys.argv
-    crawling_type = sys.argv[1]
-    crawling_data_class_json_str = " ".join(sys.argv[2:len(argv)])
-    crawling_data_class_json_str = crawling_data_class_json_str.replace("'",'"')
-    #args = parser.parse_args()
-    print(crawling_type, crawling_data_class_json_str)
-    main(crawling_type, crawling_data_class_json_str)
+    #argv = sys.argv
+    #crawling_type = sys.argv[1]
+    #crawling_data_class_json_str = " ".join(sys.argv[2:len(argv)])
+    #crawling_data_class_json_str = crawling_data_class_json_str.replace("'",'"')
+    args = parser.parse_args()
+
+    crawling_data_class_dict = b64_str2dict(args.crawling_data_class_dict_b64_str)
+    print(args.crawling_type, crawling_data_class_dict)
+    main(args.crawling_type, crawling_data_class_dict)

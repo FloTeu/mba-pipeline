@@ -13,6 +13,7 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spide
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
+from mwfunctions.image.conversion import dict2b64_str
 from mwfunctions.environment import get_gcp_project
 from os import system
 from enum import Enum
@@ -89,6 +90,7 @@ class Scraper:
         # crawling_mba_request_str = json.dumps(crawling_mba_request.dict(), indent=2)
         #crawling_mba_request_str = crawling_mba_request.json().replace('"','\"')
         crawling_mba_request_str = json.dumps(json.dumps(crawling_mba_request.dict()))[1:-1]
+        #crawling_mba_request_b64_str = base64.urlsafe_b64encode(str().encode(crawling_mba_request.dict())).decode()
 
         #run_mba_spider.main(json_file_path, self.crawling_type)
         if crawling_mba_request.debug:
@@ -96,7 +98,7 @@ class Scraper:
             process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
-            process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {crawling_mba_request_str}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
             # TODO find out why process does not finish correctly in local instance on google cloud
             if wait_n_minutes:
                 time.sleep(wait_n_minutes * 60)

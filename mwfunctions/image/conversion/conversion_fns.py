@@ -1,6 +1,7 @@
 
 import io
 import base64
+import ast
 
 import numpy as np
 from PIL import Image
@@ -76,3 +77,9 @@ def b64_str2np(b64_str):
     img_bytes = b64_str2bytes(b64_str)
     img = bytes2np(img_bytes)
     return img
+
+def dict2b64_str(dict_obj):
+    return base64.urlsafe_b64encode(str(dict_obj).encode()).decode()
+
+def b64_str2dict(b64_str):
+    return ast.literal_eval(base64.b64decode(b64_str).decode('utf-8'))
