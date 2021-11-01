@@ -102,6 +102,7 @@ class Scraper:
             # TODO find out why process does not finish correctly in local instance on google cloud
             if wait_n_minutes:
                 time.sleep(wait_n_minutes * 60)
+                process.kill()
                 print(f"Waiting time of {wait_n_minutes} min reached")
             elif wait_until_finished:
                 process.wait()
