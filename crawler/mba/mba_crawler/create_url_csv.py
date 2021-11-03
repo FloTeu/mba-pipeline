@@ -13,7 +13,7 @@ file = Path(__file__).resolve()
 parent, root = file.parent, file.parents[1]
 sys.path.append("..")
 sys.path.append(str(root))
-
+from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 import mba_api
 #from mba_api import EXCLUDE_ASINS, STRANGE_LAYOUT
 
@@ -327,7 +327,7 @@ def main(argv):
     # , "B08P761ZZ7", "B08P72GHH8", "B08PBPR798", "B08PBHYMTT", "B08NJMYW38", "B07X9H69QR","B08PGXQHHB", "B08PFJ28B3", "B08PGRSQKT",
     # "B08PM69M79", "B08PGX58MF", "B08PGL55LR"]
     # exclude_asins = exclude_asins + strange_layout
-    exclude_asins = mba_api.EXCLUDE_ASINS + mba_api.STRANGE_LAYOUT
+    exclude_asins = EXCLUDED_ASINS + STRANGE_LAYOUT
     
     # exclude asins with no mba shirt
     try:
