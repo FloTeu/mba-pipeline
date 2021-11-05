@@ -43,7 +43,6 @@ def str2bool(v):
 
 class MBASpider(scrapy.Spider):
     name = "mba_blacklist_check"
-    Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
