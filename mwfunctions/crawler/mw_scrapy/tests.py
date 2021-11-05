@@ -31,7 +31,6 @@ class TestingSpider(MBAProductSpider):
     name = "testing"
     #start_urls = ['http://quotes.toscrape.com/tag/humor/']
     website_crawling_target = CrawlingType.PRODUCT.value
-    Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []
