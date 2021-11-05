@@ -264,12 +264,12 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # if self.debug:
                     #     mba_image_items.image_items = mba_image_items.image_items[0:2]
                     if self.marketplace in ["com", "de"]:
-                        with suppress(TimeoutError):
+                        with suppress(requests.exceptions.ReadTimeout):
                             #store_uri: str = Field(description="gs_url for image location")
                             img_pip_input = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{self.page_count}",
                                                                     mba_product_type=self.pod_product, mba_image_items=mba_image_items)
                             r = requests.post(self.image_pipeline_endpoint_url, data=img_pip_input.json(),
-                                              headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, timeout=6)
+                                              headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, timeout=0.1)
 
                         #yield {"pydantic_class": mba_image_items}
 
