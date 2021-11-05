@@ -24,7 +24,7 @@ from scrapy.pipelines.files import FileException, FilesPipeline
 
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 from mwfunctions.image.color import CSS4Counter
-from mwfunctions.image.metadata import pil_add_metadata, print_metadata
+from mwfunctions.image.metadata import tmp_pil_add_metadata, print_metadata
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
 from mwfunctions.pydantic.crawling_classes import MBAImageItems
 from mwfunctions.time import get_berlin_timestamp
@@ -78,7 +78,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
     def get_most_common_colors(self, response, n=10):
         img = np.array(Image.open(BytesIO(response.body)))
         try:
-            counter = CSS4Counter(img)
+            counter = CSS4Counter(img, maxsize=480)
             return counter.most_common(n)
         except Exception as e:
             print(str(e))
@@ -92,7 +92,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
         # HERE ARE CUSTOM CHANGES
         most_common = self.get_most_common_colors(response, n=10)
         most_common_dict = self.most_common_to_property([most_common])[0]
-        orig_image = pil_add_metadata(orig_image, most_common_dict, path_to_data_dir="../scrapy_pipelines/data/")
+        orig_image = tmp_pil_add_metadata(orig_image, most_common_dict)
 
         width, height = orig_image.size
         if width < self.min_width or height < self.min_height:

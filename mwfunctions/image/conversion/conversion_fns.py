@@ -73,6 +73,19 @@ def np2pil(img_np):
 def pil2np(img_pil):
     return np.array(img_pil)
 
+def cv2pil(img_cv):
+    import cv2
+    # You may need to convert the color.
+    img = cv2.cvtColor(img_cv, cv2.COLOR_BGR2RGB)
+    return Image.fromarray(img)
+
+def pil2cv(img_pil):
+    # TODO: does open cv work with numpy array?
+    # https://stackoverflow.com/questions/14134892/convert-image-from-pil-to-opencv-format
+    img_np = pil2np(img_pil.convert('RGB'))
+    # Convert RGB to BGR
+    return img_np[:, :, ::-1].copy()
+
 def b64_str2np(b64_str):
     img_bytes = b64_str2bytes(b64_str)
     img = bytes2np(img_bytes)

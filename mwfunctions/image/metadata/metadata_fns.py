@@ -9,6 +9,7 @@ import os
 from io import BytesIO
 from PIL import Image
 import tempfile
+from mwfunctions.image.conversion import pil2np
 
 
 # Example of reading meta data from image in filepath
@@ -33,6 +34,17 @@ def add_metadata(tpath, meta_dict):
         piexif.dump(exif_dict),
         tpath
     )
+
+def tmp_pil_add_metadata(image_pil, meta_dict, img_format=None):
+    """ Works without store image on local sorage (memory temp dir is used)
+    """
+    img_format = img_format if img_format else "jpg"
+    tfile, tpath = tempfile.mkstemp(f".{img_format}")
+    # store image file in temp path
+    image_pil.save(tpath)#, image_pil.format)
+    add_metadata(tpath, meta_dict)
+    return Image.open(tpath)
+
 
 def pil_add_metadata(image, meta_dict, path_to_data_dir="", filename=None, delete_file=True):
     """Add meta data to an given image.
