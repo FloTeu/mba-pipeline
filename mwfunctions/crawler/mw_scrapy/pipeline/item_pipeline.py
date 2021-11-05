@@ -78,12 +78,15 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
         if website_crawling_target == CrawlingType.OVERVIEW.value:
-            self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id)
+            request_input = {}
+            for request_input_field in spider.mba_crawling_request.request_input_to_log_list:
+                request_input[request_input_field] = spider.mba_crawling_request[request_input_field]
+            self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id)
         elif website_crawling_target == CrawlingType.IMAGE.value:
             self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, parent_id=spider.mba_image_request.parent_crawling_job_id)
-            if spider.mba_image_request.parent_crawling_job_id:
+            if spider.mba_overview_request.keyword:
                 self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}/{spider.mba_image_request.parent_crawling_job_id}/image_pipeline_logs'
         else:
             raise NotImplementedError

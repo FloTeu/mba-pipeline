@@ -88,12 +88,14 @@ class CrawlingJob(MWBaseModel):
 class MBACrawlingJob(CrawlingJob):
     marketplace: Marketplace = Field(description="MBA marketplace")
     crawling_type: CrawlingType = Field(description="Crawling type, which indicates which pages and what data is the target of crawling")
+    request_input: Optional[dict] = Field(None, description="Dict can contain things like keyword, start_page, sorting etc.")
 
 class MBAOverviewCrawlingJob(MBACrawlingJob):
     new_products_count: int = Field(0, description="Count of new products, which where not already in db")
     already_crawled_products_count: int = Field(0, description="Count of already crawled products")
     crawling_type: CrawlingType = Field(CrawlingType.OVERVIEW.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
-    keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
+    # keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
+
 
 class MBAImageCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
@@ -127,6 +129,7 @@ class CrawlingMBARequest(MWBaseModel):
     marketplace: Marketplace
     security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings")
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
+    request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex
@@ -137,6 +140,7 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
     pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
+    request_input_to_log_list = Field(["keyword", "sort", "pages", "start_page"], description="List of request input pydantic field, which should be logged")
 
 class CrawlingMBAImageRequest(CrawlingMBARequest):
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")

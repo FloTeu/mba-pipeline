@@ -86,6 +86,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
         super(MBAShirtOverviewSpider, self).__init__(*args, **mba_overview_request.dict())
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
+        self.mba_crawling_request = mba_overview_request
         self.pod_product = mba_overview_request.mba_product_type
         self.allowed_domains = ['amazon.' + self.marketplace]
 
@@ -131,7 +132,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     urls_mba.append(url_mba_page)
 
         self.crawling_job.number_of_target_pages = len(urls_mba)
-        self.crawling_job.keyword = self.keyword
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
             # if self.marketplace == "com": 
@@ -263,7 +263,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     mba_image_items = MBAImageItems(marketplace=self.marketplace, fs_product_data_col_path=self.fs_product_data_col_path, image_items=mba_image_item_list)
                     # if self.debug:
                     #     mba_image_items.image_items = mba_image_items.image_items[0:2]
-                    if self.marketplace in ["com", "de"]:
+                    if self.marketplace in ["com", "de"] and len(mba_image_items.image_items) > 0:
                         with suppress(requests.exceptions.ReadTimeout):
                             #store_uri: str = Field(description="gs_url for image location")
                             img_pip_input = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{self.page_count}",
