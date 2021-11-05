@@ -277,7 +277,7 @@ class MBASpider(scrapy.Spider):
         # self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         self.crawling_job.end_timestamp = get_england_timestamp(without_tzinfo=False)
         self.crawling_job.set_duration_in_min()
-        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}")
+        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}", overwrite_doc=True)
 
 
 class MBAOverviewSpider(MBASpider):
