@@ -110,6 +110,8 @@ class Scraper:
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
             process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            #process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
+
             # for path in execute(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split()):
             #     print(path, end="")
             # TODO find out why process does not finish correctly in local instance on google cloud
@@ -120,6 +122,10 @@ class Scraper:
             elif wait_until_finished:
                 process.wait()
 
+        output, errors = process.communicate()
+        output_str = output.decode("utf-8")
+        if "Error" in output_str or "Exception" in output_str:
+            print("Error found: ", output_str)
         test = 1
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
