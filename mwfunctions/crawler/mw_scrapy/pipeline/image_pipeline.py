@@ -156,7 +156,7 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
             img_path = f'full/{media_guid}{media_ext}'
         return img_path
 
-    def media_downloaded(self, response, request, info):
+    def media_downloaded(self, response, request, info, *, item=None):
         referer = referer_str(request)
 
         if response.status != 200:
