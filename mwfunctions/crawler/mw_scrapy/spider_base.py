@@ -17,6 +17,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType
+from mwfunctions.pydantic.security_classes import MWSecuritySettings
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
@@ -34,17 +35,8 @@ MBA_PRODUCT_TYPE2GCS_DIR = {
 
 class MBASpider(scrapy.Spider):
 
-    custom_settings = {
-        # Set by settings.py
-        # "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
 
-        'ITEM_PIPELINES': {
-            'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
-            'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
-        },
-    }
-
-    def __init__(self, marketplace, crawling_job_id, mba_product_type="shirt", debug=True, *args, **kwargs):
+    def __init__(self, marketplace, crawling_job_id, security_file_path, mba_product_type="shirt", debug=True, *args, **kwargs):
         """
             mba_product_type:   Which mba product type should be crawled can be 'shirt' or in future hoodies, tank tops etc.
                                 Value decides where to store images in cloud storage
@@ -58,6 +50,8 @@ class MBASpider(scrapy.Spider):
         self.debug = debug
         self.crawling_job_id=crawling_job_id
         self.was_banned = {}
+        self.custom_settings = {}
+        mw_security_settings: MWSecuritySettings = MWSecuritySettings(security_file_path)
 
         if not self.debug:
             # prevent log everything in cloud run/ and normal logging
@@ -65,21 +59,32 @@ class MBASpider(scrapy.Spider):
 
         set_default_gcp_project_if_not_exists()
 
-        self.custom_settings.update({
-            'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug or get_gcp_project() == "merchwatch-dev" else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
-            'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
+        if self.website_crawling_target == CrawlingType.IMAGE.value:
+            self.custom_settings.update({
+                'ITEM_PIPELINES': {
+                    'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
+                    'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
+                },
+                'IMAGES_STORE': f'gs://5c0ae2727a254b608a4ee55a15a05fb7{"-debug" if self.debug or get_gcp_project() == "merchwatch-dev" else ""}/{MBA_PRODUCT_TYPE2GCS_DIR[mba_product_type]}/',
+                'GCS_PROJECT_ID': 'mba-pipeline' # google project of storage
+                })
+        else:
+            self.custom_settings.update({
+                'ITEM_PIPELINES': {
+                    'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
+                    # 'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
+                },
             })
 
-
         # Change proxy list depending on marketplace and debug and target
-        if self.debug:
+        if self.debug or self.website_crawling_target == CrawlingType.IMAGE.value:
             # use only private proxies for debugging
             self.custom_settings.update({
-                "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(self.marketplace == "com"),
+                "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(mw_security_settings, self.marketplace == "com"),
             })
         else:
             self.custom_settings.update({
-                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
+                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(mw_security_settings, only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
                 #"ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
             })
         super().__init__(**kwargs)  # python3

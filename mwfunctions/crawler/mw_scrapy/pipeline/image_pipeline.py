@@ -256,5 +256,5 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
                     url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url, timestamp=get_berlin_timestamp(without_tzinfo=True)).dict(json_serializable=False))
 
             #errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
-            stream_dict_list2bq(bq_table_id, rows_to_insert)
+            stream_dict_list2bq(bq_table_id, rows_to_insert, check_if_table_exists=info.spider.debug)
         return item

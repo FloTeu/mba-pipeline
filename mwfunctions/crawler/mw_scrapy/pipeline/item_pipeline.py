@@ -11,7 +11,7 @@ import logging
 from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
-from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType
+from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 
@@ -72,8 +72,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         assert "merchwatch" in self.gcloud_project, f"'{self.gcloud_project}' is not a merchwatch project"
 
         website_crawling_target = spider.website_crawling_target # can be either "overview", "product" or "overview_and_product"
-        if website_crawling_target not in ["overview", "product", "overview_and_product"]:
-            raise NotImplementedError("Item pipeline is only implemented for website_crawling_target overview, product and 'overview_and_product'")
+        if website_crawling_target not in CrawlingType.get_field_values():
+            raise NotImplementedError(f"Item pipeline is only implemented for website_crawling_target {CrawlingType.get_field_values()}")
 
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
         self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
@@ -81,6 +81,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id)
+        elif website_crawling_target == CrawlingType.IMAGE.value:
+            self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id)
         else:
             raise NotImplementedError
 

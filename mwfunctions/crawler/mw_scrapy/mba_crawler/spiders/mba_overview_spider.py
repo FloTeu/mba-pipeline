@@ -8,6 +8,9 @@ from typing import List
 from re import findall
 import re
 from bs4 import BeautifulSoup
+import requests
+from contextlib import suppress
+from mwfunctions.pydantic.crawling_classes import MBAImageItems, CrawlingMBAImageRequest
 import sys
 sys.path.append("...")
 sys.path.append("..")
@@ -50,7 +53,7 @@ def str2bool(v):
 class MBAShirtOverviewSpider(MBAOverviewSpider):
     name = "mba_overview"
     website_crawling_target = CrawlingType.OVERVIEW.value
-    Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
+    # Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     df_search_terms = pd.DataFrame()
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
@@ -261,7 +264,18 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # if self.debug:
                     #     mba_image_items.image_items = mba_image_items.image_items[0:2]
                     if self.marketplace in ["com", "de"]:
-                        yield {"pydantic_class": mba_image_items}
+                        if self.debug:
+                            image_pipeline_url = "0.0.0.0:8081"
+                        else:
+                            raise NotImplementedError
+                        with suppress(TimeoutError):
+                            #store_uri: str = Field(description="gs_url for image location")
+                            img_pip_input = CrawlingMBAImageRequest(info=MediaPipeline.SpiderInfo(spider=self), settings=self.settings,
+                                                                       mba_image_items=mba_image_items, store_uri=self.settings.attributes["IMAGES_STORE"].value)
+                            r = requests.post(image_pipeline_url, data=img_pip_input.json(),
+                                              headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, timeout=6)
+
+                        #yield {"pydantic_class": mba_image_items}
 
                     self.page_count = self.page_count + 1
         except Exception as e:

@@ -34,7 +34,7 @@ LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "produ
 class MBALocalProductSpider(MBAProductSpider):
     name = "mba_product"
     website_crawling_target = CrawlingType.PRODUCT.value
-    Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
+    # Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
     target="869595848"
     api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
     ip_addresses = []

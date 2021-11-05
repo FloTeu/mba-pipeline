@@ -10,6 +10,8 @@ from typing import Optional, Dict, List, Any
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
+from scrapy.pipelines.media import MediaPipeline
+from scrapy.settings import Settings
 
 class Marketplace(Enum):
     DE="de"
@@ -18,7 +20,17 @@ class Marketplace(Enum):
 class CrawlingType(Enum):
     OVERVIEW = "overview"
     PRODUCT = "product"
+    IMAGE = "image"
     REALTIME_RESEARCH = "realtime_research"
+
+    @classmethod
+    def get_field_keys(cls) -> list:
+        return list(cls.__dict__["_member_map_"].keys())
+
+    @classmethod
+    def get_field_values(cls) -> list:
+        return list([v.value for v in cls.__dict__["_member_map_"].values()])
+
 
 class CrawlingInputItem(BaseModel):
     asin: str
@@ -80,13 +92,16 @@ class MBACrawlingJob(CrawlingJob):
 class MBAOverviewCrawlingJob(MBACrawlingJob):
     new_products_count: int = Field(0, description="Count of new products, which where not already in db")
     already_crawled_products_count: int = Field(0, description="Count of already crawled products")
-    crawling_type: CrawlingType = Field("overview", description="Crawling type, which indicates which pages and what data is the target of crawling")
-    new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
+    crawling_type: CrawlingType = Field(CrawlingType.OVERVIEW.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
+
+class MBAImageCrawlingJob(MBACrawlingJob):
+    crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
+    new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
-    crawling_type: CrawlingType = Field("product", description="Crawling type, which indicates which pages and what data is the target of crawling")
+    crawling_type: CrawlingType = Field(CrawlingType.PRODUCT.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     price_not_found_count: int = Field(0, description="Count of successfull responses without price information")
 
 class MBAImageItem(BaseModel):
@@ -109,6 +124,7 @@ class MBAImageItems(MWBaseModel):
 class CrawlingMBARequest(MWBaseModel):
     crawling_job_id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job. Will set id of crawling_job")
     marketplace: Marketplace
+    security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings")
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
 
     def reset_crawling_job_id(self):
@@ -120,6 +136,12 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
     pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
+
+class CrawlingMBAImageRequest(CrawlingMBARequest):
+    store_uri: str = Field(description="gs_url for image location")
+    mba_image_items: MBAImageItems = Field(description="Contains data which should be crawled")
+    #crawling_mba_request: CrawlingMBAOverviewRequest
+
 
 class CrawlingMBADailyProportions(MWBaseModel):
     """ Proportions decide which prodicts should be crawled
@@ -145,4 +167,11 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     #test: Test
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
+
+# class CrawlingImagePipelineInput(MWBaseModel):
+#     #settings: Settings = Field(description="Scrapy settings object with attributes frozen (bool) and attributes (dict)")
+#     #info: MediaPipeline.SpiderInfo = Field(description="Object contains downloaded, downloading, spider, waiting")
+#
+#     class Config:
+#         arbitrary_types_allowed = True
 

@@ -4,12 +4,13 @@ import json
 import subprocess
 
 from scrapy.utils.project import get_project_settings
-from scrapy.crawler import CrawlerProcess, CrawlerRunner
+from scrapy.crawler import CrawlerProcess, CrawlerRunner, Crawler
 from multiprocessing import Process, Queue
 from twisted.internet import reactor
 from pathlib import Path
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
+from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_image_spider import MBAImageSpider as mba_image_spider
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
@@ -41,8 +42,18 @@ import time
 class ScrapyMBASpider(Enum):
     OVERVIEW = mba_overview_spider
     PRODUCT = mba_product_spider
+    IMAGE = mba_image_spider
     TESTING = TestingSpider
 
+#https://stackoverflow.com/questions/4417546/constantly-print-subprocess-output-while-process-is-running
+def execute(cmd):
+    popen = subprocess.Popen(cmd, stdout=subprocess.PIPE, universal_newlines=True)
+    for stdout_line in iter(popen.stdout.readline, ""):
+        yield stdout_line
+    popen.stdout.close()
+    return_code = popen.wait()
+    if return_code:
+        raise subprocess.CalledProcessError(return_code, cmd)
 
 # Similar problem (twisted.internet.error.ReactorNotRestartable): https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
 class Scraper:
@@ -99,6 +110,8 @@ class Scraper:
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
             process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            # for path in execute(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split()):
+            #     print(path, end="")
             # TODO find out why process does not finish correctly in local instance on google cloud
             if wait_n_minutes:
                 time.sleep(wait_n_minutes * 60)
@@ -110,6 +123,18 @@ class Scraper:
         test = 1
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
+
+    def get_spider(self, crawling_mba_request: CrawlingMBARequest):
+        crawler = Crawler(self.spider, settings=get_project_settings())
+        return self.spider.from_crawler(crawler, crawling_mba_request)
+        #self.spider(crawling_mba_request)
+
+        # runner = CrawlerRunner(get_project_settings())
+        # deferred = runner.crawl(self.spider, crawling_mba_request)
+        # process = CrawlerProcess(get_project_settings())
+        # process.crawl(self.spider, crawling_mba_request)
+
+
 
     def run_spider_old(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None):
         # init of spider
