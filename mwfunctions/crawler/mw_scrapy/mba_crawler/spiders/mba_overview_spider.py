@@ -86,7 +86,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
         super(MBAShirtOverviewSpider, self).__init__(*args, **mba_overview_request.dict())
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
-        self.pod_product = mba_overview_request.pod_product
+        self.pod_product = mba_overview_request.mba_product_type
         self.allowed_domains = ['amazon.' + self.marketplace]
 
         if csv_path != "":
@@ -270,8 +270,8 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                             raise NotImplementedError
                         with suppress(TimeoutError):
                             #store_uri: str = Field(description="gs_url for image location")
-                            img_pip_input = CrawlingMBAImageRequest(info=MediaPipeline.SpiderInfo(spider=self), settings=self.settings,
-                                                                       mba_image_items=mba_image_items, store_uri=self.settings.attributes["IMAGES_STORE"].value)
+                            img_pip_input = CrawlingMBAImageRequest(mba_product_type=self.pod_product,
+                                                                       mba_image_items=mba_image_items)
                             r = requests.post(image_pipeline_url, data=img_pip_input.json(),
                                               headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, timeout=6)
 

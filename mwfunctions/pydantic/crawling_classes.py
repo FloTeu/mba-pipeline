@@ -132,13 +132,13 @@ class CrawlingMBARequest(MWBaseModel):
 
 class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     sort: CrawlingSorting = Field(description="Sorting of MBA overview page")
-    pod_product: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
+    mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
     pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
 
 class CrawlingMBAImageRequest(CrawlingMBARequest):
-    store_uri: str = Field(description="gs_url for image location")
+    mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     mba_image_items: MBAImageItems = Field(description="Contains data which should be crawled")
     #crawling_mba_request: CrawlingMBAOverviewRequest
 
