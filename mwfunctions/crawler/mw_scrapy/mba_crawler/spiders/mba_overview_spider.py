@@ -267,7 +267,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                         with suppress(requests.exceptions.ReadTimeout):
                             #store_uri: str = Field(description="gs_url for image location")
                             img_pip_input = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{self.page_count}",
-                                                                    mba_product_type=self.pod_product, mba_image_items=mba_image_items)
+                                                                    mba_product_type=self.pod_product, mba_image_items=mba_image_items, parent_crawling_job_id=self.crawling_job.id)
                             r = requests.post(self.image_pipeline_endpoint_url, data=img_pip_input.json(),
                                               headers={'Accept': 'application/json', 'Content-Type': 'application/json'}, timeout=0.1)
 

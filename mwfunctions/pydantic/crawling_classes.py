@@ -98,6 +98,7 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
 class MBAImageCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
+    parent_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
@@ -140,6 +141,7 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
 class CrawlingMBAImageRequest(CrawlingMBARequest):
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     mba_image_items: MBAImageItems = Field(description="Contains data which should be crawled")
+    parent_crawling_job_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
     #crawling_mba_request: CrawlingMBAOverviewRequest
 
 

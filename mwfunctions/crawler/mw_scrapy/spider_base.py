@@ -63,7 +63,7 @@ class MBASpider(scrapy.Spider):
         if self.website_crawling_target == CrawlingType.OVERVIEW.value:
             if self.debug:
                 self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.DEBUG]
-            if get_gcp_project() == "merchwatch-dev":
+            elif get_gcp_project() == "merchwatch-dev":
                 self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.DEV]
             else:
                 self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.PROD]

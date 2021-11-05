@@ -122,10 +122,10 @@ class Scraper:
             elif wait_until_finished:
                 process.wait()
 
-        output, errors = process.communicate()
-        output_str = output.decode("utf-8")
-        if "Error" in output_str or "Exception" in output_str:
-            print("Error found: ", output_str)
+            output, errors = process.communicate()
+            output_str = output.decode("utf-8")
+            if "Error" in output_str or "Exception" in output_str:
+                print("Error found: ", output_str)
         test = 1
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
