@@ -17,7 +17,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType
-from mwfunctions.pydantic.security_classes import MWSecuritySettings
+from mwfunctions.pydantic.security_classes import MWSecuritySettings, EndpointId, EndpointServiceDevOp
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
@@ -53,11 +53,21 @@ class MBASpider(scrapy.Spider):
         self.custom_settings = {}
         mw_security_settings: MWSecuritySettings = MWSecuritySettings(security_file_path)
 
+
         if not self.debug:
             # prevent log everything in cloud run/ and normal logging
             logging.getLogger('scrapy').setLevel(logging.WARNING)
 
         set_default_gcp_project_if_not_exists()
+
+        if self.website_crawling_target == CrawlingType.OVERVIEW.value:
+            if self.debug:
+                self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.DEBUG]
+            if get_gcp_project() == "merchwatch-dev":
+                self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.DEV]
+            else:
+                self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.PROD]
+
 
         if self.website_crawling_target == CrawlingType.IMAGE.value:
             self.custom_settings.update({

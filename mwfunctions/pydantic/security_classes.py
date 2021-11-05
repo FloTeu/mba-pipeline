@@ -23,13 +23,36 @@ class ProxyServiceSettings(MWBaseModel):
 class ProxyService(str, Enum):
     PERFECT_PRIVACY = "perfect_privacy"
 
+class EndpointServiceName(str, Enum):
+    CLOUD_RUN = "cloud_run"
+    CLOUD_FUNCTION = "cloud_function"
+
+class EndpointServiceDevOp(str, Enum):
+    DEBUG = "debug"
+    DEV = "dev"
+    PROD = "prod"
+
+class EndpointServiceTrigger(str, Enum):
+    HTTP = "http"
+    PUB_SUB = "pub_sub"
+
+class EndpointSettings(MWBaseModel):
+    service_name: EndpointServiceName
+    devop2url: Dict[EndpointServiceDevOp, str] = Field(description="DevOp status to url with which service can be called")
+    trigger: EndpointServiceTrigger
+
+class EndpointId(str, Enum):
+    CRAWLER_IMAGE_PIPELINE = "crawler_image_pipeline"
+
 # class ProxySecuritySettingItem(MWBaseModel):
 #     proxy_service: ProxyServices
 #     proxy_settings: ProxySettings
 
 import json
 class MWSecuritySettings(MWBaseModel):
-    proxy_services: Dict[ProxyService, ProxyServiceSettings]
+    proxy_services: Optional[Dict[ProxyService, ProxyServiceSettings]] = Field(None)
+    endpoints: Optional[Dict[EndpointId, EndpointSettings]] = Field(None)
+
 
     def __init__(self, file_path=None, *args, **kwargs):
         if file_path:
