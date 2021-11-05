@@ -86,7 +86,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id)
         elif website_crawling_target == CrawlingType.IMAGE.value:
             self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, parent_id=spider.mba_image_request.parent_crawling_job_id)
-            if spider.mba_overview_request.keyword:
+            if spider.mba_image_request.parent_crawling_job_id:
                 self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}/{spider.mba_image_request.parent_crawling_job_id}/image_pipeline_logs'
         else:
             raise NotImplementedError
