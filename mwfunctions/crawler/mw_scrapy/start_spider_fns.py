@@ -2,6 +2,7 @@ import os
 import sys
 import json
 import subprocess
+import pandas as pd
 
 from scrapy.utils.project import get_project_settings
 from scrapy.crawler import CrawlerProcess, CrawlerRunner, Crawler
@@ -13,13 +14,15 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spide
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_image_spider import MBAImageSpider as mba_image_spider
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest
+from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingInputItem
 from mwfunctions.image.conversion import dict2b64_str
 from mwfunctions.environment import get_gcp_project
+from mwfunctions.crawler.preprocessing import create_url_csv
+
 from os import system
 from enum import Enum
 from pydantic import BaseModel, Field
-from typing import Union
+from typing import Union, List
 import time
 
 #from mwfunctions.crawler.mw_scrapy import run_mba_spider

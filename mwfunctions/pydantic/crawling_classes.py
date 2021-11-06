@@ -39,6 +39,12 @@ CrawlingType2LogSubCollection = {
     CrawlingType.IMAGE: "image_pipeline_logs"
 }
 
+ProjectId2CrawlingBqProjectId = {
+    'mba-pipeline': 'mba-pipeline',
+    'merchwatch': 'mba-pipeline',
+    'merchwatch-dev': 'merchwatch-dev'
+}
+
 class CrawlingInputItem(BaseModel):
     asin: str
     marketplace: str
@@ -146,9 +152,15 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     sort: CrawlingSorting = Field(description="Sorting of MBA overview page")
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
-    pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
+    pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
     request_input_to_log_list = Field(["keyword", "sort", "pages", "start_page"], description="List of request input pydantic field, which should be logged")
+
+    @validator("pages")
+    def set_pages_if_zero(cls, pages, values):
+        assert pages >= 0, "pages is not allowed to be less than 0"
+        assert pages <= 400, "pages is not allowed to be more than 400"
+        return pages if pages != 0 else 401 - values["start_page"]
 
 class CrawlingMBAImageRequest(CrawlingMBARequest):
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
@@ -179,6 +191,7 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     #test: Test
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
+    request_input_to_log_list = Field(["number_products"], description="List of request input pydantic field, which should be logged")
 
 
 class CrawlingMBACloudFunctionRequest(MWBaseModel):

@@ -21,10 +21,10 @@ from mwfunctions import environment
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
-from mwfunctions.crawler.preprocessing import create_url_csv
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr, BQMBAProductsNoMbaShirt
 from mwfunctions.io import str2bool
+from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
@@ -53,26 +53,13 @@ class MBALocalProductSpider(MBAProductSpider):
         # TODO: Add functionality to download url data directly within init
         self.daily = str2bool(mba_product_request.daily)
         self.allowed_domains = ['amazon.' + self.marketplace]
-        self.mba_product_request = mba_product_request
         self.url_data_path = url_data_path
 
 
     def start_requests(self):
         self.reset_was_banned_every_hour()
 
-        # get crawling input from csv file
-        if self.url_data_path:
-            urls = pd.read_csv(self.url_data_path, engine="python")["url"].tolist()
-            asins = pd.read_csv(self.url_data_path)["asin"].tolist()
-        # get crawling input from provided asins
-        elif self.mba_product_request.asins_to_crawl:
-            asins = self.mba_product_request.asins_to_crawl
-            urls = [CrawlingInputItem(asin=asin, marketplace=self.marketplace).url for asin in asins]
-        # get crawling input from BQ
-        else:
-            crawling_input_items: List[CrawlingInputItem] = create_url_csv.get_crawling_input_items(self.mba_product_request, bq_project_id=self.bq_project_id, progress_bar_type="tqdm" if self.debug else None)
-            urls = [crawling_input_item.url for crawling_input_item in crawling_input_items]
-            asins = [crawling_input_item.asin for crawling_input_item in crawling_input_items]
+        urls, asins = get_urls_asins_for_product_crawling(self.mba_crawling_request, self.marketplace, self.bq_project_id, url_data_path=self.url_data_path, debug=self.debug)
 
         # send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
         LOGGER.info("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))

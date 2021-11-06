@@ -11,7 +11,7 @@ import logging
 from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
-from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION
+from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION, ProjectId2CrawlingBqProjectId
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 
@@ -95,7 +95,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             # if "_split" in spider.fs_crawling_log_col_path:
             self.fs_log_col_path = f'{spider.fs_crawling_log_parent_doc_path}/{CrawlingType2LogSubCollection[website_crawling_target]}'
 
-        self.bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
+        self.bq_project_id = ProjectId2CrawlingBqProjectId[self.gcloud_project]
         self.bq_client = bigquery.Client(project=self.bq_project_id)
 
         # spider properties update
