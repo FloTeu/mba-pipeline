@@ -23,7 +23,8 @@ class MBAImageSpider(MBASpider):
     website_crawling_target = CrawlingType.IMAGE.value
 
     def __init__(self, mba_image_request: CrawlingMBAImageRequest, *args, **kwargs):
-        super(MBAImageSpider, self).__init__(*args, **mba_image_request.dict())
+        super_attrs = {"mba_crawling_request": mba_image_request, **mba_image_request.dict()}
+        super(MBAImageSpider, self).__init__(*args, **super_attrs)
         self.mba_image_request: CrawlingMBAImageRequest = mba_image_request
 
     def start_requests(self):

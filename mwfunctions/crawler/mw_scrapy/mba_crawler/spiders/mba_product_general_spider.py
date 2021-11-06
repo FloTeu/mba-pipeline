@@ -48,7 +48,8 @@ class MBALocalProductSpider(MBAProductSpider):
     # }
 
     def __init__(self, mba_product_request: CrawlingMBAProductRequest, url_data_path=None, *args, **kwargs):
-        super(MBALocalProductSpider, self).__init__(*args, **mba_product_request.dict())
+        super_attrs = {"mba_crawling_request": mba_product_request, **mba_product_request.dict()}
+        super(MBALocalProductSpider, self).__init__(*args, **super_attrs)
         # TODO: Add functionality to download url data directly within init
         self.daily = str2bool(mba_product_request.daily)
         self.allowed_domains = ['amazon.' + self.marketplace]

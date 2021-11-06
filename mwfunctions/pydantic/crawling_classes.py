@@ -13,6 +13,8 @@ from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STR
 from scrapy.pipelines.media import MediaPipeline
 from scrapy.settings import Settings
 
+CRAWLING_JOB_ROOT_COLLECTION = "crawling_jobs"
+
 class Marketplace(str, Enum):
     DE="de"
     COM="com"
@@ -31,6 +33,11 @@ class CrawlingType(str, Enum):
     def get_field_values(cls) -> list:
         return list([v.value for v in cls.__dict__["_member_map_"].values()])
 
+CrawlingType2LogSubCollection = {
+    CrawlingType.OVERVIEW: "overview_split_logs",
+    CrawlingType.PRODUCT: "product_split_logs",
+    CrawlingType.IMAGE: "image_pipeline_logs"
+}
 
 class CrawlingInputItem(BaseModel):
     asin: str
@@ -130,6 +137,7 @@ class CrawlingMBARequest(MWBaseModel):
     security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings")
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
     request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
+    parent_crawling_job_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex
@@ -145,7 +153,6 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
 class CrawlingMBAImageRequest(CrawlingMBARequest):
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     mba_image_items: MBAImageItems = Field(description="Contains data which should be crawled")
-    parent_crawling_job_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
     #crawling_mba_request: CrawlingMBAOverviewRequest
 
 class CrawlingMBADailyProportions(MWBaseModel):

@@ -11,7 +11,7 @@ import logging
 from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
-from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob
+from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 
@@ -76,20 +76,23 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             raise NotImplementedError(f"Item pipeline is only implemented for website_crawling_target {CrawlingType.get_field_values()}")
 
         self.fs_product_data_col_path = f'{spider.marketplace}_shirts{"_debug" if self.debug else ""}'
-        self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}'
+        self.fs_log_col_path = f'{CRAWLING_JOB_ROOT_COLLECTION}{"_debug" if self.debug else ""}'
+
+        request_input = {}
+        for request_input_field in spider.request_input_to_log_list:
+            request_input[request_input_field] = spider.mba_crawling_request[request_input_field]
         if website_crawling_target == CrawlingType.OVERVIEW.value:
-            request_input = {}
-            for request_input_field in spider.mba_crawling_request.request_input_to_log_list:
-                request_input[request_input_field] = spider.mba_crawling_request[request_input_field]
             self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
-            self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id)
+            self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.IMAGE.value:
-            self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, parent_id=spider.mba_image_request.parent_crawling_job_id)
-            if spider.mba_image_request.parent_crawling_job_id:
-                self.fs_log_col_path = f'crawling_jobs{"_debug" if self.debug else ""}/{spider.mba_image_request.parent_crawling_job_id}/image_pipeline_logs'
+            self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, parent_id=spider.parent_crawling_job_id, request_input=request_input)
         else:
             raise NotImplementedError
+
+        # extend fs log collection if parent id is known
+        if spider.parent_crawling_job_id:
+            self.fs_log_col_path = f'{CRAWLING_JOB_ROOT_COLLECTION}{"_debug" if self.debug else ""}/{spider.parent_crawling_job_id}/{CrawlingType2LogSubCollection[website_crawling_target]}'
 
         self.bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
         self.bq_client = bigquery.Client(project=self.bq_project_id)

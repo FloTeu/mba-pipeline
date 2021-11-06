@@ -16,7 +16,7 @@ from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy import proxy_handler
-from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType
+from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType, CrawlingMBARequest
 from mwfunctions.pydantic.security_classes import MWSecuritySettings, EndpointId, EndpointServiceDevOp
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
@@ -36,7 +36,7 @@ MBA_PRODUCT_TYPE2GCS_DIR = {
 class MBASpider(scrapy.Spider):
 
 
-    def __init__(self, marketplace, crawling_job_id, security_file_path, mba_product_type="shirt", debug=True, *args, **kwargs):
+    def __init__(self, mba_crawling_request: CrawlingMBARequest, marketplace, crawling_job_id, security_file_path, mba_product_type="shirt", parent_crawling_job_id=None, request_input_to_log_list=[], debug=True, *args, **kwargs):
         """
             mba_product_type:   Which mba product type should be crawled can be 'shirt' or in future hoodies, tank tops etc.
                                 Value decides where to store images in cloud storage
@@ -46,9 +46,12 @@ class MBASpider(scrapy.Spider):
                             do_cloud_logging=True)
 
         assert mba_product_type in MBA_PRODUCT_TYPE2GCS_DIR, f"mba_product_type '{mba_product_type}' not defined."
+        self.mba_crawling_request = mba_crawling_request
         self.marketplace = marketplace
         self.debug = debug
         self.crawling_job_id=crawling_job_id
+        self.parent_crawling_job_id = parent_crawling_job_id
+        self.request_input_to_log_list = request_input_to_log_list
         self.was_banned = {}
         self.custom_settings = {}
         mw_security_settings: MWSecuritySettings = MWSecuritySettings(security_file_path)
