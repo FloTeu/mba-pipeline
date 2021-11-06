@@ -1,0 +1,53 @@
+{
+    "crawler_start_request_list": [
+      {
+        "marketplace": "de",
+        "sort": "newest",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 50
+      },
+      {
+        "marketplace": "de",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 100
+      },
+      {
+        "marketplace": "de",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 300,
+        "pages": 100
+      },
+      {
+        "marketplace": "com",
+        "sort": "newest",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 50
+      },
+      {
+        "marketplace": "com",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 50
+      },
+      {
+        "marketplace": "com",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 300,
+        "pages": 50
+      }
+    ],
+    "split_after_n": 10
+}

@@ -1,0 +1,25 @@
+{
+    "crawler_start_request_list": [
+      {
+        "marketplace": "de",
+        "daily": false,
+        "number_products": 220,
+        "proportions": {
+            "best_seller": 0.7,
+            "lowest_bsr_count": 0.2,
+            "random": 0.1
+        }
+      },
+      {
+        "marketplace": "com",
+        "daily": false,
+        "number_products": 220,
+        "proportions": {
+            "best_seller": 0.7,
+            "lowest_bsr_count": 0.2,
+            "random": 0.1
+        }
+      }
+    ],
+    "split_after_n": 10
+}

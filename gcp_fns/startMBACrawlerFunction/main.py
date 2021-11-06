@@ -160,6 +160,7 @@ import pathlib
 import ast
 from typing import List, Union
 from contextlib import suppress
+import json
 
 def start_crawler(event, context):
     from pprint import pprint
@@ -167,9 +168,12 @@ def start_crawler(event, context):
 
     if 'data' in event:
         data_dict_str = base64.b64decode(event['data']).decode('utf-8')
-        data_dict = ast.literal_eval(data_dict_str)
+        data_dict = json.loads(data_dict_str)
+        # data_dict = ast.literal_eval(data_dict_str)
     else:
         data_dict = {}
+
+    print(data_dict)
 
     security_settings = MWSecuritySettings(file_path=f"{pathlib.Path(__file__).parent.resolve()}/security.json")
 
