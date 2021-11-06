@@ -44,6 +44,8 @@ class EndpointSettings(MWBaseModel):
 class EndpointId(str, Enum):
     CRAWLER_IMAGE_PIPELINE = "crawler_image_pipeline"
     CRAWLER_SCALE_TO_MOON = "crawler_scale_to_moon"
+    CRAWLER_MW_API_OVERVIEW = "crawler_mw_api_overview"
+    CRAWLER_MW_API_PRODUCT = "crawler_mw_api_product"
 
 # class ProxySecuritySettingItem(MWBaseModel):
 #     proxy_service: ProxyServices

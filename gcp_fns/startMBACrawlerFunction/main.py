@@ -152,10 +152,14 @@ def instance_run(event, context):
     request = service.instances().start(project=project, zone=zone, instance=instance)
     response = request.execute()
 
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingMBARequest, CrawlingMBAOverviewRequest
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingMBARequest, CrawlingMBAOverviewRequest, StartMBACrawlerFunctionRequest
+from mwfunctions.pydantic.security_classes import MWSecuritySettings, EndpointId, EndpointServiceDevOp
 from mwfunctions.environment import get_gcp_project
 import requests
+import pathlib
 import ast
+from typing import List, Union
+from contextlib import suppress
 
 def start_crawler(event, context):
     from pprint import pprint
@@ -167,55 +171,74 @@ def start_crawler(event, context):
     else:
         data_dict = {}
 
-    start_page = int(data_dict["start_page"]) if "start_page" in data_dict else 1
-    pages = int(data_dict["pages"]) if "pages" in data_dict else 50
-    pod_product = data_dict["pod_product"] if "pod_product" in data_dict else "shirt"
+    security_settings = MWSecuritySettings(file_path=f"{pathlib.Path(__file__).parent.resolve()}/security.json")
 
-    print(start_page, pages, pod_product, is_daily_script())
-
-    crawling_mba_overview_request_list = []
-    # cloud run crawling can only handle 50 overview pages under 1 hour
-    # TODO: put image pipeline to another service like cloud functions to store images in storage (reduces max memory of cloud run + faster execution of overview request)
-    # monday to saturday
-    crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product=pod_product,
-                               pages=pages, start_page=start_page))
-    crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product=pod_product,
-                               pages=pages, start_page=start_page))
-    if is_daily_script():
-        # only first 10 pages should be crawled for "newest" page on daily basis
-        if start_page == 1:
-            crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
-                                       pages=10, start_page=start_page))
-            crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
-                                       pages=10, start_page=start_page))
-    # on sunday newsest page should be crawled like best_seller page
-    else:
-        crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
-                                   pages=pages, start_page=start_page))
-        crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
-                                   pages=pages, start_page=start_page))
-
-
-        # Testing
-        # crawling_mba_overview_request_list = [
-        #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product="shirt",
-        #                                pages=10, start_page=1),
-        #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product="shirt",
-        #                                pages=11, start_page=200),
-        #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=12,
-        #                                start_page=1),
-        #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product="shirt", pages=13,
-        #                                start_page=200)]
-
+    is_dev = True
+    endpoint_devop = EndpointServiceDevOp.DEV
     if get_gcp_project() in ["mba-pipeline","merchwatch"]:
-        endpoint_url = "https://mw-crawler-api-mhttow5wga-ey.a.run.app"
-    else:
-        endpoint_url = "https://mw-crawler-api-ruzytvhzvq-ey.a.run.app"
+        is_dev = False
+        endpoint_devop = EndpointServiceDevOp.PROD
 
-    #instance_run(event, context)
-    for crawling_mba_overview_request in crawling_mba_overview_request_list:
-        crawling_mba_overview_request.reset_crawling_job_id()
-        try:
-            r = requests.post(f"{endpoint_url}/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
-        except:
-            pass
+    crawler_start_request_list: List[Union[CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]] = StartMBACrawlerFunctionRequest.parse_obj(data_dict).crawler_start_request_list
+    split_after_n: int = StartMBACrawlerFunctionRequest.parse_obj(data_dict).split_after_n
+    for crawler_start_request in crawler_start_request_list:
+        crawler_start_request.reset_crawling_job_id()
+        endpoint = security_settings.endpoints[EndpointId.CRAWLER_MW_API_OVERVIEW].devop2url[endpoint_devop] if isinstance(crawler_start_request, CrawlingMBAOverviewRequest) else None
+        endpoint = security_settings.endpoints[EndpointId.CRAWLER_MW_API_PRODUCT].devop2url[endpoint_devop] if isinstance(crawler_start_request, CrawlingMBAProductRequest) else endpoint
+        with suppress(requests.exceptions.ReadTimeout):
+            r = requests.post(f"{endpoint}?split_after_n={split_after_n}&access_token={API_KEY}", crawler_start_request.json(), timeout=6)
+
+    #
+    #
+    # start_page = int(data_dict["start_page"]) if "start_page" in data_dict else 1
+    # pages = int(data_dict["pages"]) if "pages" in data_dict else 50
+    # pod_product = data_dict["pod_product"] if "pod_product" in data_dict else "shirt"
+    #
+    # print(start_page, pages, pod_product, is_daily_script())
+    #
+    # crawling_mba_overview_request_list = []
+    # # cloud run crawling can only handle 50 overview pages under 1 hour
+    # # TODO: put image pipeline to another service like cloud functions to store images in storage (reduces max memory of cloud run + faster execution of overview request)
+    # # monday to saturday
+    # crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product=pod_product,
+    #                            pages=pages, start_page=start_page))
+    # crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product=pod_product,
+    #                            pages=pages, start_page=start_page))
+    # if is_daily_script():
+    #     # only first 10 pages should be crawled for "newest" page on daily basis
+    #     if start_page == 1:
+    #         crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
+    #                                    pages=10, start_page=start_page))
+    #         crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
+    #                                    pages=10, start_page=start_page))
+    # # on sunday newsest page should be crawled like best_seller page
+    # else:
+    #     crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product=pod_product,
+    #                                pages=pages, start_page=start_page))
+    #     crawling_mba_overview_request_list.append(CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product=pod_product,
+    #                                pages=pages, start_page=start_page))
+    #
+    #
+    #     # Testing
+    #     # crawling_mba_overview_request_list = [
+    #     #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="best_seller", pod_product="shirt",
+    #     #                                pages=10, start_page=1),
+    #     #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="best_seller", pod_product="shirt",
+    #     #                                pages=11, start_page=200),
+    #     #     CrawlingMBAOverviewRequest(marketplace="de", debug=False, sort="newest", pod_product="shirt", pages=12,
+    #     #                                start_page=1),
+    #     #     CrawlingMBAOverviewRequest(marketplace="com", debug=False, sort="newest", pod_product="shirt", pages=13,
+    #     #                                start_page=200)]
+    #
+    # if get_gcp_project() in ["mba-pipeline","merchwatch"]:
+    #     endpoint_url = "https://mw-crawler-api-mhttow5wga-ey.a.run.app"
+    # else:
+    #     endpoint_url = "https://mw-crawler-api-ruzytvhzvq-ey.a.run.app"
+    #
+    # #instance_run(event, context)
+    # for crawling_mba_overview_request in crawling_mba_overview_request_list:
+    #     crawling_mba_overview_request.reset_crawling_job_id()
+    #     try:
+    #         r = requests.post(f"{endpoint_url}/start_mba_overview_crawler?wait_until_finished=true&access_token={API_KEY}", crawling_mba_overview_request.json(), timeout=6)
+    #     except:
+    #         pass

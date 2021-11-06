@@ -199,6 +199,14 @@ class CrawlingMBACloudFunctionRequest(MWBaseModel):
     crawling_type: Optional[CrawlingType] = Field(None, description="If not set, pydantic should match input to Union data classes")
     crawling_mba_request: Union[CrawlingMBAImageRequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest] = Field(description="Pydantic is able to automatically match dict to data class")
 
+
+class StartMBACrawlerFunctionRequest(MWBaseModel):
+    # Represents dict, which is sended by schedular as pub sub to cloud function startMBACrawlerFunction
+    crawler_start_request_list: List[Union[CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]]
+    split_after_n: Optional[int] = Field(10, description="Number of max pages a crawler should crawl. Batches of n target pages will be splitted.")
+
+
+
 # class CrawlingImagePipelineInput(MWBaseModel):
 #     #settings: Settings = Field(description="Scrapy settings object with attributes frozen (bool) and attributes (dict)")
 #     #info: MediaPipeline.SpiderInfo = Field(description="Object contains downloaded, downloading, spider, waiting")
