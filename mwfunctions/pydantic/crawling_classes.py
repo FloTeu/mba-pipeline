@@ -5,7 +5,7 @@ import pytz
 from pydantic import BaseModel, Field, validator
 from datetime import date, datetime
 from enum import Enum, IntEnum
-from typing import Optional, Dict, List, Any
+from typing import Optional, Dict, List, Any, Union
 
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
@@ -148,7 +148,6 @@ class CrawlingMBAImageRequest(CrawlingMBARequest):
     parent_crawling_job_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
     #crawling_mba_request: CrawlingMBAOverviewRequest
 
-
 class CrawlingMBADailyProportions(MWBaseModel):
     """ Proportions decide which prodicts should be crawled
         Sum of integers must be 1
@@ -173,6 +172,11 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     #test: Test
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
+
+class CrawlingMBACloudFunctionRequest(MWBaseModel):
+    # cloud function can take this object and start a crawler scaling to the moon
+    crawling_type: CrawlingType
+    crawling_mba_request: Union[CrawlingMBAImageRequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]
 
 # class CrawlingImagePipelineInput(MWBaseModel):
 #     #settings: Settings = Field(description="Scrapy settings object with attributes frozen (bool) and attributes (dict)")
