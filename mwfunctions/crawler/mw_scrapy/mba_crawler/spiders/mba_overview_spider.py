@@ -10,7 +10,6 @@ import re
 from bs4 import BeautifulSoup
 import requests
 from contextlib import suppress
-from mwfunctions.pydantic.crawling_classes import MBAImageItems, CrawlingMBAImageRequest, CrawlingMBACloudFunctionRequest
 import sys
 sys.path.append("...")
 sys.path.append("..")
@@ -36,7 +35,7 @@ from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
-from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType
+from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType, CRAWLING_JOB_ROOT_COLLECTION,  CrawlingMBAImageRequest, CrawlingMBACloudFunctionRequest
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
 from mwfunctions.cloud.auth import get_headers_by_service_url
 
@@ -268,7 +267,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                         with suppress(requests.exceptions.ReadTimeout):
                             #store_uri: str = Field(description="gs_url for image location")
                             img_pip_request = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{page}",
-                                                                    mba_product_type=self.pod_product, mba_image_items=mba_image_items, parent_crawling_job_id=self.crawling_job.id)
+                                                                    mba_product_type=self.pod_product, mba_image_items=mba_image_items, fs_crawling_log_parent_doc_path=f"{self.fs_log_col_path}/{self.crawling_job.id}")
                             cf_request = CrawlingMBACloudFunctionRequest(crawling_type=CrawlingType.IMAGE, crawling_mba_request=img_pip_request)
                             r = requests.post(self.image_pipeline_endpoint_url, data=cf_request.json(),
                                               headers=get_headers_by_service_url(self.image_pipeline_endpoint_url), timeout=0.1)

@@ -36,7 +36,7 @@ MBA_PRODUCT_TYPE2GCS_DIR = {
 class MBASpider(scrapy.Spider):
 
 
-    def __init__(self, mba_crawling_request: CrawlingMBARequest, marketplace, crawling_job_id, security_file_path, mba_product_type="shirt", parent_crawling_job_id=None, request_input_to_log_list=[], debug=True, *args, **kwargs):
+    def __init__(self, mba_crawling_request: CrawlingMBARequest, marketplace, crawling_job_id, security_file_path, mba_product_type="shirt", fs_crawling_log_parent_doc_path=None, request_input_to_log_list=[], debug=True, *args, **kwargs):
         """
             mba_product_type:   Which mba product type should be crawled can be 'shirt' or in future hoodies, tank tops etc.
                                 Value decides where to store images in cloud storage
@@ -50,7 +50,7 @@ class MBASpider(scrapy.Spider):
         self.marketplace = marketplace
         self.debug = debug
         self.crawling_job_id=crawling_job_id
-        self.parent_crawling_job_id = parent_crawling_job_id
+        self.fs_crawling_log_parent_doc_path = fs_crawling_log_parent_doc_path
         self.request_input_to_log_list = request_input_to_log_list
         self.was_banned = {}
         self.custom_settings = {}

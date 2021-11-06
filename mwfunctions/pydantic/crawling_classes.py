@@ -107,7 +107,6 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
 class MBAImageCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
-    parent_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
     daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
@@ -137,7 +136,8 @@ class CrawlingMBARequest(MWBaseModel):
     security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings")
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
     request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
-    parent_crawling_job_id: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this id")
+    parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path")
+    fs_crawling_log_parent_doc_path: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path")
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex

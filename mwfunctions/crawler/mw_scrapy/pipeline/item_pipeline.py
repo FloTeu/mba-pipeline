@@ -86,13 +86,14 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         elif website_crawling_target == CrawlingType.PRODUCT.value:
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.IMAGE.value:
-            self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, parent_id=spider.parent_crawling_job_id, request_input=request_input)
+            self.crawling_job = MBAImageCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
         else:
             raise NotImplementedError
 
         # extend fs log collection if parent id is known
-        if spider.parent_crawling_job_id:
-            self.fs_log_col_path = f'{CRAWLING_JOB_ROOT_COLLECTION}{"_debug" if self.debug else ""}/{spider.parent_crawling_job_id}/{CrawlingType2LogSubCollection[website_crawling_target]}'
+        if spider.fs_crawling_log_parent_doc_path:
+            # if "_split" in spider.fs_crawling_log_col_path:
+            self.fs_log_col_path = f'{spider.fs_crawling_log_parent_doc_path}/{CrawlingType2LogSubCollection[website_crawling_target]}'
 
         self.bq_project_id = 'mba-pipeline' if self.gcloud_project == "merchwatch" else "merchwatch-dev"
         self.bq_client = bigquery.Client(project=self.bq_project_id)
