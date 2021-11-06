@@ -5,3 +5,4 @@ google-api-python-client
 git+git://github.com/Flo95x/mba-pipeline.git
 pydantic
 pytz
+scrapy

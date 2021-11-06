@@ -10,8 +10,7 @@ from typing import Optional, Dict, List, Any, Union
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
-from scrapy.pipelines.media import MediaPipeline
-from scrapy.settings import Settings
+
 
 CRAWLING_JOB_ROOT_COLLECTION = "crawling_jobs"
 
