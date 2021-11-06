@@ -13,11 +13,11 @@ from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STR
 from scrapy.pipelines.media import MediaPipeline
 from scrapy.settings import Settings
 
-class Marketplace(Enum):
+class Marketplace(str, Enum):
     DE="de"
     COM="com"
 
-class CrawlingType(Enum):
+class CrawlingType(str, Enum):
     OVERVIEW = "overview"
     PRODUCT = "product"
     IMAGE = "image"
@@ -41,10 +41,10 @@ class CrawlingInputItem(BaseModel):
     def validate_url(cls, url, values):
         return url if url in values else f"https://www.amazon.{values['marketplace']}/dp/{values['asin']}"
 
-class PODProduct(Enum):
+class PODProduct(str, Enum):
     SHIRT = "shirt"
 
-class CrawlingSorting(Enum):
+class CrawlingSorting(str, Enum):
     BEST_SELLER="best_seller"
     NEWEST="newest"
     OLDEST="oldest"
@@ -173,10 +173,11 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
 
+
 class CrawlingMBACloudFunctionRequest(MWBaseModel):
     # cloud function can take this object and start a crawler scaling to the moon
-    crawling_type: CrawlingType
-    crawling_mba_request: Union[CrawlingMBAImageRequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]
+    crawling_type: Optional[CrawlingType] = Field(None, description="If not set, pydantic should match input to Union data classes")
+    crawling_mba_request: Union[CrawlingMBAImageRequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest] = Field(description="Pydantic is able to automatically match dict to data class")
 
 # class CrawlingImagePipelineInput(MWBaseModel):
 #     #settings: Settings = Field(description="Scrapy settings object with attributes frozen (bool) and attributes (dict)")
