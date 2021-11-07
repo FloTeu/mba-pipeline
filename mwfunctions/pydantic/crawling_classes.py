@@ -138,7 +138,7 @@ class CrawlingMBARequest(MWBaseModel):
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
     request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
     parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path")
-    fs_crawling_log_parent_doc_path: Optional[str] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path")
+    fs_crawling_log_parent_doc_path: Optional[Union[None, str]] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path", example=None)
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex

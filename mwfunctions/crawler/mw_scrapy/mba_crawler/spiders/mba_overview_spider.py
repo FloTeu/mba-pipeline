@@ -238,11 +238,11 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     bq_mba_products_mba_images_list: List[BQMBAProductsMbaImages] = self.get_BQMBAProductsMBAImages_list(response)
                     bq_mba_products_mba_relevance_list: List[BQMBAProductsMbaRelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
 
-
+                    asin2was_crawled_bool = {bq_mba_overview_product.asin: does_document_exists(f"{self.crawling_product_logs_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client) for bq_mba_overview_product in bq_mba_overview_product_list}
 
                     # store product data in bq
                     for bq_mba_overview_product in bq_mba_overview_product_list:
-                        if bq_mba_overview_product.asin not in self.products_already_crawled and not does_document_exists(f"{self.crawling_product_logs_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client):
+                        if bq_mba_overview_product.asin not in self.products_already_crawled and not asin2was_crawled_bool[bq_mba_overview_product.asin]:
                             yield {"pydantic_class": bq_mba_overview_product}
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)
@@ -255,13 +255,13 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                         else:
                             self.crawling_job.count_inc("already_crawled_products_count")
                         # crawl only image if not already crawled
-                        if bq_mba_overview_product.asin not in self.products_images_already_downloaded and not not does_document_exists(f"{self.crawling_product_logs_image_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client):
+                        if bq_mba_overview_product.asin not in self.products_images_already_downloaded and not does_document_exists(f"{self.crawling_product_logs_image_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client):
                             mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))
                             self.products_images_already_downloaded.append(bq_mba_overview_product.asin)
 
                     # store products_mba_images in BQ
                     for bq_mba_products_mba_images in bq_mba_products_mba_images_list:
-                        if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled:
+                        if bq_mba_products_mba_images.asin not in self.products_mba_image_references_already_crawled and not asin2was_crawled_bool[bq_mba_products_mba_images.asin]:
                             yield {"pydantic_class": bq_mba_products_mba_images}
                             self.products_mba_image_references_already_crawled.append(bq_mba_products_mba_images.asin)
 
@@ -288,6 +288,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                         #yield {"pydantic_class": mba_image_items}
 
                     self.page_count = self.page_count + 1
+
         except Exception as e:
             self.crawling_job.finished_with_error = True
             self.crawling_job.error_msg = str(e)
