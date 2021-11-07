@@ -37,7 +37,9 @@ from mwfunctions.crawler.mw_scrapy.spider_base import MBAOverviewSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType, CRAWLING_JOB_ROOT_COLLECTION,  CrawlingMBAImageRequest, CrawlingMBACloudFunctionRequest
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
+from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogs, FSMBACrawlingProductLogsSubcollectionDoc, FSMBACrawlingProductLogsSubcollection
 from mwfunctions.cloud.auth import get_headers_by_service_url
+from mwfunctions.cloud.firestore import does_document_exists
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -235,16 +237,25 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
                     bq_mba_products_mba_images_list: List[BQMBAProductsMbaImages] = self.get_BQMBAProductsMBAImages_list(response)
                     bq_mba_products_mba_relevance_list: List[BQMBAProductsMbaRelevance] = self.get_BQMBAProductsMBARelevance_list(response, page)
+
+
+
                     # store product data in bq
                     for bq_mba_overview_product in bq_mba_overview_product_list:
-                        if bq_mba_overview_product.asin not in self.products_already_crawled:
+                        if bq_mba_overview_product.asin not in self.products_already_crawled and not does_document_exists(f"{self.crawling_product_logs_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client):
                             yield {"pydantic_class": bq_mba_overview_product}
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)
+
+                            # log that overview page was crawled successfully
+                            crawling_product_logs_subcol_doc = FSMBACrawlingProductLogsSubcollectionDoc(doc_id=bq_mba_overview_product.asin)
+                            crawling_product_logs_subcol_doc.set_fs_col_path(self.crawling_product_logs_subcol_path)
+                            crawling_product_logs_subcol_doc.update_timestamp()
+                            yield {"pydantic_class": crawling_product_logs_subcol_doc}
                         else:
                             self.crawling_job.count_inc("already_crawled_products_count")
                         # crawl only image if not already crawled
-                        if bq_mba_overview_product.asin not in self.products_images_already_downloaded:
+                        if bq_mba_overview_product.asin not in self.products_images_already_downloaded and not not does_document_exists(f"{self.crawling_product_logs_image_subcol_path}/{bq_mba_overview_product.asin}", client=self.fs_client):
                             mba_image_item_list.append(MBAImageItem(url=bq_mba_overview_product.url_image_hq, asin=bq_mba_overview_product.asin, url_lowq=bq_mba_overview_product.url_image_lowq))
                             self.products_images_already_downloaded.append(bq_mba_overview_product.asin)
 

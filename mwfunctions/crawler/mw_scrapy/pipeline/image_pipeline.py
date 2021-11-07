@@ -26,8 +26,10 @@ from mwfunctions.cloud.bigquery import stream_dict_list2bq
 from mwfunctions.image.color import CSS4Counter
 from mwfunctions.image.metadata import tmp_pil_add_metadata, print_metadata
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsImages
-from mwfunctions.pydantic.crawling_classes import MBAImageItems
+from mwfunctions.pydantic.crawling_classes import MBAImageItems, CrawlingType
+from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogs, FSMBACrawlingProductLogsSubcollectionDoc
 from mwfunctions.time import get_berlin_timestamp
+from mwfunctions.cloud.firestore import create_client as create_fs_client
 
 class ImageException(FileException):
     """General image error exception"""
@@ -240,9 +242,14 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
         if type(item) == dict and "pydantic_class" in item:
             item = item["pydantic_class"]
 
+
         if isinstance(item, MBAImageItems):
             marketplace = item.marketplace
             bq_table_id = f"{info.spider.bq_project_id}.mba_{marketplace}.products_images"
+
+            crawling_product_logs: FSMBACrawlingProductLogs = FSMBACrawlingProductLogs(marketplace=marketplace)
+            crawling_product_logs_image_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{CrawlingType.IMAGE}"
+            fs_client = create_fs_client()
 
             rows_to_insert = []
             for i, image_item in enumerate(item.image_items):
@@ -254,6 +261,13 @@ class MWScrapyImagePipelineBase(ImagesPipeline):
                     file_path = self.get_storage_file_path(marketplace, image_item.asin)
                     rows_to_insert.append(BQMBAProductsImages(asin=image_item.asin, url_gs=f"gs://{self.store.bucket.name}/{self.store.prefix}{file_path}",
                     url_mba_lowq=image_item.url_lowq, url_mba_hq=image_item.url, timestamp=get_berlin_timestamp(without_tzinfo=True)).dict(json_serializable=False))
+
+                    # update logs so that image is not crawled twice or more
+                    crawling_product_logs_subcol_doc = FSMBACrawlingProductLogsSubcollectionDoc(doc_id=image_item.asin)
+                    crawling_product_logs_subcol_doc.set_fs_col_path(crawling_product_logs_image_subcol_path)
+                    crawling_product_logs_subcol_doc.update_timestamp()
+                    crawling_product_logs_subcol_doc.write_to_firestore(exclude_doc_id=False, exclude_fields=[], write_subcollections=True,
+                                            client=fs_client)
 
             #errors = client.insert_rows_json(bq_table_id, rows_to_insert)  # Make an API request.
             stream_dict_list2bq(bq_table_id, rows_to_insert, check_if_table_exists=info.spider.debug)

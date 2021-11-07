@@ -13,7 +13,9 @@ from itemadapter import ItemAdapter
 from mwfunctions.environment import is_debug, get_gcp_project
 from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION, ProjectId2CrawlingBqProjectId
 from mwfunctions.pydantic.bigquery_classes import BQTable
+from mwfunctions.pydantic.firestore import FSDocument
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
+from mwfunctions.cloud.firestore import create_client as create_fs_client
 
 
 logger = logging.getLogger(__name__)
@@ -97,12 +99,14 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
 
         self.bq_project_id = ProjectId2CrawlingBqProjectId[self.gcloud_project]
         self.bq_client = bigquery.Client(project=self.bq_project_id)
+        self.fs_client = create_fs_client()
 
         # spider properties update
         spider.crawling_job = self.crawling_job
         spider.debug = self.debug
         spider.bq_client = self.bq_client
         spider.bq_project_id = self.bq_project_id
+        spider.fs_client = self.fs_client
         spider.fs_product_data_col_path = self.fs_product_data_col_path
         spider.fs_log_col_path = self.fs_log_col_path
 
@@ -117,4 +121,6 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             item = item["pydantic_class"]
         if isinstance(item, BQTable):
             stream_dict_list2bq(f"{self.bq_project_id}.mba_{spider.marketplace}.{item._bq_table_name}", [item.dict()], client=self.bq_client, check_if_table_exists=self.debug)
+        if isinstance(item, FSDocument):
+            item.write_to_firestore(exclude_doc_id=False, exclude_fields=[], write_subcollections=True, client=self.fs_client)
         return item

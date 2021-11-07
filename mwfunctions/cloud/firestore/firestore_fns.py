@@ -165,6 +165,8 @@ def get_document_snapshot(path=None, collection_name=None, document_id=None, cli
     """
     return get_document_ref(path, collection_name, document_id, client).get(transaction=transaction)
 
+def does_document_exists(path=None, collection_name=None, document_id=None, client=None, transaction=None) -> bool:
+    return get_document_snapshot(path=path, collection_name=collection_name, document_id=document_id, client=client, transaction=transaction).exists
 
 def validate_document_name(document_name):
     """ validates if document_name is suitable for firestore document name """

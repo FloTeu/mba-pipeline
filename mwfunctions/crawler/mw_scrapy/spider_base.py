@@ -18,6 +18,7 @@ from scrapy.core.downloader.handlers.http11 import TunnelError
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType, CrawlingMBARequest
 from mwfunctions.pydantic.security_classes import MWSecuritySettings, EndpointId, EndpointServiceDevOp
+from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogs
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
@@ -54,6 +55,9 @@ class MBASpider(scrapy.Spider):
         self.request_input_to_log_list = request_input_to_log_list
         self.was_banned = {}
         self.custom_settings = {}
+        crawling_product_logs: FSMBACrawlingProductLogs = FSMBACrawlingProductLogs(marketplace=self.marketplace)
+        self.crawling_product_logs_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{self.website_crawling_target}"
+        self.crawling_product_logs_image_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{CrawlingType.IMAGE}"
         mw_security_settings: MWSecuritySettings = MWSecuritySettings(security_file_path)
 
 
