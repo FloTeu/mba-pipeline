@@ -37,7 +37,7 @@ def get_document_snapshot_dict(path=None, collection_path=None, document_id=None
     return get_document_snapshot(path, collection_path, document_id, client, transaction=transaction).to_dict()
 
 
-def _split_correct_path(path):
+def split_correct_path(path):
     # No "/" at start for the python api
     path = path[1:] if path[0] == "/" else path
     collection_path, document_id = "/".join(path.split("/")[:-1]), "/".join(path.split("/")[-1:])
@@ -60,7 +60,7 @@ def write_document_dict(data_dict, path=None, collection_path=None, document_id=
     """
     assert path != (collection_path and document_id), "Provide path or collection_name and document_id"
     if path:
-        collection_path, document_id = _split_correct_path(path)
+        collection_path, document_id = split_correct_path(path)
     client = client if client else create_client()
     if add_timestamp: data_dict.update({'timestamp': datetime.now()})
 
@@ -99,7 +99,7 @@ def get_document_ref(path=None, collection_path=None, document_id=None, client=N
     """
     assert path != (collection_path and document_id), "Provide path or collection_name and document_id"
     if path:
-        collection_path, document_id = _split_correct_path(path)
+        collection_path, document_id = split_correct_path(path)
     client = client if client else create_client()
     return client.collection(collection_path).document(document_id)
 

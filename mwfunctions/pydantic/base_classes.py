@@ -1,5 +1,6 @@
 from pydantic import BaseModel
 from datetime import date, datetime
+from enum import Enum
 import json
 
 def dumper(obj):
@@ -73,3 +74,8 @@ class MWBaseModel(BaseModel):
 
     class Config:
         use_enum_values = True
+
+
+class Marketplace(str, Enum):
+    DE="de"
+    COM="com"

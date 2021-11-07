@@ -1,22 +1,18 @@
 
 import uuid
-import pytz
 
 from pydantic import BaseModel, Field, validator
-from datetime import date, datetime
-from enum import Enum, IntEnum
-from typing import Optional, Dict, List, Any, Union
+from datetime import datetime
+from enum import Enum
+from typing import Optional, List, Any, Union
 
-from mwfunctions.pydantic.base_classes import MWBaseModel
-from mwfunctions.time import get_berlin_timestamp, get_england_timestamp
+from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace
+from mwfunctions.time import get_england_timestamp
 from mwfunctions.crawler.preprocessing.excluded_asins import EXCLUDED_ASINS, STRANGE_LAYOUT
 
 
 CRAWLING_JOB_ROOT_COLLECTION = "crawling_jobs"
 
-class Marketplace(str, Enum):
-    DE="de"
-    COM="com"
 
 class CrawlingType(str, Enum):
     OVERVIEW = "overview"
