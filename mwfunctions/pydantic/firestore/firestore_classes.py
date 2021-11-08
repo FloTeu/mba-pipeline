@@ -65,7 +65,22 @@ class FSWatchItemSubCollectionPlotDataYear(FSDocument):
         values["doc_id"] = str(year)
         return year
 
-class FSWatchItemSubCollectionDict(FSSubcollection):
+class FSWatchItemSubCollectionDict(MWBaseModel):
+    """ Example:
+            {
+                "plot_data":
+                    {
+                        "year":
+                            {"bsr": {"2020-09-20": 480549, ...},
+                            "price": {"2020-09-20": 13.99, ...}
+                            }
+                    }
+            }
+    """
+    # TODO: Use child of FSSubcollection in future
+    plot_data: Dict[str, FSWatchItemSubCollectionPlotDataYear] # str/key is year
+
+class FSWatchItemSubCollectionPlotData(FSSubcollection):
     """ Example:
             {
                 "plot_data":
@@ -79,19 +94,7 @@ class FSWatchItemSubCollectionDict(FSSubcollection):
     """
     subcollection_col_name: str = "plot_data"
     subcollection_doc_dict: Optional[Dict[str, FSWatchItemSubCollectionPlotDataYear]] = Field({})# str/key is year
-    plot_data: Optional[Dict[str, FSWatchItemSubCollectionPlotDataYear]] = Field({}) # str/key is year
 
-    @validator("plot_data")
-    def set_plot_data(cls, plot_data, values):
-        # backwards comp
-        values["subcollection_doc_dict"] = plot_data
-        return plot_data
-
-    @validator("subcollection_doc_dict")
-    def set_subcollection_doc_dict(cls, subcollection_doc_dict, values):
-        # backwards comp
-        values["plot_data"] = subcollection_doc_dict
-        return subcollection_doc_dict
 
 class FSWatchItemShortenedPlotData(MWBaseModel):
     """ Example:
@@ -109,7 +112,7 @@ class FSWatchItemShortenedPlotData(MWBaseModel):
 class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     ''' Child of FSDocument must contain all field values of document to create this document.
     '''
-    _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionDict]] = PrivateAttr({})
+    _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionPlotData]] = PrivateAttr({})
     marketplace: Marketplace
     doc_id: str = Field(description="Firestore document id")
 

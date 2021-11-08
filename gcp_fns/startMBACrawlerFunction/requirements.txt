@@ -6,3 +6,8 @@ git+git://github.com/Flo95x/mba-pipeline.git
 pydantic
 pytz
 scrapy
+google-cloud-firestore
+google-cloud-core
+google-api-core
+google-cloud-storage
+google-cloud-logging
