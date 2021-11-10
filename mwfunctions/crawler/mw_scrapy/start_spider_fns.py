@@ -25,8 +25,6 @@ from pydantic import BaseModel, Field
 from typing import Union, List
 import time
 
-#from mwfunctions.crawler.mw_scrapy import run_mba_spider
-
 
 # class ScrapyMBASpider(Enum):
 #     OVERVIEW = mba_overview_spider
@@ -65,10 +63,12 @@ class Scraper:
         # TODO. appand sys path to dir crawler
         # change working directory to spider project root dir
         crawler_dir = "/".join(str(Path(__file__)).split("/")[0:-1])
+        cwd_before = os.getcwd()
         os.chdir(crawler_dir)
         sys.path.append(crawler_dir)
         settings_file_path = 'mba_crawler.settings' # The path seen from root, ie. from main.py
         os.environ.setdefault('SCRAPY_SETTINGS_MODULE', settings_file_path)
+        os.chdir(cwd_before)
         #self.process = CrawlerProcess(get_project_settings())
         self.crawling_type = spider.name
         self.spider = spider.value # The spider you want to crawl
@@ -112,8 +112,8 @@ class Scraper:
             process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         else:
-            print("crawling_mba_request", crawling_mba_request.dict(exclude_defaults=True))
-            process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            #print("crawling_mba_request", crawling_mba_request.dict(exclude_defaults=True))
+            process = subprocess.Popen(f"python3 {run_mba_spider.__file__} {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
             #process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
 
             # for path in execute(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split()):
@@ -130,6 +130,7 @@ class Scraper:
                 output_str = output.decode("utf-8")
                 if "Error" in output_str or "Exception" in output_str:
                     print("Error found: ", output_str)
+                    return False
         test = 1
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
