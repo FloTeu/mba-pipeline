@@ -199,7 +199,7 @@ class StartMBACrawlerFunctionRequest(MWBaseModel):
     # Represents dict, which is sended by schedular as pub sub to cloud function startMBACrawlerFunction
     crawler_start_request_list: List[Union[CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]]
     split_after_n: Optional[int] = Field(10, description="Number of max pages a crawler should crawl. Batches of n target pages will be splitted.")
-
+    wait_n_minutes: Optional[int] = Field(None, description="If set crawler waits n minutes and kills all processes after time is finished")
 
 
 # class CrawlingImagePipelineInput(MWBaseModel):

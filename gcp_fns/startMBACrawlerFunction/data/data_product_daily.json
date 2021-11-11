@@ -21,5 +21,6 @@
         }
       }
     ],
-    "split_after_n": 10
+    "split_after_n": 10,
+    "wait_n_minutes": 25
 }

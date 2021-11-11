@@ -158,7 +158,7 @@ from mwfunctions.environment import get_gcp_project
 import requests
 import pathlib
 import ast
-from typing import List, Union
+from typing import List, Union, Optional
 from contextlib import suppress
 import json
 
@@ -185,12 +185,17 @@ def start_crawler(event, context):
 
     crawler_start_request_list: List[Union[CrawlingMBAOverviewRequest, CrawlingMBAProductRequest]] = StartMBACrawlerFunctionRequest.parse_obj(data_dict).crawler_start_request_list
     split_after_n: int = StartMBACrawlerFunctionRequest.parse_obj(data_dict).split_after_n
+    wait_n_minutes: Optional[int] = StartMBACrawlerFunctionRequest.parse_obj(data_dict).wait_n_minutes
+
     for crawler_start_request in crawler_start_request_list:
+        url_parameter_append = f"&split_after_n={split_after_n}"
         crawler_start_request.reset_crawling_job_id()
         endpoint = security_settings.endpoints[EndpointId.CRAWLER_MW_API_OVERVIEW].devop2url[endpoint_devop] if isinstance(crawler_start_request, CrawlingMBAOverviewRequest) else None
         endpoint = security_settings.endpoints[EndpointId.CRAWLER_MW_API_PRODUCT].devop2url[endpoint_devop] if isinstance(crawler_start_request, CrawlingMBAProductRequest) else endpoint
+        if isinstance(crawler_start_request, CrawlingMBAProductRequest):
+            url_parameter_append = url_parameter_append + f"&wait_n_minutes={wait_n_minutes}"
         with suppress(requests.exceptions.ReadTimeout):
-            r = requests.post(f"{endpoint}?split_after_n={split_after_n}&access_token={API_KEY}", crawler_start_request.json(), timeout=6)
+            r = requests.post(f"{endpoint}?access_token={API_KEY}{url_parameter_append}", crawler_start_request.json(), timeout=6)
 
     #
     #
