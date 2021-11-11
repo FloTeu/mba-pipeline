@@ -3,7 +3,7 @@
       {
         "marketplace": "de",
         "daily": false,
-        "number_products": 220,
+        "number_products": 200,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
@@ -13,7 +13,7 @@
       {
         "marketplace": "com",
         "daily": false,
-        "number_products": 220,
+        "number_products": 200,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
@@ -21,6 +21,6 @@
         }
       }
     ],
-    "split_after_n": 10,
+    "split_after_n": 100,
     "wait_n_minutes": 25
 }

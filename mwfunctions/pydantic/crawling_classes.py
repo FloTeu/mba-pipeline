@@ -85,6 +85,9 @@ class CrawlingJob(MWBaseModel):
         assert self.__contains__(field), f"{field} does not exist in model"
         self[field] += increment
 
+    def update_start_timestamp(self):
+        self.start_timestamp = get_england_timestamp(without_tzinfo=False)
+
     # @validator("end_timestamp")
     # def validate_end_timestamp(cls, end_timestamp, values):
     #     values["duration_in_min"] = float("%.2f" % ((end_timestamp - values["start_timestamp"]).seconds / 60)) if "start_timestamp" in values and end_timestamp else 0
