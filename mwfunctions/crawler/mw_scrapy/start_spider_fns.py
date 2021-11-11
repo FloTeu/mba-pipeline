@@ -131,6 +131,7 @@ class Scraper:
                 if "Error" in output_str or "Exception" in output_str:
                     print("Error found: ", output_str)
                     return False
+            return process
         test = 1
         # else:
         #     self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
