@@ -109,13 +109,15 @@ class Scraper:
         if result is not None:
             raise result
 
-    # def run_spider_multi_request(self, crawling_mba_requests: List[CrawlingMBARequest]):
-    #     process = CrawlerProcess(get_project_settings())
-    #     for crawling_mba_request in crawling_mba_requests:
-    #         process.crawl(self.spider, crawling_mba_request)
-    #     process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
-    #     test = 0
-    #     process.stop()
+    def run_spider_multi_requesta(self, crawling_mba_requests: List[CrawlingMBARequest]):
+        process = CrawlerProcess(get_project_settings())
+        for crawling_mba_request in crawling_mba_requests:
+            # change settings
+            for setting_name, setting_value in crawling_mba_request.settings.dict().items():
+                process.settings.set(setting_name, setting_value, priority='cmdline')
+            process.crawl(self.spider, crawling_mba_request)
+        process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+        process.stop()
 
     def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True, wait_n_minutes=None, start_async=True):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
