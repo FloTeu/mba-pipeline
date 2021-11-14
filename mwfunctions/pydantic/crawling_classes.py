@@ -134,6 +134,10 @@ class MBAImageItems(MWBaseModel):
     fs_product_data_col_path: str = Field(description="path to product data e.g. de_shirts")
     gs_path_element_list: list = Field([], description="Optional List of storage path elements e.g. categories which are used to create gs_url. For example ['men','clothes','t-shirt']")
 
+class ScrapySettings(MWBaseModel):
+    # https://docs.scrapy.org/en/latest/topics/settings.html
+    CLOSESPIDER_TIMEOUT: int = Field(0, description="Max number of seconds after which scrapy should be closed automatically")
+
 class CrawlingMBARequest(MWBaseModel):
     crawling_job_id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job. Will set id of crawling_job")
     marketplace: Marketplace
@@ -142,6 +146,7 @@ class CrawlingMBARequest(MWBaseModel):
     request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
     parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path")
     fs_crawling_log_parent_doc_path: Optional[Union[None, str]] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path", example=None)
+    settings: Optional[ScrapySettings] = Field({}, description="Scrapy Settings which will be set in beginning of crawling")
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex

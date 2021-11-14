@@ -134,6 +134,8 @@ class Scraper:
         #    self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
         if crawling_mba_request.debug or not start_async:
             process = CrawlerProcess(get_project_settings())
+            for setting_name, setting_value in crawling_mba_request.settings.dict().items():
+                process.settings.set(setting_name, setting_value, priority='cmdline')
             process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
             process.stop()
