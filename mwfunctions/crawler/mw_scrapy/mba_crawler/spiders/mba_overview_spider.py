@@ -102,11 +102,12 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         
     # called after start_spider of item pipeline
     def start_requests(self):
-        self.products_already_crawled = self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
+        # use FS to check if data was already crawled. However lists are maintained during crawling to reduce some reading costs
+        self.products_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
         # all image quality url crawled
-        self.products_mba_image_references_already_crawled = self.get_asin_crawled(f"mba_{self.marketplace}.products_mba_images") #if not self.debug else []
+        self.products_mba_image_references_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_mba_images") #if not self.debug else []
         # all images which are already downloaded to storage
-        self.products_images_already_downloaded = self.get_asin_crawled(f"mba_{self.marketplace}.products_images") #if not self.debug else []
+        self.products_images_already_downloaded = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_images") #if not self.debug else []
 
         urls_mba = []
         headers = get_random_headers(self.marketplace)
@@ -219,7 +220,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             #self.get_count_results(response)
 
             if self.is_captcha_required(response):
-                self.yield_again_if_captcha_required(url, proxy)
+                yield self.get_request_again_if_captcha_required(url, proxy)
             else:
                 if self.should_zip_code_be_changed(response):
                     print("Proxy does not get all .com results: " + proxy)

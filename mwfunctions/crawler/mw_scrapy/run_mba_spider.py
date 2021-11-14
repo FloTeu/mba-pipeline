@@ -32,6 +32,8 @@ def main(crawling_type, data_class_dict, **kwargs):
     # parse arguments using optparse or argparse or what have you
     print(crawling_mba_request)
     process = CrawlerProcess(get_project_settings())
+    # Why was crawler already started after process.crawl?
+    # Solution: env variable GOOGLE_CLOUD_PROJECT was not a merchwatch project
     process.crawl(spider, crawling_mba_request)
     process.start()
     test = 1

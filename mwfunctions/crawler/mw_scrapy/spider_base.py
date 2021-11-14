@@ -101,7 +101,7 @@ class MBASpider(scrapy.Spider):
             })
         else:
             self.custom_settings.update({
-                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(mw_security_settings, only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
+                "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(mw_security_settings, only_usa=self.marketplace == "com"),# and self.website_crawling_target == "overview"),
                 #"ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(only_usa=self.marketplace == "com" and self.website_crawling_target == "overview"),
             })
         super().__init__(**kwargs)  # python3
@@ -262,7 +262,7 @@ class MBASpider(scrapy.Spider):
             print("Found content protection of benningtonschools.org or shield.ericomcloud")
         return content_protection or captcha
 
-    def yield_again_if_captcha_required(self, url, proxy, asin=None):
+    def get_request_again_if_captcha_required(self, url, proxy, asin=None, meta={}):
         self.crawling_job.count_inc("response_captcha_count")
         # self.response_is_ban(request, response, is_ban=True)
         print("Captcha required for proxy: " + proxy)
@@ -272,9 +272,9 @@ class MBASpider(scrapy.Spider):
         # send new request with high priority
         request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0,
                                  dont_filter=True,
-                                 errback=self.errback_httpbin, meta={"asin": asin, "url": url})
+                                 errback=self.errback_httpbin, meta={**meta, "asin": asin, "url": url})
         self.crawling_job.count_inc("request_count")
-        yield request
+        return request
 
     def save_content(self, response, file_name):
         filename = "data/" + self.name + "/content/%s.html" % file_name

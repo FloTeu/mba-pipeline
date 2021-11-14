@@ -1,9 +1,9 @@
 {
     "crawler_start_request_list": [
       {
-        "marketplace": "de",
+        "marketplace": "com",
         "daily": true,
-        "number_products": 200,
+        "number_products": 10,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
@@ -11,9 +11,9 @@
         }
       },
       {
-        "marketplace": "com",
+        "marketplace": "de",
         "daily": true,
-        "number_products": 200,
+        "number_products": 10,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
@@ -21,6 +21,6 @@
         }
       }
     ],
-    "split_after_n": 100,
-    "wait_n_minutes": 25
+    "split_after_n": 0,
+    "wait_n_minutes": 0
 }

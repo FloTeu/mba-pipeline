@@ -14,7 +14,7 @@ from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spide
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_image_spider import MBAImageSpider as mba_image_spider
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingInputItem
+from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingInputItem, CrawlingMBAImageRequest
 from mwfunctions.image.conversion import dict2b64_str
 from mwfunctions.environment import get_gcp_project
 from mwfunctions.crawler.preprocessing import create_url_csv
@@ -25,6 +25,20 @@ from pydantic import BaseModel, Field
 from typing import Union, List
 import time
 
+
+def wait_timeout(proc, seconds):
+    """Wait for a process to finish, or raise exception after timeout"""
+    start = time.time()
+    end = start + seconds
+    interval = min(seconds / 1000.0, .25)
+
+    while True:
+        result = proc.poll()
+        if result is not None:
+            return result
+        if time.time() >= end:
+            raise RuntimeError("Process timed out")
+        time.sleep(interval)
 
 # class ScrapyMBASpider(Enum):
 #     OVERVIEW = mba_overview_spider
@@ -55,6 +69,7 @@ def execute(cmd):
     return_code = popen.wait()
     if return_code:
         raise subprocess.CalledProcessError(return_code, cmd)
+
 
 # Similar problem (twisted.internet.error.ReactorNotRestartable): https://stackoverflow.com/questions/41495052/scrapy-reactor-not-restartable
 class Scraper:
@@ -94,7 +109,15 @@ class Scraper:
         if result is not None:
             raise result
 
-    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True, wait_n_minutes=None):
+    # def run_spider_multi_request(self, crawling_mba_requests: List[CrawlingMBARequest]):
+    #     process = CrawlerProcess(get_project_settings())
+    #     for crawling_mba_request in crawling_mba_requests:
+    #         process.crawl(self.spider, crawling_mba_request)
+    #     process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+    #     test = 0
+    #     process.stop()
+
+    def run_spider(self, crawling_mba_request: CrawlingMBARequest, url_data_path=None, wait_until_finished=True, wait_n_minutes=None, start_async=True):
         # if debug use normal spider call, because run_spider_handle_twisted_reactor does not work correctly for debug mode
 
         # json_file_path = f'{os.getcwd()}/data/crawling_mba_request.json'
@@ -107,11 +130,15 @@ class Scraper:
         #crawling_mba_request_b64_str = base64.urlsafe_b64encode(str().encode(crawling_mba_request.dict())).decode()
 
         #run_mba_spider.main(json_file_path, self.crawling_type)
-        if crawling_mba_request.debug:
+        #if not start_async:
+        #    self.run_spider_handle_twisted_reactor(crawling_mba_request, url_data_path=url_data_path)
+        if crawling_mba_request.debug or not start_async:
             process = CrawlerProcess(get_project_settings())
             process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
             process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
+            process.stop()
         else:
+            # TODO: Why does this process call not close spider and running endless??
             #print("crawling_mba_request", crawling_mba_request.dict(exclude_defaults=True))
             process = subprocess.Popen(f"python3 {run_mba_spider.__file__} {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
             #process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
@@ -120,9 +147,11 @@ class Scraper:
             #     print(path, end="")
             # TODO find out why process does not finish correctly in local instance on google cloud
             if wait_n_minutes:
-                time.sleep(wait_n_minutes * 60)
-                process.kill()
-                print(f"Waiting time of {wait_n_minutes} min reached")
+                try:
+                    wait_timeout(process, wait_n_minutes * 60)
+                except RuntimeError:
+                    process.kill()
+                    print(f"Waiting time of {wait_n_minutes} min reached")
             elif wait_until_finished:
                 process.wait()
 
@@ -177,6 +206,13 @@ class Scraper:
         # make sure process is stoped
         #self.process._stop_reactor() #  triggers close() function of spider
 
+
+
+def get_scraper_by_request(crawling_mba_request) -> Scraper:
+    scraper = Scraper(ScrapyMBASpider.IMAGE) if isinstance(crawling_mba_request, CrawlingMBAImageRequest) else None
+    scraper = Scraper(ScrapyMBASpider.OVERVIEW) if isinstance(crawling_mba_request, CrawlingMBAOverviewRequest) else scraper
+    scraper = Scraper(ScrapyMBASpider.PRODUCT) if isinstance(crawling_mba_request, CrawlingMBAProductRequest) else scraper
+    return scraper
 
 if __name__ == "__main__":
     pass

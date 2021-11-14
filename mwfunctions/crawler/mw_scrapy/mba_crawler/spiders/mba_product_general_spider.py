@@ -66,12 +66,12 @@ class MBALocalProductSpider(MBAProductSpider):
         print("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
         self.crawling_job.number_of_target_pages = len(urls)
 
-        for url, asin in zip(urls, asins):
+        for i, (url, asin) in enumerate(zip(urls, asins)):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
             self.crawling_job.count_inc("request_count")
-            yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=1,
-                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url}) # "proxy": proxies["http"],
+            yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=i,
+                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url,"page_nr":i, "total_page_target": len(asins)}) # "proxy": proxies["http"],
 
     def status_update(self):
         if self.page_count % 100 == 0:
@@ -80,11 +80,15 @@ class MBALocalProductSpider(MBAProductSpider):
     def parse(self, response):
         try:
             asin = response.meta["asin"]
+            total_page_target = response.meta["total_page_target"]
+            page_nr = response.meta["page_nr"]
             proxy = self.get_proxy(response)
-
+            # # TODO: just testing
+            # if page_nr == total_page_target-1:
+            #     raise CloseSpider
             url = response.url
             if self.is_captcha_required(response):
-                self.yield_again_if_captcha_required(url, proxy, asin=asin)
+                yield self.get_request_again_if_captcha_required(url, proxy, asin=asin, meta={"total_page_target": total_page_target, "page_nr": page_nr})
             # do not proceed if its not a mba shirt
             elif not self.is_mba_shirt(response):
                 self.crawling_job.count_inc("response_successful_count")
@@ -113,3 +117,4 @@ class MBALocalProductSpider(MBAProductSpider):
         except Exception as e:
             self.crawling_job.finished_with_error = True
             self.crawling_job.error_msg = str(e)
+            raise e

@@ -87,7 +87,7 @@ class TestingSpider(MBAProductSpider):
 
             url = response.url
             if self.is_captcha_required(response):
-                self.yield_again_if_captcha_required(url, proxy, asin=asin)
+                self.get_request_again_if_captcha_required(url, proxy, asin=asin)
             # do not proceed if its not a mba shirt
             elif not self.is_mba_shirt(response):
                 self.crawling_job.count_inc("response_successful_count")

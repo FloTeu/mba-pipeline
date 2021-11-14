@@ -20,7 +20,12 @@ def get_price(response, marketplace):
             if marketplace == "de":
                 price = float(price_str.split("\xa0")[0].split("€")[0].replace(",", "."))
             else:
-                price = float(price_str.split("$")[1])
+                if price_str[0] == "$":
+                    price = float(price_str.split("$")[1].replace(",", "."))
+                elif price_str[-1] == "$":
+                    price = float(price_str.split("$")[0].replace(",", "."))
+                else:
+                    raise NotImplementedError
         except:
             print("Could not get price as float")
 

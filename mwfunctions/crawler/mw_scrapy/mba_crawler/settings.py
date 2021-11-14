@@ -36,12 +36,13 @@ ROTATING_PROXY_CLOSE_SPIDER = True
 ROTATING_PROXY_PAGE_RETRY_TIMES = 20 
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 10
+CONCURRENT_REQUESTS = 30 # before 10 or 5
+CONCURRENT_REQUESTS_PER_DOMAIN = 30
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
 # See also autothrottle settings and docs
-DOWNLOAD_DELAY = 5
+DOWNLOAD_DELAY = 0.25 # before 5
 
 DOWNLOAD_TIMEOUT = 40
 
@@ -96,7 +97,7 @@ DOWNLOADER_MIDDLEWARES = {
 
 # Enable and configure the AutoThrottle extension (disabled by default)
 # See https://docs.scrapy.org/en/latest/topics/autothrottle.html
-AUTOTHROTTLE_ENABLED = True
+AUTOTHROTTLE_ENABLED = False # before True
 # The initial download delay
 AUTOTHROTTLE_START_DELAY = 5
 if use_public_proxies or (not use_public_proxies and not use_private_proxies):
