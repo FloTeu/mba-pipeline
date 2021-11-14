@@ -8,6 +8,9 @@
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
             "random": 0.1
+        },
+        "settings": {
+          "CLOSESPIDER_TIMEOUT": 900
         }
       },
       {
@@ -18,9 +21,12 @@
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
             "random": 0.1
+        },
+        "settings": {
+          "CLOSESPIDER_TIMEOUT": 900
         }
       }
     ],
-    "split_after_n": 100,
-    "wait_n_minutes": 25
+    "split_after_n": 0,
+    "wait_n_minutes": 0
 }

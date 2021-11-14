@@ -3,27 +3,27 @@
       {
         "marketplace": "de",
         "daily": true,
-        "number_products": 10,
+        "number_products": 220,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
             "random": 0.1
         },
         "settings": {
-          "CLOSESPIDER_TIMEOUT": 100
+          "CLOSESPIDER_TIMEOUT": 900
         }
       },
       {
         "marketplace": "com",
         "daily": true,
-        "number_products": 10,
+        "number_products": 220,
         "proportions": {
             "best_seller": 0.7,
             "lowest_bsr_count": 0.2,
             "random": 0.1
         },
         "settings": {
-          "CLOSESPIDER_TIMEOUT": 100
+          "CLOSESPIDER_TIMEOUT": 900
         }
       }
     ],
