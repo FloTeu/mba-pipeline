@@ -164,6 +164,7 @@ def main(args):
         # make sure model version is deleted
         model.delete_version()
         send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+        raise e
 
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
     send_msg("869595848", "Cron Job finished for marketplace {} | elapsed time: {} minutes".format(marketplace, elapsed_time),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
