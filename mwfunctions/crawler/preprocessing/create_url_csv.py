@@ -195,23 +195,27 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
         if df_best_seller.shape[0] > number_best_sellers:
             df_best_seller = df_best_seller.sample(number_best_sellers)
 
+    # if no bsr_bestseller left crawl random
+    additional_random = number_best_sellers - df_best_seller.shape[0]
     # update exclude_asins
     exclude_asins = exclude_asins + df_best_seller["asin"].to_list()
 
     # get 20% lowest bsr_count
+    number_lowest_bsr_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.lowest_bsr_count)
     with suppress(Exception):
-        number_lowest_bsr_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.lowest_bsr_count)
         df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_lowest_bsr_count = df_lowest_bsr_count[~df_lowest_bsr_count['asin'].isin(exclude_asins)]
         if df_lowest_bsr_count.shape[0] > number_lowest_bsr_count:
             df_lowest_bsr_count = df_lowest_bsr_count.iloc[0:number_lowest_bsr_count]
+
+    additional_random = additional_random + (number_lowest_bsr_count - df_lowest_bsr_count.shape[0])
 
     # update exclude_asins
     exclude_asins = exclude_asins + df_lowest_bsr_count["asin"].to_list()
 
     # get 10 % random
     with suppress(Exception):
-        number_random_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.random)
+        number_random_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.random + additional_random)
         # get two times more to filter alreay existent asins later
         df_random = pd.read_gbq(get_sql_random(mba_product_request.marketplace, number_random_count*4), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_random = df_random[~df_random['asin'].isin(exclude_asins)]
