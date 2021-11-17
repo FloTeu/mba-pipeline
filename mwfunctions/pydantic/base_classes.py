@@ -76,6 +76,31 @@ class MWBaseModel(BaseModel):
         use_enum_values = True
 
 
+class EnumBase(Enum):
+    @classmethod
+    def to_list(cls):
+        return list(map(lambda c: c.value, cls))
+
+    def __eq__(self, other):
+        """
+            make string comparison with enum object possible.
+            e.g.:
+                class CategoryEnum(EnumBase)
+                    EXAMPLE_CATEGORY = "diy"
+
+                "diy" == CategoryEnum.EXAMPLE_CATEGORY returns True
+                old case:
+                    super().__eq__("diy") would return False
+        """
+        if isinstance(other, str):
+            return self.value == other
+        return super().__eq__(other)
+
+    def __hash__(self):
+        return super.__hash__(self)
+
+
+
 class Marketplace(str, Enum):
     DE="de"
     COM="com"
