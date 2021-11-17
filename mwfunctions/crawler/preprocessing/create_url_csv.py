@@ -147,11 +147,11 @@ def get_asins_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_projec
 
         try:
             df_product_details = bq_client.query(
-                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 LEFT JOIN mba_" + mba_product_request.marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp").to_dataframe().drop_duplicates(
+                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 LEFT JOIN mba_" + mba_product_request.marketplace + ".products_details t1 on t0.asin = t1.asin where t1.asin IS NULL order by t0.timestamp desc").to_dataframe().drop_duplicates(
                 ["asin"])
         except NotFound: # case products_details does not exist
             df_product_details = bq_client.query(
-                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 order by t0.timestamp").to_dataframe().drop_duplicates(
+                "SELECT t0.asin, t0.url_product FROM mba_" + mba_product_request.marketplace + ".products t0 order by t0.timestamp desc").to_dataframe().drop_duplicates(
                 ["asin"])
 
         # drop excluded asins
