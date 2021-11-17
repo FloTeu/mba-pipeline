@@ -143,8 +143,9 @@ class Scraper:
             process.stop()
         else:
             # TODO: Why does this process call not close spider and running endless??
+            # TODO: Seems like ", stdout=subprocess.PIPE, stderr=subprocess.STDOUT" causes the error of endless running
             #print("crawling_mba_request", crawling_mba_request.dict(exclude_defaults=True))
-            process = subprocess.Popen(f"python3 {run_mba_spider.__file__} {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.STDOUT) #, stdout=subprocess.PIPE)
+            process = subprocess.Popen(f"python3 {run_mba_spider.__file__} {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split()) #, stdout=subprocess.PIPE)
             #process = subprocess.Popen(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split(), stdout=subprocess.PIPE, stderr=subprocess.PIPE, shell=True )
 
             # for path in execute(f"python3 run_mba_spider.py {self.crawling_type} {dict2b64_str(crawling_mba_request.dict())}".split()):

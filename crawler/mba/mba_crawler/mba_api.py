@@ -2,10 +2,10 @@ from datetime import time
 from datetime import date, timedelta
 try:
     from paapi5_python_sdk.api.default_api import DefaultApi
-    from paapi5_python_sdk.models.condition import Condition
-    from paapi5_python_sdk.models.get_items_request import GetItemsRequest
-    from paapi5_python_sdk.models.get_items_resource import GetItemsResource
-    from paapi5_python_sdk.models.partner_type import PartnerType
+    from paapi5_python_sdk.condition import Condition
+    from paapi5_python_sdk.get_items_request import GetItemsRequest
+    from paapi5_python_sdk.get_items_resource import GetItemsResource
+    from paapi5_python_sdk.partner_type import PartnerType
     from paapi5_python_sdk.rest import ApiException
 except Exception as e:
     print("Error while importing paapi5",str(e))

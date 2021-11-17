@@ -152,9 +152,9 @@ class MBASpider(scrapy.Spider):
                     # TODO: if product is the target yield BQ item with 404 data
                     if self.website_crawling_target == CrawlingType.PRODUCT.value:
                         if self.daily:
-                            yield BQMBAProductsDetailsDaily(asin=response.meta["asin"], price=404.0, price_str="404", bsr=404, bsr_str="404", array_bsr="[404]", array_bsr_categorie="['404']", customer_review_score_mean=404.0, customer_review_score="404", customer_review_count=404)
+                            yield {"pydantic_class": BQMBAProductsDetailsDaily(asin=response.meta["asin"], price=404.0, price_str="404", bsr=404, bsr_str="404", array_bsr="[404]", array_bsr_categorie="['404']", customer_review_score_mean=404.0, customer_review_score="404", customer_review_count=404)}
                         else:
-                            yield BQMBAProductsDetails(asin=response.meta["asin"], title="404", brand="404", url_brand="404", price="404", fit_types="[404]", color_names="[404]", color_count=404, product_features='["4040"]', description="404", weight="404", upload_date_str="1995-01-01", upload_date=datetime(1995,1,1),customer_review_score="404", customer_review_count=404, mba_bsr_str="404", mba_bsr='["404"]', mba_bsr_categorie='["404"]')
+                            yield {"pydantic_class": BQMBAProductsDetails(asin=response.meta["asin"], title="404", brand="404", url_brand="404", price="404", fit_types="[404]", color_names="[404]", color_count=404, product_features='["4040"]', description="404", weight="404", upload_date_str="1995-01-01", upload_date=datetime(1995,1,1),customer_review_score="404", customer_review_count=404, mba_bsr_str="404", mba_bsr='["404"]', mba_bsr_categorie='["404"]')}
 
                     print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
                                                                                             response.status,

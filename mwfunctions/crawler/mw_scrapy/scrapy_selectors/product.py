@@ -227,7 +227,7 @@ def get_weight(response):
 
 
 def get_upload_date(response):
-    possible_datetime_formats = ["%d, %B %Y", "%d %B %Y", "%dst %B %Y", "%dnd %B %Y", "%dnd, %B %Y", "%drd %B %Y", "%dth %B %Y", "%B %d, %Y", "%d. %B %Y"] # read from right to left
+    possible_datetime_formats = ["%d, %B %Y", "%d %B %Y", "%dst %B %Y", "%B %dnd, %Y", "%dnd %B %Y", "%dnd, %B %Y", "%drd %B %Y", "%dth %B %Y", "%B %d, %Y", "%d. %B %Y"] # read from right to left
     upload_date_str = None
     upload_date_str_en = None
     product_information = response.css('div#detailBullets li')
