@@ -220,7 +220,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             #self.get_count_results(response)
 
             if self.is_captcha_required(response):
-                yield self.get_request_again_if_captcha_required(url, proxy)
+                yield self.get_request_again_if_captcha_required(url, proxy, meta={"page": page})
             else:
                 if self.should_zip_code_be_changed(response):
                     print("Proxy does not get all .com results: " + proxy)
