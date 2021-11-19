@@ -101,6 +101,6 @@ class EnumBase(Enum):
 
 
 
-class Marketplace(str, Enum):
+class Marketplace(str, EnumBase):
     DE="de"
     COM="com"
