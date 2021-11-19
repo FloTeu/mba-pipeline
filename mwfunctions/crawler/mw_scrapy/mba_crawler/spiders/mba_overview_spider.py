@@ -248,6 +248,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)
 
+                            # TODO: fs product log hapens before bq_mba_products_mba_images gets yielded, which leads to ignoring uncrawled data if process is killed
                             # log that overview page was crawled successfully
                             crawling_product_logs_subcol_doc = FSMBACrawlingProductLogsSubcollectionDoc(doc_id=bq_mba_overview_product.asin)
                             crawling_product_logs_subcol_doc.set_fs_col_path(self.crawling_product_logs_subcol_path)

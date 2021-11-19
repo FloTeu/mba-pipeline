@@ -2,27 +2,11 @@
     "crawler_start_request_list": [
       {
         "marketplace": "de",
-        "sort": "newest",
-        "mba_product_type": "shirt",
-        "keyword": "",
-        "start_page": 1,
-        "pages": 0
-      },
-      {
-        "marketplace": "de",
         "sort": "best_seller",
         "mba_product_type": "shirt",
         "keyword": "",
         "start_page": 1,
         "pages": 0
-      },
-      {
-        "marketplace": "com",
-        "sort": "newest",
-        "mba_product_type": "shirt",
-        "keyword": "",
-        "start_page": 100,
-        "pages": 200
       },
       {
         "marketplace": "com",

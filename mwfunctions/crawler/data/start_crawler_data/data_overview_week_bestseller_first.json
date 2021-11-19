@@ -1,0 +1,21 @@
+{
+    "crawler_start_request_list": [
+      {
+        "marketplace": "de",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 100
+      },
+      {
+        "marketplace": "com",
+        "sort": "best_seller",
+        "mba_product_type": "shirt",
+        "keyword": "",
+        "start_page": 1,
+        "pages": 50
+      }
+    ],
+    "split_after_n": 10
+}
