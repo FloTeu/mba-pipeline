@@ -127,6 +127,15 @@ class FSSimpleFilterQuery(BaseModel):
     value: Union[str,int,datetime,float,list] = Field(description="Value which should match the condition of operator. E.g. True. Value should have right type.", example=True)
 
 def filter_by_fs_comparison_operator(field_value: Union[str,int,datetime,float,list], comparison_operator:FSComparisonOperator, compare_value: Union[str,int,datetime,float,list]):
+    def dt_to_integer(dt_time):
+        return 10000 * dt_time.year + 100 * dt_time.month + dt_time.day
+
+    # make operations possible for datetime objects
+    if isinstance(field_value, datetime):
+        field_value = dt_to_integer(field_value)
+    if isinstance(compare_value, datetime):
+        compare_value = dt_to_integer(compare_value)
+
     if comparison_operator == FSComparisonOperator.GREATER_THAN:
         return field_value > compare_value
     elif comparison_operator == FSComparisonOperator.GREATER_OR_EQUAL:

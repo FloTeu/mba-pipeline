@@ -118,54 +118,69 @@ class FSWatchItemShortenedPlotData(MWBaseModel):
                     {"2020-09-20": 480549, ...}
             }
     """
-    # init deprecated values first, because they might be needed to set bsr_short for older documents
-    plot_x: Optional[List[str]] = Field(None, description="Deprecated. List of x axis data, which are dates in '%d/%m/%Y' format")
-    plot_y: Optional[List[str]] = Field(None, description="Deprecated. List of y axis data, which is a list of bsr")
-    plot_x_price: Optional[List[str]] = Field(None, description="Deprecated. List of x axis data, which are dates in '%d/%m/%Y' format")
-    plot_y_price: Optional[List[str]] = Field(None, description="Deprecated. List of y axis data, which is a list of prices stringifed from floats")
+
     # TODO: try to change format of key to date not date_str
     bsr_short: Optional[Dict[str, int]] = Field(None, description="Dict with date as key and bsr as value. First value is most in past last closest to present") # str is date_str
     prices_short: Optional[Dict[str, float]] = Field(None, description="Dict with date as key and price in float as value. First value is most in past last closest to present") # str is date_str
 
-    @validator("bsr_short", always=True)
-    def set_bsr_short(cls, bsr_short, values):
-        plot_x = copy.deepcopy(values["plot_x"].split(","))
-        plot_x.reverse()
-        plot_y = copy.deepcopy(values["plot_y"].split(","))
-        plot_y.reverse()
-        # TODO: try to change format of key to date not date_str
-        return bsr_short or {str(datetime.strptime(date_str, "%d/%m/%Y").date()): bsr for date_str, bsr in zip(plot_x,plot_y)}
+    # init deprecated values later, because they can than be initilaised by bsr_short and prices_short
+    plot_x: Optional[Union[str, List[str]]] = Field(None, description="Deprecated. List of x axis data, which are dates in '%d/%m/%Y' format")
+    plot_y: Optional[Union[str, List[int]]] = Field(None, description="Deprecated. List of y axis data, which is a list of bsr")
+    plot_x_price: Optional[Union[str, List[str]]] = Field(None, description="Deprecated. List of x axis data, which are dates in '%d/%m/%Y' format")
+    plot_y_price: Optional[Union[str, List[float]]] = Field(None, description="Deprecated. List of y axis data, which is a list of prices stringifed from floats")
 
-    @validator("prices_short", always=True)
-    def set_prices_short(cls, prices_short, values):
-        plot_x_price = copy.deepcopy(values["plot_x_price"].split(","))
-        plot_x_price.reverse()
-        plot_y_price = copy.deepcopy(values["plot_y_price"].split(","))
-        plot_y_price.reverse()
-        # TODO: try to change format of key to date not date_str
-        return prices_short or {str(datetime.strptime(date_str, "%d/%m/%Y").date()): price for date_str, price in zip(plot_x_price,plot_y_price)}
+    def set_bsr_short(self):
+        if self.bsr_short == None and self.plot_x != None:
+            plot_x = copy.deepcopy(self.plot_x)
+            plot_x.reverse()
+            plot_y = copy.deepcopy(self.plot_y)
+            plot_y.reverse()
+            # TODO: try to change format of key to date not date_str
+            self.bsr_short = {str(datetime.strptime(date_str, "%d/%m/%Y").date()): bsr for date_str, bsr in zip(plot_x,plot_y)}
+
+    def set_prices_short(self):
+        if self.prices_short == None and self.plot_x_price != None:
+            plot_x_price = copy.deepcopy(self.plot_x_price)
+            plot_x_price.reverse()
+            plot_y_price = copy.deepcopy(self.plot_y_price)
+            plot_y_price.reverse()
+            # TODO: try to change format of key to date not date_str
+            self.prices_short = {str(datetime.strptime(date_str, "%d/%m/%Y").date()): price for date_str, price in zip(plot_x_price,plot_y_price)}
 
     # followwing 4 validators:
     # Backwards comp for MW API. Frontend requires a string with comma sep for getting plot data
     # TODO: Only shortened data (new) is created by old data not the other ways around. Not possible with validator unfortunatly. Check if frontend still works with new format
     # TODO: Seems like frontend requires old structure with plot_x, plot_y ...
+    # TODO: If new data is added, we dont want plot_x to be set..
 
     @validator("plot_x", always=True)
     def set_plot_x(cls, plot_x, values):
-        return ",".join(plot_x) if plot_x else "" #",".join(list(values["bsr_short"].keys()))
+        bsr_short_plot_x = [datetime.strptime(str(date_str), '%Y-%m-%d').strftime('%d/%m/%Y') for date_str in list(values["bsr_short"].keys())] if values["bsr_short"] else None
+        if bsr_short_plot_x: bsr_short_plot_x.reverse()
+        return plot_x or bsr_short_plot_x
 
     @validator("plot_y", always=True)
     def set_plot_y(cls, plot_y, values):
-        return ",".join(plot_y) if plot_y else "" #",".join(list(values["bsr_short"].values()))
+        bsr_short_plot_y = list(values["bsr_short"].values()) if values["bsr_short"] else None
+        if bsr_short_plot_y: bsr_short_plot_y.reverse()
+        return plot_y or bsr_short_plot_y
 
     @validator("plot_x_price", always=True)
     def set_plot_x_price(cls, plot_x_price, values):
-        return ",".join(plot_x_price) if plot_x_price else "" # ",".join(list(values["prices_short"].keys()))
+        prices_short_plot_x = [datetime.strptime(str(date_str), '%Y-%m-%d').strftime('%d/%m/%Y') for date_str in list(values["prices_short"].keys())] if values["prices_short"] else None
+        if prices_short_plot_x: prices_short_plot_x.reverse()
+        return plot_x_price or prices_short_plot_x
 
     @validator("plot_y_price", always=True)
     def set_plot_y_price(cls, plot_y_price, values):
-        return ",".join(plot_y_price) if plot_y_price else "" #",".join(list(values["prices_short"].values()))
+        prices_short_plot_y = list(values["prices_short"].values()) if values["prices_short"] else None
+        if prices_short_plot_y: prices_short_plot_y.reverse()
+        return plot_y_price or prices_short_plot_y
 
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self.set_bsr_short()
+        self.set_prices_short()
 
 class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     ''' Child of FSDocument must contain all field values of document to create this document.
@@ -173,9 +188,82 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionPlotData]] = PrivateAttr({})
     # marketplace: Optional[Marketplace] = Field(None, description="Currently not existent in FS, but if known it can be provided to directly set fs_col_path")
     # TODO: add oher fields of fireste document
+    asin: str
+
     bsr_last: int
+    bsr_first: int
+    bsr_max: int
+    bsr_min: int
+    bsr_mean: int
+    bsr_category: str
+    bsr_last_change: int
+    bsr_change_old: Optional[Union[int, float]] = None
+    bsr_change: Union[int, float]
+    bsr_change_total: Optional[Union[int, float]] = None
+    bsr_last_range: int
+    bsr_count: int
+
+    title: str
+    brand: str
+
     price_last: float
+    price_max: float
+    price_min: float
+    price_first: float
+    price_change: float
+    price_mean: float
+
+    price_last_ranges_array: List[int]
+    price_last_range: int
+
+    url_mba_lowq: str
+    url_image_q2: str
+    url_image_q3: str
+    url_image_q4: str
+    url_mba_hq: str
+    url: str = Field(description="Http url to private stored image")
+
+    keywords_meaningful: List[str]
+    keywords_stem: Dict[str, bool]
+
     upload_date: datetime
+    upload_since_days: Optional[int] = None
+    upload_since_days_map: Optional[Dict[str, bool]] = None
+    time_since_upload: Optional[float] = None
+
+    trend_nr: int
+    trend: float
+    trend_change: int
+
+    takedown: bool
+    takedown_date: Optional[date] = None
+
+    score_count: Optional[int] = None
+    score_last: Optional[float] = None
+    score_last_rounded: Optional[int] = None
+
+    language: Optional[str] = None
+    timestamp: datetime
+    time_since_upload_power: Optional[float] = None
+    update_last: date
+    url_affiliate: Optional[str] = None
+    img_affiliate: Optional[str] = None
+    affiliate_exists: Optional[bool] = None
+
+    def get_api_dict(self):
+        # transform to required backwards compatabile format
+        plot_x = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x] if self.plot_x else None
+        plot_x_price = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x_price] if self.plot_x_price else None
+        plot_y = [str(bsr) for bsr in self.plot_y] if self.plot_y else None
+        plot_y_price = [str(bsr) for bsr in self.plot_y_price] if self.plot_y_price else None
+
+        plot_data = {"plot_x": ",".join(plot_x) if plot_x else None,
+                     "plot_y": ",".join(plot_y) if plot_y else None,
+                     "plot_x_price": ",".join(plot_x_price) if plot_x_price else None,
+                     "plot_y_price": ",".join(plot_y_price) if plot_y_price else None}
+
+        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
+        return {**self.dict(include=fields_included), **plot_data}
 
     # def __init__(self, **data: Any) -> None:
     #     super().__init__(**data)
