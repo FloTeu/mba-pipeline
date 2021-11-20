@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import copy
+from enum import Enum
 from typing import Union, Dict, List, Optional, Any
 from pydantic import BaseModel, Field, PrivateAttr, validator
 from datetime import date, datetime
 from google.cloud.firestore import DocumentSnapshot
-from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace
+from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace, EnumBase
 
 
 class FSDocument(MWBaseModel):
@@ -269,4 +270,27 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     #     super().__init__(**data)
     #     if self.marketplace:
     #         self.set_fs_col_path( f"{self.marketplace}_shirts")
+
+class MBAShirtOrderByField(str, EnumBase):
+    # value is FS field
+    BSR="bsr_last"
+    PRICE="price_last"
+    UPLOAD="upload_date"
+    BSR_CHANGE="bsr_change"
+
+class OrderByDirection(str, Enum):
+    ASC="asc"
+    DESC="desc"
+
+class FSMBAShirtOrderBy(BaseModel):
+    fs_field: MBAShirtOrderByField
+    direction: OrderByDirection
+    start_value: Optional[Union[int, float, datetime, str]] = Field(description="Start value for getting first element in FS. Depends on direction")
+
+MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
+    MBAShirtOrderByField.BSR: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR, direction=OrderByDirection.ASC, start_value=0),
+    MBAShirtOrderByField.PRICE: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.PRICE, direction=OrderByDirection.ASC, start_value=10.0),
+    MBAShirtOrderByField.UPLOAD: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.UPLOAD, direction=OrderByDirection.DESC, start_value=datetime.min),
+    MBAShirtOrderByField.BSR_CHANGE: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
+}
 

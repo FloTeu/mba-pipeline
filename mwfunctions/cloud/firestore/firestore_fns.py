@@ -1,15 +1,15 @@
 from datetime import datetime
 from google.cloud import firestore
+from mwfunctions.pydantic import OrderByDirection
 from pydantic import BaseModel, Field, ValidationError
-from typing import List, Optional, Union
-from enum import Enum
-from contextlib import suppress
+from typing import List, Optional, Union, Dict
 import logging
 import google
+import uuid
 
 from mwfunctions.exceptions import log_suppress
 from mwfunctions import environment
-from mwfunctions.pydantic.firestore.firestore_classes import FSDocument
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSMBAShirtOrderBy
 from mwfunctions.pydantic.base_classes import EnumBase
 
 logging.basicConfig(level="INFO")
@@ -205,11 +205,8 @@ def get_docs_iterator(collection_path, simple_query_filters: Optional[List[FSSim
     query = get_collection_query(collection_path, simple_query_filters=simple_query_filters, client=client)
     return query.stream()
 
-class OrderByDirection(str, Enum):
-    ASC="asc"
-    DESC="desc"
 
-def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optional[str]=None, start_after=None, direction: OrderByDirection="asc", simple_query_filters: Optional[List[FSSimpleFilterQuery]] = None, client=None):
+def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optional[str]=None, start_after=None, direction: OrderByDirection = OrderByDirection.ASC, simple_query_filters: Optional[List[FSSimpleFilterQuery]] = None, client=None):
     """Return a generator object of one batch(size like limit) of documents
         Query can be filtered, sorted or start after specific values of order_by field.
 
@@ -233,8 +230,9 @@ def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optiona
         "/")) % 2) != 0, "path needs be a collection path with odd number of '/' seperated elements"
     if start_after:
         assert order_by, "if start_after then order_by needs to be set"
-    assert direction in ["asc", "desc"], 'direction elem ["asc", "desc"]'
-    direction = firestore.Query.ASCENDING if direction == "asc" else firestore.Query.DESCENDING
+    if order_by:
+        assert direction in ["asc", "desc"], 'direction elem ["asc", "desc"]'
+        direction = firestore.Query.ASCENDING if direction == OrderByDirection.ASC else firestore.Query.DESCENDING
 
     query = get_collection_query(collection_path, simple_query_filters=simple_query_filters, client=client)
     if order_by:
@@ -293,69 +291,152 @@ def atomic_add(transaction, doc_path, field, amount, client):
     write_document_dict(doc_dict, path=doc_path, client=client)
     return doc_dict[field]
 
+
+class OrderByCursor(object):
+    def __init__(self, cursor):
+        self.cursor: Union[str,int,datetime,float] = cursor # can be of any type and depends on order by field in FS
+
+    @staticmethod
+    def get_order_by_key(order_by, order_by_direction):
+        if order_by and order_by_direction:
+            return f"{order_by}_{order_by_direction}"
+        else:
+            return None
+
+class CacherDocument(object):
+    def __init__(self, fs_document, order_by_key=None, order_by=None, order_by_direction: OrderByDirection =None):
+        order_by_key = order_by_key if order_by_key else f"{order_by}_{order_by_direction}" if (order_by and order_by_direction) else None
+        self.order_by_key_list: list=[order_by_key] if order_by_key else []
+        self.fs_document: FSDocument = fs_document
+
+    def add_order_by_key(self, order_by_key=None, order_by=None, order_by_direction: OrderByDirection =None):
+        assert order_by_key or (order_by and order_by_direction), "Either order_by_key or (order_by and order_by_direction) must be set"
+        order_by_key = order_by_key if order_by_key else OrderByCursor.get_order_by_key(order_by, order_by_direction)
+        if order_by_key not in self.order_by_key_list:
+            self.order_by_key_list.append(order_by_key)
+
+    def is_part_of_order_by(self, order_by_key):
+        return order_by_key in self.order_by_key_list
+
+
 class FsDocumentsCacher(object):
-    """ This class can be continiously filled with FS documents. Each cacher should only be used for one collection and for a specific order by.
+    """ This class can be continiously filled with FS documents. Each cacher should only be used for one collection.
+        Procedure:
+            1. Cacher is initialised by collection path and pydantic class
+            2. Cacher request gets order by and filters.
+            3. All documents are stored in one dict independently of order by
+            4. Cacher stores at which point he loaded new data for order by
+            5. If filter does not match filters after _max_load_new_batch_nr for order by all documents should be used
     """
 
-    def __init__(self, pydantic_class: FSDocument, collection_path: str, order_by: Optional[str] = None, order_by_direction: OrderByDirection=OrderByDirection.ASC, client=None):
+    def __init__(self, pydantic_class: FSDocument, collection_path: str, client=None):
         """
             order_by: if defined cacher gets new batch in direction of order_by
         """
-        self._order_by_cursor = None # cursor is updated each time cacher is filled with new data and defines last element got from FS
+        # TODO add cursor for different order bys
+        self._order_by_cursors: Dict[str, OrderByCursor] = {} # cursor is updated each time cacher is filled with new data and defines last element got from FS. Key is a order by key defined by get_order_by_key
         self._max_load_new_batch_nr = 5 # maximum number of loops to prevent endless fetch of new data
+        self._uuid2filter_true_counter = {}
 
         self.client = client if client else create_client()
         self.pydantic_class: FSDocument = pydantic_class
         self.collection_path = collection_path
-        self.order_by = order_by
-        self.order_by_direction = order_by_direction
-        self.fs_document_list: List[FSDocument] = []
+        self.doc_id2fs_doc: Dict[str, CacherDocument] = {}
 
 
-    def load_batch_in_cache(self, batch_size=100):
+        #self.fs_document_list: List[FSDocument] = []
+
+
+    def load_batch_in_cache(self, batch_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC):
         # this should word without any index because no filter is required, only order by
-        docs_iter = get_docs_batch(self.collection_path, limit=batch_size, order_by=self.order_by, direction=self.order_by_direction, client=self.client, start_after=self._order_by_cursor)
+        order_by_key = OrderByCursor.get_order_by_key(order_by, order_by_direction)
+        order_by_cursor = self._order_by_cursors[order_by_key].cursor if order_by_key and order_by_key in self._order_by_cursors else None
+        docs_iter = get_docs_batch(self.collection_path, limit=batch_size, order_by=order_by, direction=order_by_direction, client=self.client, start_after=order_by_cursor)
         doc_pydantic = None
         for doc in docs_iter:
             try:
                 # Transform doc to pydantic
                 doc_pydantic: FSDocument = self.pydantic_class.parse_fs_doc_snapshot(doc)
                 doc_pydantic.set_fs_col_path(self.collection_path)
-                # Add to fs_document_list
-                self.fs_document_list.append(doc_pydantic)
+                # Add to CacherDocument if not exists or add order by data to document
+                if doc.id not in self.doc_id2fs_doc:
+                    self.doc_id2fs_doc[doc.id] = CacherDocument(doc_pydantic, order_by=order_by, order_by_direction=order_by_direction)
+                else:
+                    self.doc_id2fs_doc[doc.id].add_order_by_key(order_by=order_by, order_by_direction=order_by_direction)
+
             except ValidationError as e:
                 print(f"Could not parse document with id {doc.id} to pydantic class", str(e))
-        self._order_by_cursor = doc_pydantic[self.order_by] if doc_pydantic else self._order_by_cursor
+
+        # update order by cursor
+        if order_by_key not in self._order_by_cursors:
+            if doc_pydantic and order_by:
+                self._order_by_cursors[order_by_key] = OrderByCursor(doc_pydantic[order_by])
+        else:
+            if doc_pydantic and order_by:
+                self._order_by_cursors[order_by_key].cursor = doc_pydantic[order_by]
 
     @staticmethod
     def filter_fs_document_by_simple_query_filter(fs_document: FSDocument, simple_query_filter: FSSimpleFilterQuery) -> bool:
         fs_field_value = fs_document[simple_query_filter.field]
         return filter_by_fs_comparison_operator(fs_field_value, simple_query_filter.comparison_operator, simple_query_filter.value)
 
-    @staticmethod
-    def filter_fs_document_by_simple_query_filters(fs_document: FSDocument,
-                                                  simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None) -> bool:
-        if simple_query_filters == None or simple_query_filters == []: return True
-        return all([FsDocumentsCacher.filter_fs_document_by_simple_query_filter(fs_document, simple_query_filter) for simple_query_filter in simple_query_filters])
+    def filter_fs_document_by_simple_query_filters(self, cacher_doc: CacherDocument, filter_true_counter_id,
+                                                   simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None, batch_size=None,
+                                                   order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC, filter_docs_by_order_by_key:bool=True) -> bool:
+        # if enough cached docs are found (i.e. more than batch_size requires) we dont have to check ither docs and return False
+        # If not filter_docs_by_order_by_key, all docs should be filtered to sort afterwards by order by and get right docs
+        if filter_docs_by_order_by_key and batch_size and self._uuid2filter_true_counter[filter_true_counter_id] > batch_size: return False
+        # filter only those which are connected to order by key
+        if filter_docs_by_order_by_key and order_by and order_by_direction:
+            if not cacher_doc.is_part_of_order_by(OrderByCursor.get_order_by_key(order_by, order_by_direction)): return False
+        if simple_query_filters == None or simple_query_filters == []:
+            self._uuid2filter_true_counter[filter_true_counter_id] += 1
+            return True
+        filter_bool = all([FsDocumentsCacher.filter_fs_document_by_simple_query_filter(cacher_doc.fs_document, simple_query_filter) for simple_query_filter in simple_query_filters])
+        if filter_bool: self._uuid2filter_true_counter[filter_true_counter_id] += 1
+        return filter_bool
 
-    def filter_fs_document_list(self, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None) -> List[FSDocument]:
-        filtered = filter(lambda fs_document: self.filter_fs_document_by_simple_query_filters(fs_document, simple_query_filters), self.fs_document_list)
-        return list(filtered)
+    def filter_fs_doc_dict(self, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None, batch_size=None,
+                           order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC, filter_docs_by_order_by_key=True) -> List[CacherDocument]:
+        # TODO:  if batch_size is provided only batch_size number products should be filtered (prvent all data to be filtered every time)
+        # filter is only refernece to filter_fs_document_by_simple_query_filters function
+        filter_true_counter_id = uuid.uuid4().hex
+        self._uuid2filter_true_counter[filter_true_counter_id] = 0
+        fs_document_filter = filter(lambda cacher_doc:
+                                    self.filter_fs_document_by_simple_query_filters(cacher_doc, filter_true_counter_id, simple_query_filters, order_by=order_by, batch_size=batch_size,
+                                    order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key), self.doc_id2fs_doc.values())
+        cacher_docs: List[CacherDocument] = list(fs_document_filter)
+        del self._uuid2filter_true_counter[filter_true_counter_id]
+        return cacher_docs
 
-    def get_batch_by_cache(self, batch_size, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None, load_batch_in_cache_size=100) -> List[FSDocument]:
+    def get_batch_by_cache(self, batch_size, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None,
+                           load_batch_in_cache_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC) -> List[FSDocument]:
         """ Try to load data from cache filtered by simple_query_filters
             If no data in batch left, new data will be loaded to Cache object
 
             batch_size: Number of Documents that should be returned, e.g. 12
         """
-        filtered_fs_documents = self.filter_fs_document_list(simple_query_filters)
+        filter_docs_by_order_by_key = True
+        filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key)
         loop_counter = 0
-        while len(filtered_fs_documents) < batch_size:
-            self.load_batch_in_cache(batch_size=load_batch_in_cache_size)
-            filtered_fs_documents = self.filter_fs_document_list(simple_query_filters)
+        while len(filtered_cacher_docs) < batch_size:
+            self.load_batch_in_cache(batch_size=load_batch_in_cache_size, order_by=order_by, order_by_direction=order_by_direction)
+            filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key)
             loop_counter += 1
             if self._max_load_new_batch_nr <= loop_counter:
-                # prevent endless loop
+                filter_docs_by_order_by_key = False
+                # prevent endless loop and get data independend of order by restriction (filters are applied anyway)
+                filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(simple_query_filters, batch_size=batch_size,
+                                                                order_by=order_by,
+                                                                order_by_direction=order_by_direction,
+                                                                filter_docs_by_order_by_key=filter_docs_by_order_by_key)
                 break
 
-        return filtered_fs_documents[0:batch_size]
+        if filter_docs_by_order_by_key: # in case wie used only order_by docs order is already right
+            return [cacher_doc.fs_document for cacher_doc in filtered_cacher_docs[0:batch_size]]
+        else:
+            # sort docs first and than get desired batch_size
+            if order_by:
+                # sort by reference
+                filtered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by], reverse=order_by_direction == OrderByDirection.DESC)
+            return [cacher_doc.fs_document for cacher_doc in filtered_cacher_docs[0:batch_size]]
