@@ -8,6 +8,11 @@ from datetime import date, datetime
 from google.cloud.firestore import DocumentSnapshot
 from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace, EnumBase
 
+def date2str(dict_obj):
+    # transform date values to strings, because FS cant store date format (only datetime or string)
+    for key, value in dict_obj.items():
+        if isinstance(value, date):
+            dict_obj[key] = str(value)
 
 class FSDocument(MWBaseModel):
     ''' Child of FSDocument must contain all field values of document to create this document.
@@ -44,7 +49,9 @@ class FSDocument(MWBaseModel):
         from mwfunctions.cloud.firestore import split_correct_path, write_document_dict
 
         exclude_fields = exclude_fields + ["doc_id"] if exclude_doc_id else exclude_fields
-        write_document_dict(self.dict(exclude=set(exclude_fields)), f"{self._fs_col_path}/{self.doc_id}", array_union=self._array_union, overwrite_doc=self._overwrite_doc, client=client)
+        dict_to_fs = self.dict(exclude=set(exclude_fields))
+        date2str(dict_to_fs)
+        write_document_dict(dict_to_fs, f"{self._fs_col_path}/{self.doc_id}", array_union=self._array_union, overwrite_doc=self._overwrite_doc, client=client)
         if write_subcollections:
             for subcollection_col_name, fs_subcollection in self._fs_subcollections.items():
                 for doc_id, fs_document in fs_subcollection.subcollection_doc_dict.items():
@@ -224,10 +231,11 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     url_mba_hq: str
     url: str = Field(description="Http url to private stored image")
 
+    keywords: Optional[List[str]] = None
     keywords_meaningful: List[str]
     keywords_stem: Dict[str, bool]
 
-    upload_date: datetime
+    upload_date: Union[datetime, date]
     upload_since_days: Optional[int] = None
     upload_since_days_map: Optional[Dict[str, bool]] = None
     time_since_upload: Optional[float] = None
@@ -251,6 +259,14 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     img_affiliate: Optional[str] = None
     affiliate_exists: Optional[bool] = None
 
+
+    @validator("keywords_stem")
+    def set_keywords(cls, keywords_stem, values):
+        if "keywords" not in values or values["keywords"] == None:
+            values["keywords"] = list(keywords_stem.keys())
+        return keywords_stem
+
+
     def get_api_dict(self):
         # transform to required backwards compatabile format
         plot_x = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x] if self.plot_x else None
@@ -264,7 +280,9 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
                      "plot_y_price": ",".join(plot_y_price) if plot_y_price else None}
 
         fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
-        return {**self.dict(include=fields_included), **plot_data}
+        api_output_dict = {**self.dict(include=fields_included), **plot_data}
+        api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
+        return api_output_dict
 
     # def __init__(self, **data: Any) -> None:
     #     super().__init__(**data)
@@ -285,12 +303,13 @@ class OrderByDirection(str, Enum):
 class FSMBAShirtOrderBy(BaseModel):
     fs_field: MBAShirtOrderByField
     direction: OrderByDirection
-    start_value: Optional[Union[int, float, datetime, str]] = Field(description="Start value for getting first element in FS. Depends on direction")
+    start_value: Optional[Union[float, int, datetime, str]] = Field(description="Start value for getting first element in FS. Depends on direction")
 
+# key is string to make operation like string in MBA_SHIRT_ORDERBY_DICT possible
 MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
-    MBAShirtOrderByField.BSR: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR, direction=OrderByDirection.ASC, start_value=0),
-    MBAShirtOrderByField.PRICE: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.PRICE, direction=OrderByDirection.ASC, start_value=10.0),
-    MBAShirtOrderByField.UPLOAD: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.UPLOAD, direction=OrderByDirection.DESC, start_value=datetime.min),
-    MBAShirtOrderByField.BSR_CHANGE: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
+    MBAShirtOrderByField.BSR.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR, direction=OrderByDirection.ASC, start_value=0),
+    MBAShirtOrderByField.PRICE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.PRICE, direction=OrderByDirection.ASC, start_value=10.0),
+    MBAShirtOrderByField.UPLOAD.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.UPLOAD, direction=OrderByDirection.DESC, start_value=datetime.max),
+    MBAShirtOrderByField.BSR_CHANGE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
 }
 

@@ -198,6 +198,34 @@ class TextRank4Keyword():
 
         self.node_weight = node_weight
 
+import os
+import nltk
+
+cwd = os.getcwd()
+
+nltk.data.path.append(os.path.join(cwd,"nltk_data"))
+nltk.data.path.append("nltk_data")
+nltk.data.path.append(".nltk_data")
+nltk.data.path.append(".")
+
+from nltk.stem.snowball import SnowballStemmer
+from nltk.corpus import stopwords
+from mwfunctions.pydantic.base_classes import EnumBase
+
+class StemmerLanguage(str, EnumBase):
+    GERMAN="german"
+    ENGLISH="english"
+
+# this function requires nltk_data
+def get_stem_keywords_language(keywords, language: StemmerLanguage):
+    stem_keywords = []
+    stop_words = set(stopwords.words(language))
+    keywords_filtered = [w for w in keywords if not w in stop_words]
+    snowball_stemmer = SnowballStemmer(language)
+
+    for keyword in keywords_filtered:
+        stem_keywords.append(snowball_stemmer.stem(keyword))
+    return stem_keywords
 
 """
 ### Constants

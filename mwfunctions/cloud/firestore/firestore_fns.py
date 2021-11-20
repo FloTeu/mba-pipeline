@@ -9,7 +9,7 @@ import uuid
 
 from mwfunctions.exceptions import log_suppress
 from mwfunctions import environment
-from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSMBAShirtOrderBy
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSMBAShirtOrderBy, MBA_SHIRT_ORDERBY_DICT
 from mwfunctions.pydantic.base_classes import EnumBase
 
 logging.basicConfig(level="INFO")
@@ -116,15 +116,15 @@ class FSComparisonOperator(str, EnumBase):
     LESS_OR_EQUAL="<="
     EQUAL="=="
     NOT_EQUAL="!="
-    ARRAY_CONTAINS="array-contains"
-    ARRAY_CONTAINS_ANY="array-contains-any"
+    ARRAY_CONTAINS="array_contains"
+    ARRAY_CONTAINS_ANY="array_contains_any"
     IN="in"
-    NOT_IN="not-in"
+    NOT_IN="not_in"
 
 class FSSimpleFilterQuery(BaseModel):
     field: str = Field(description="FS field to filter on", example="active")
     comparison_operator: FSComparisonOperator = Field(description="Query operator, e.g. '>', '==', '<'. https://firebase.google.com/docs/firestore/query-data/queries#query_operators", example="==")
-    value: Union[str,int,datetime,float,list] = Field(description="Value which should match the condition of operator. E.g. True. Value should have right type.", example=True)
+    value: Union[float,int,datetime,list,str] = Field(description="Value which should match the condition of operator. E.g. True. Value should have right type.", example=True)
 
 def filter_by_fs_comparison_operator(field_value: Union[str,int,datetime,float,list], comparison_operator:FSComparisonOperator, compare_value: Union[str,int,datetime,float,list]):
     def dt_to_integer(dt_time):
@@ -135,6 +135,9 @@ def filter_by_fs_comparison_operator(field_value: Union[str,int,datetime,float,l
         field_value = dt_to_integer(field_value)
     if isinstance(compare_value, datetime):
         compare_value = dt_to_integer(compare_value)
+    # try to transform type to float if not both are string
+    if isinstance(field_value, str) and not isinstance(compare_value, str): field_value = float(field_value)
+    if isinstance(compare_value, str) and not isinstance(field_value, str): compare_value = float(compare_value)
 
     if comparison_operator == FSComparisonOperator.GREATER_THAN:
         return field_value > compare_value
@@ -188,7 +191,8 @@ def get_collection_query(collection_path, simple_query_filters: Optional[List[FS
 
     # if simple_query_filters are provided multiple where conditions are appended to firestore query
     for simple_query_filter in simple_query_filters:
-        query = query.where(simple_query_filter.field, simple_query_filter.comparison_operator, simple_query_filter.value)
+        comparison_operator = simple_query_filter.comparison_operator.value if isinstance(simple_query_filter.comparison_operator, FSComparisonOperator) else simple_query_filter.comparison_operator
+        query = query.where(simple_query_filter.field, comparison_operator, simple_query_filter.value)
     return query
 
 def get_docs_iterator(collection_path, simple_query_filters: Optional[List[FSSimpleFilterQuery]] = None, client=None):
@@ -347,11 +351,14 @@ class FsDocumentsCacher(object):
         #self.fs_document_list: List[FSDocument] = []
 
 
-    def load_batch_in_cache(self, batch_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC):
-        # this should word without any index because no filter is required, only order by
+    def load_batch_in_cache(self, batch_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None):
+        """ Loads new batch of FS documents in cache.
+            Be carefull with simple_query_filter, since indexes might be needed. order by filtering is always possible
+        """
+
         order_by_key = OrderByCursor.get_order_by_key(order_by, order_by_direction)
         order_by_cursor = self._order_by_cursors[order_by_key].cursor if order_by_key and order_by_key in self._order_by_cursors else None
-        docs_iter = get_docs_batch(self.collection_path, limit=batch_size, order_by=order_by, direction=order_by_direction, client=self.client, start_after=order_by_cursor)
+        docs_iter = get_docs_batch(self.collection_path, limit=batch_size, order_by=order_by, direction=order_by_direction, client=self.client, start_after=order_by_cursor, simple_query_filters=simple_query_filters)
         doc_pydantic = None
         for doc in docs_iter:
             try:
@@ -368,12 +375,19 @@ class FsDocumentsCacher(object):
                 print(f"Could not parse document with id {doc.id} to pydantic class", str(e))
 
         # update order by cursor
-        if order_by_key not in self._order_by_cursors:
-            if doc_pydantic and order_by:
-                self._order_by_cursors[order_by_key] = OrderByCursor(doc_pydantic[order_by])
-        else:
-            if doc_pydantic and order_by:
-                self._order_by_cursors[order_by_key].cursor = doc_pydantic[order_by]
+        was_filtered = simple_query_filters != None and len(simple_query_filters) > 0
+        # is not considered to be filtered if start_value or order_by was used
+        if order_by_key and len(simple_query_filters) == 1 and simple_query_filters[0].value == MBA_SHIRT_ORDERBY_DICT[order_by].start_value:
+            was_filtered = False
+
+        # Update cursor only if data was loaded without none order by filtering
+        if not was_filtered:
+            if order_by_key not in self._order_by_cursors:
+                if doc_pydantic and order_by:
+                    self._order_by_cursors[order_by_key] = OrderByCursor(doc_pydantic[order_by])
+            else:
+                if doc_pydantic and order_by:
+                    self._order_by_cursors[order_by_key].cursor = doc_pydantic[order_by]
 
     @staticmethod
     def filter_fs_document_by_simple_query_filter(fs_document: FSDocument, simple_query_filter: FSSimpleFilterQuery) -> bool:
@@ -409,6 +423,20 @@ class FsDocumentsCacher(object):
         del self._uuid2filter_true_counter[filter_true_counter_id]
         return cacher_docs
 
+    @staticmethod
+    def get_fs_possible_filters(simple_query_filters: Optional[List[FSSimpleFilterQuery]], order_by) -> Optional[List[FSSimpleFilterQuery]]:
+        """ Returns a filtered list of query filters for FS which are possible to filter directly in FS query.
+            order by filters are alwas possible. Further filters need an index file
+
+            Required Indexes:
+                * keywords: ARRAY, bsr_last: ASC
+        """
+        if simple_query_filters == None: return None
+        is_keyword_search = any([x.field == "keywords" for x in simple_query_filters])
+        # TODO: Allow more filters where index exists
+        return list(filter(lambda x: x.field == order_by or x.field == "keywords", simple_query_filters))
+
+
     def get_batch_by_cache(self, batch_size, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None,
                            load_batch_in_cache_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC) -> List[FSDocument]:
         """ Try to load data from cache filtered by simple_query_filters
@@ -416,11 +444,12 @@ class FsDocumentsCacher(object):
 
             batch_size: Number of Documents that should be returned, e.g. 12
         """
+        fs_possible_query_filters = self.get_fs_possible_filters(simple_query_filters, order_by)
         filter_docs_by_order_by_key = True
         filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key)
         loop_counter = 0
         while len(filtered_cacher_docs) < batch_size:
-            self.load_batch_in_cache(batch_size=load_batch_in_cache_size, order_by=order_by, order_by_direction=order_by_direction)
+            self.load_batch_in_cache(batch_size=load_batch_in_cache_size, order_by=order_by, order_by_direction=order_by_direction, simple_query_filters=fs_possible_query_filters)
             filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key)
             loop_counter += 1
             if self._max_load_new_batch_nr <= loop_counter:
