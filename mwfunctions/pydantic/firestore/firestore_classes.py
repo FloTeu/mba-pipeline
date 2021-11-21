@@ -224,14 +224,15 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     price_last_ranges_array: List[int]
     price_last_range: int
 
+    # TODO: make image urls only required if takedown == False
     url_mba_lowq: str
     url_image_q2: str
     url_image_q3: str
     url_image_q4: str
     url_mba_hq: str
-    url: str = Field(description="Http url to private stored image")
+    url: Optional[str] = Field(None, description="Http url to private stored image")
 
-    keywords: Optional[List[str]] = None
+    keywords_stem_list: Optional[List[str]] = None
     keywords_meaningful: List[str]
     keywords_stem: Dict[str, bool]
 
@@ -243,6 +244,8 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     trend_nr: int
     trend: float
     trend_change: int
+
+    is_trademarked: bool = Field(False, description="Whether product is trademarked. If True they can be filtered")
 
     takedown: bool
     takedown_date: Optional[date] = None
@@ -262,12 +265,12 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
 
     @validator("keywords_stem")
     def set_keywords(cls, keywords_stem, values):
-        if "keywords" not in values or values["keywords"] == None:
-            values["keywords"] = list(keywords_stem.keys())
+        if "keywords_stem_list" not in values or values["keywords_stem_list"] == None:
+            values["keywords_stem_list"] = list(keywords_stem.keys())
         return keywords_stem
 
 
-    def get_api_dict(self):
+    def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
         plot_x = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x] if self.plot_x else None
         plot_x_price = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x_price] if self.plot_x_price else None
@@ -279,9 +282,19 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
                      "plot_x_price": ",".join(plot_x_price) if plot_x_price else None,
                      "plot_y_price": ",".join(plot_y_price) if plot_y_price else None}
 
-        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
-        api_output_dict = {**self.dict(include=fields_included), **plot_data}
-        api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
+        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
+        api_output_dict = self.dict(include=fields_included)
+        if not meta_api:
+            api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
+        else:
+            # meta api requires list of plot data
+            plot_data = {"plot_x": plot_x if plot_x else None,
+                         "plot_y": plot_y if plot_y else None,
+                         "plot_x_price": plot_x_price if plot_x_price else None,
+                         "plot_y_price": plot_y_price if plot_y_price else None}
+            api_output_dict["takedown_date"] = str(api_output_dict["takedown_date"])
+
+        api_output_dict.update(plot_data)
         return api_output_dict
 
     # def __init__(self, **data: Any) -> None:
@@ -293,6 +306,7 @@ class MBAShirtOrderByField(str, EnumBase):
     # value is FS field
     BSR="bsr_last"
     PRICE="price_last"
+    TREND="trend_nr"
     UPLOAD="upload_date"
     BSR_CHANGE="bsr_change"
 
@@ -309,6 +323,7 @@ class FSMBAShirtOrderBy(BaseModel):
 MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
     MBAShirtOrderByField.BSR.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR, direction=OrderByDirection.ASC, start_value=0),
     MBAShirtOrderByField.PRICE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.PRICE, direction=OrderByDirection.ASC, start_value=10.0),
+    MBAShirtOrderByField.TREND.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.TREND, direction=OrderByDirection.ASC, start_value=0),
     MBAShirtOrderByField.UPLOAD.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.UPLOAD, direction=OrderByDirection.DESC, start_value=datetime.max),
     MBAShirtOrderByField.BSR_CHANGE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
 }
