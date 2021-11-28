@@ -14,6 +14,8 @@ from mwfunctions import environment
 from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSMBAShirtOrderBy, MBA_SHIRT_ORDERBY_DICT, get_bsr_range_list, MBAShirtOrderByField, bsr2bsr_range_value
 from mwfunctions.pydantic.firestore.indexes import MBA_SHIRTS_COLLECTION_INDEXES, FSIndex, FSIndexItem, FSMbaShirtsIndexField
 from mwfunctions.pydantic.base_classes import EnumBase
+from mwfunctions.profiling import log_time
+
 
 logging.basicConfig(level="INFO")
 LOGGER = logging.getLogger(__name__)
@@ -556,7 +558,7 @@ class FsDocumentsCacher(object):
         # update order by cursor
         if order_by:
             if tmp_id not in self._uuid2order_by_cursor: self._uuid2order_by_cursor[tmp_id] = {}
-            self._uuid2order_by_cursor[tmp_id][order_by] = doc_pydantic[order_by] if doc_pydantic else None
+            self._uuid2order_by_cursor[tmp_id][order_by] = doc_pydantic[order_by] if doc_pydantic else self._uuid2order_by_cursor[tmp_id][order_by] if order_by in self._uuid2order_by_cursor[tmp_id] else None
         # Update cursor only if data was loaded without none order by filtering
         if is_simple_fs_order_by_query or search_key_stem_list:
             self.update_order_by_cursors(order_by_key, order_by, doc_pydantic, keywords_stem_list=search_key_stem_list, filter_takedown_value=filter_takedown_value)
@@ -575,13 +577,13 @@ class FsDocumentsCacher(object):
             return False # return false to skip cursor doc id element (already shown in frontend)
         if doc_id_cursor!=None and not self._uuid2doc_id_found[tmp_id]: return False
 
-        # if enough cached docs are found (i.e. more than batch_size requires) we dont have to check ither docs and return False
+        # if enough cached docs are found (i.e. more than batch_size requires) we dont have to check other docs and return False
         # If not filter_docs_by_order_by_key, all docs should be filtered to sort afterwards by order by and get right docs
         if filter_docs_by_order_by_key and batch_size and self._uuid2filter_true_counter[tmp_id] > batch_size: return False
 
         # filter only those which are connected to order_by_key
         # Normal case: simple order by query without filtering -> no problem (only cacher_doc.is_part_of_order_by() are used)
-        # Special case: order by query with multiple filters -> after n batch loads desired output size ist not reached because of filters
+        # Special case: order by query with multiple filters -> after n batch loads desired output size is not reached because of filters
         #               -> Solution: ignore (only cacher_doc.is_part_of_order_by() are used)
         if filter_docs_by_order_by_key and order_by and order_by_direction:
             if not cacher_doc.is_part_of_order_by(OrderByCursor.get_order_by_key(order_by, order_by_direction, filter_takedown=filter_takedown)): return False
@@ -597,12 +599,15 @@ class FsDocumentsCacher(object):
         # filter is only refernece to filter_fs_document_by_simple_query_filters function
         filter_takedown_value: Optional[bool] = self.get_value_by_filters(simple_query_filters, "takedown")
         # TODO: if doc_id_cursor self.doc_id2cache_doc.values() must be sorted by order by. otherwise doc_id_cursor cuts valid documents
+        with log_time(fn_name="Sort fs cacher docs dict"):
+            ordered_cacher_docs: List[CacherDocument] = self.get_ordered_cacher_docs(order_by)
+
         tmp_id = uuid.uuid4().hex
         self._uuid2filter_true_counter[tmp_id] = 0
         self._uuid2doc_id_found[tmp_id] = False
         fs_document_filter = filter(lambda cacher_doc:
                                     self.filter_fs_document_by_simple_query_filters(cacher_doc, tmp_id, simple_query_filters, order_by=order_by, batch_size=batch_size, filter_takedown=filter_takedown_value,
-                                    order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key, doc_id_cursor=doc_id_cursor), self.doc_id2cache_doc.values())
+                                    order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key, doc_id_cursor=doc_id_cursor), ordered_cacher_docs)
         cacher_docs: List[CacherDocument] = list(fs_document_filter)
         del self._uuid2filter_true_counter[tmp_id]
         del self._uuid2doc_id_found[tmp_id]
@@ -761,7 +766,8 @@ class FsDocumentsCacher(object):
 
     def get_ordered_cacher_docs(self, order_by: Optional[str], reverse=False) -> List[CacherDocument]:
         ordered_cacher_docs = list(self.doc_id2cache_doc.values())
-        ordered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by],
+        if order_by:
+            ordered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by],
                                   reverse=reverse)
         return ordered_cacher_docs
 
