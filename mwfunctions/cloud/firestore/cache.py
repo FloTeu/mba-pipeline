@@ -185,7 +185,7 @@ class BatchLoadRequest(BaseModel):
         return any(["keywords_stem" in x.field for x in simple_query_filters])
 
     def is_keyword_search(self):
-        return self.is_keyword_search_static(self.simple_query_filters)
+        return self.is_keyword_search_static(self.simple_query_filters) if self.simple_query_filters else False
 
     def stop_load_keyword_search_batches(self) -> bool:
         # break loop if bsr_min is higher than bsr_max or no bsr_range_filters list exists anymore
@@ -382,6 +382,7 @@ class FsDocumentsCacher(object):
         # TODO: make IN filters with on element to euqal operator
         # doc_id_cursor can only be used without IN operytors. Therfore we transform IN operators with one element to EQUAL operator
         def make_in_to_equal_filter(simple_query_filters):
+            if not simple_query_filters: return simple_query_filters
             changed_simple_query_filters = copy.deepcopy(simple_query_filters)
             in_filters = list(filter(lambda x: x.comparison_operator == FSComparisonOperator.IN, changed_simple_query_filters))
             if in_filters:
@@ -638,7 +639,7 @@ class FsDocumentsCacher(object):
 
         max_load_new_batch_nr = self._max_load_new_batch_nr if not batch_load_request.is_keyword_search() else 8
 
-        if batch_load_request.is_keyword_search:
+        if batch_load_request.is_keyword_search():
             bsr_last_range_cursor = self.update_beginning_bsr_last_range_filter(batch_load_request, doc_id_cursor)
 
         # check if batch_load_request was already queried in FS. If page is > 1 we can assume that was_batch_load_req_already_queried_in_fs is True
@@ -647,7 +648,7 @@ class FsDocumentsCacher(object):
         was_batch_load_req_already_queried_in_fs = True if page not in [None, 1] else len(matching_batch_load_requests) > 0
 
         # try to speed up
-        if batch_load_request.is_keyword_search and len(matching_batch_load_requests) > 0:
+        if batch_load_request.is_keyword_search() and len(matching_batch_load_requests) > 0:
             bsr_last_range_cursor = self.update_beginning_bsr_last_range_filter(batch_load_request, doc_id_cursor, matching_batch_load_requests)
 
         # safe batch request after beginning_bsr_last_range_filter is set
@@ -659,7 +660,7 @@ class FsDocumentsCacher(object):
 
         while len(filtered_cacher_docs) < batch_size:
             # if last cursor of bsr_last_range indicates that no more data left (-1) we finish loop directly
-            if batch_load_request.is_keyword_search and bsr_last_range_cursor and bsr_last_range_cursor == -1: break
+            if batch_load_request.is_keyword_search() and bsr_last_range_cursor and bsr_last_range_cursor == -1: break
 
             batch_load_response: BatchLoadResponse = self.load_batch_in_cache(batch_load_request)
             self.update_cursors(batch_load_response, batch_load_request, update_search_cursor=is_search_from_bsr_last_range_start)
@@ -670,7 +671,7 @@ class FsDocumentsCacher(object):
             print(f"Batch load counter {batch_load_request.get_load_batch_counter()} and number of filtered cacher docs {len(filtered_cacher_docs)}")
 
             # increase bsr range after each loop if not full_batch_size_loaded
-            if batch_load_request.is_keyword_search and len(filtered_cacher_docs) < batch_size:
+            if batch_load_request.is_keyword_search() and len(filtered_cacher_docs) < batch_size:
                 bsr_last_range_cursor = batch_load_response.highest_bsr_last_range
                 # if a full batch of data was loaded probably more data exists in this bsr_range, except in case new cursor is the same as old one
                 if batch_load_response.full_batch_size_loaded and batch_load_request.doc_id_cursor != batch_load_response.last_fs_doc.doc_id:
