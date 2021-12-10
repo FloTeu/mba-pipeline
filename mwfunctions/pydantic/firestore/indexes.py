@@ -46,10 +46,10 @@ class FSMbaShirtsIndex(FSIndex):
 # defines all collection indexes that exist in FS for collection {marketplace}_shirts
 MBA_SHIRTS_COLLECTION_INDEXES: List[FSMbaShirtsIndex] = [
     # keywords_stem_list: ARRAY, takedown: ASC, bsr_last: ASC
-    FSMbaShirtsIndex.parse_obj(
-        {"index_items": [{"field": FSMbaShirtsIndexField.KEYWORD_LIST, "index_option": FSIndexOption.ARRAY},
-                                                {"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
-                                                {"field": FSMbaShirtsIndexField.BSR, "index_option": FSIndexOption.ASC}]}),
+    # FSMbaShirtsIndex.parse_obj(
+    #     {"index_items": [{"field": FSMbaShirtsIndexField.KEYWORD_LIST, "index_option": FSIndexOption.ARRAY},
+    #                                             {"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
+    #                                             {"field": FSMbaShirtsIndexField.BSR, "index_option": FSIndexOption.ASC}]}),
     # bsr_last_range: ASC, takedown: ASC, trend_nr: ASC
     FSMbaShirtsIndex.parse_obj(
         {"index_items": [{"field": FSMbaShirtsIndexField.BSR_RANGE, "index_option": FSIndexOption.ASC},

@@ -263,7 +263,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
     img_affiliate: Optional[str] = None
     affiliate_exists: Optional[bool] = None
 
-    master_filter: Optional[int] = Field(None, description="Master filter contains multiple other filter values like bsr price, review and upload_date.")
+    # master_filter: Optional[int] = Field(None, description="Master filter contains multiple other filter values like bsr price, review and upload_date.")
 
 
     @validator("keywords_stem")
@@ -272,61 +272,61 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData):
             values["keywords_stem_list"] = list(keywords_stem.keys())
         return keywords_stem
 
-    @staticmethod
-    def get_master_filter(bsr_last: int, price_last: float, upload_date: Union[datetime, date], review_score: float) -> int:
-        """ Creates the master filter value
-            Structure:
-                0000    00  00  00    0      000000000
-                Y       M   D   price   review  bsr
+    # @staticmethod
+    # def get_master_filter(bsr_last: int, price_last: float, upload_date: Union[datetime, date], review_score: float) -> int:
+    #     """ Creates the master filter value
+    #         Structure:
+    #             0000    00  00  00    0      000000000
+    #             Y       M   D   price   review  bsr
+    #
+    #         TODO: Problems with master_filter:
+    #             * order by trend_nr plus master_filter not possible
+    #             * hugh amount of or conditions between small < > filters (will produce other problems like loading time, parallel query requirements)
+    #
+    #         Examples:
+    #             2021031023997034545123
+    #             -> upload_date 2021, 03, 10
+    #             -> price 23,99 -> 24 | 23,49 -> 23
+    #             -> review 3,9 -> {0-0.5:0, 0.5-1:1, 1-1.5:2, ..., 4-4.5:8, 4.5-5:9 }
+    #             -> bsr 34545123
+    #
+    #         FS Filtering:
+    #             * Example: Try to get data with requirements:
+    #                 * upload_date between: (2020,2,1)-(2021,7,1)
+    #                 * price between: 10-14
+    #                 * bsr between: 150000-250000
+    #             * Filter integers:
+    #                 * > 20200201 10 0 150000 < 20200201 1000 0 250000
+    #                 * > 20200201 10 1 150000 < 20200201 1000 1 250000
+    #                 * > 20200201 10 2 150000 < 20200201 1000 2 250000
+    #                                         ...
+    #                 * > 20200201 11 0 150000 < 20200201 1000 2 250000
+    #                 * > 20200201 11 1 150000 < 20200201 1000 1 250000
+    #                                         ...
+    #                 * > 20200202 10 0 150000 < 20200202 1000 0 250000
+    #                 * > 20200202 10 1 150000 < 20200202 1000 1 250000
+    #
+    #             * Filter execution:
+    #                 * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.GREATER_OR_EQUAL, value=20200201 10 0 150000)
+    #                 * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.LESS_OR_EQUAL, value=20200201 10 0 250000)
+    #                 * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.GREATER_OR_EQUAL, value=20200201 10 1 150000)
+    #                 * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.LESS_OR_EQUAL, value=20200201 10 1 150000 )
+    #     """
+    #     bsr_str=format(bsr_last, "09d")
+    #     assert len(bsr_str)==9, "BSR string must have length 9"
+    #     price_str=format(int("%.0f" % price_last), "02d")
+    #     assert len(price_str)==2, "Price string must have length 4"
+    #     review_score_str=str(int("%.0f" % (review_score*2))-1) if review_score != 0 else "0"
+    #     assert len(review_score_str)==1, "review_score_str string must have length 1"
+    #     upload_int=date_to_integer(upload_date)
+    #     return int(f"{upload_int}{price_str}{bsr_str}")
 
-            TODO: Problems with master_filter:
-                * order by trend_nr plus master_filter not possible
-                * hugh amount of or conditions between small < > filters (will produce other problems like loading time, parallel query requirements)
 
-            Examples:
-                2021031023997034545123
-                -> upload_date 2021, 03, 10
-                -> price 23,99 -> 24 | 23,49 -> 23
-                -> review 3,9 -> {0-0.5:0, 0.5-1:1, 1-1.5:2, ..., 4-4.5:8, 4.5-5:9 }
-                -> bsr 34545123
-
-            FS Filtering:
-                * Example: Try to get data with requirements:
-                    * upload_date between: (2020,2,1)-(2021,7,1)
-                    * price between: 10-14
-                    * bsr between: 150000-250000
-                * Filter integers:
-                    * > 20200201 10 0 150000 < 20200201 1000 0 250000
-                    * > 20200201 10 1 150000 < 20200201 1000 1 250000
-                    * > 20200201 10 2 150000 < 20200201 1000 2 250000
-                                            ...
-                    * > 20200201 11 0 150000 < 20200201 1000 2 250000
-                    * > 20200201 11 1 150000 < 20200201 1000 1 250000
-                                            ...
-                    * > 20200202 10 0 150000 < 20200202 1000 0 250000
-                    * > 20200202 10 1 150000 < 20200202 1000 1 250000
-
-                * Filter execution:
-                    * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.GREATER_OR_EQUAL, value=20200201 10 0 150000)
-                    * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.LESS_OR_EQUAL, value=20200201 10 0 250000)
-                    * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.GREATER_OR_EQUAL, value=20200201 10 1 150000)
-                    * FSSimpleFilterQuery(field="master_filter", comparison_operator=FSComparisonOperator.LESS_OR_EQUAL, value=20200201 10 1 150000 )
-        """
-        bsr_str=format(bsr_last, "09d")
-        assert len(bsr_str)==9, "BSR string must have length 9"
-        price_str=format(int("%.0f" % price_last), "02d")
-        assert len(price_str)==2, "Price string must have length 4"
-        review_score_str=str(int("%.0f" % (review_score*2))-1) if review_score != 0 else "0"
-        assert len(review_score_str)==1, "review_score_str string must have length 1"
-        upload_int=date_to_integer(upload_date)
-        return int(f"{upload_int}{price_str}{bsr_str}")
-
-
-    @validator("master_filter", always=True)
-    def set_master_filter(cls, master_filter, values):
-        if master_filter: return master_filter
-        return cls.get_master_filter(values["bsr_last"], values["price_last"], values["upload_date"], values["review_score"] if "review_score" in values else 0)
-
+    # @validator("master_filter", always=True)
+    # def set_master_filter(cls, master_filter, values):
+    #     if master_filter: return master_filter
+    #     return cls.get_master_filter(values["bsr_last"], values["price_last"], values["upload_date"], values["review_score"] if "review_score" in values else 0)
+    #
 
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
