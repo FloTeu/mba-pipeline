@@ -162,6 +162,23 @@ class BatchLoadRequest(BaseModel):
     def get_load_batch_counter(self):
         return self._load_batch_counter
 
+    def add_bsr_last_range_filter(self, bsr_last_range_min=0):
+        assert len(filter_simple_query_filters(self.simple_query_filters,field=FSMbaShirtsIndexField.BSR_RANGE)) == 0, "bsr_last_range filter already exists"
+        # if no bsr_last_range filter is set this function can be called to init one starting at 1
+        self.simple_query_filters.append(FSSimpleFilterQuery(field=FSMbaShirtsIndexField.BSR_RANGE, comparison_operator=FSComparisonOperator.IN, value=[bsr_last_range_min]))
+
+    def get_bsr_last_range_min_by_filter(self, bsr_last_range_filters=None) -> Optional[int]:
+        bsr_range_list_filters = bsr_last_range_filters if bsr_last_range_filters else filter_simple_query_filters(self.simple_query_filters,
+                                                             field=FSMbaShirtsIndexField.BSR_RANGE)
+        if len(bsr_range_list_filters) > 0 and len(bsr_range_list_filters[0].value) > 0:
+            return bsr_range_list_filters[0].value[0]
+
+    def get_bsr_last_range_max_by_filter(self, bsr_last_range_filters=None) -> Optional[int]:
+        bsr_range_list_filters = bsr_last_range_filters if bsr_last_range_filters else filter_simple_query_filters(self.simple_query_filters,
+                                                             field=FSMbaShirtsIndexField.BSR_RANGE)
+        if len(bsr_range_list_filters) > 0 and len(bsr_range_list_filters[0].value) > 0:
+            return bsr_range_list_filters[0].value[-1]
+
     def update_bsr_last_range_filter(self, list_size, bsr_last_range_min=None, update_bsr_min_with_bsr_last_range_max=True):
         # uses bsr_min if exists otherwise bsr_range_list_filters[0].value[-1] + 1 if update_bsr_min_with_bsr_last_range_max else bsr_range_list_filters[0].value[0]
         # call by reference change of simple_query_filters
@@ -172,13 +189,16 @@ class BatchLoadRequest(BaseModel):
         if not bsr_last_range_min:
             if update_bsr_min_with_bsr_last_range_max and len(bsr_range_list_filters) > 0 and len(
                     bsr_range_list_filters[0].value) > 0:
-                bsr_last_range_min = bsr_range_list_filters[0].value[-1] + 1
+                bsr_last_range_min = self.get_bsr_last_range_max_by_filter(bsr_range_list_filters) + 1
             elif len(bsr_range_list_filters) > 0 and len(bsr_range_list_filters[0].value) > 0:
-                bsr_last_range_min = bsr_range_list_filters[0].value[0]
+                bsr_last_range_min = self.get_bsr_last_range_min_by_filter(bsr_range_list_filters)
 
         if len(bsr_range_list_filters) > 0:
             bsr_range_list_filters[0].value = get_bsr_range_list((bsr_last_range_min, self.bsr_last_range_max), min(list_size, 10))
             self.bsr_last_range_update_counter += 1
+        else:
+            bsr_last_range_min = bsr_last_range_min if bsr_last_range_min else 0
+            self.add_bsr_last_range_filter(bsr_last_range_min=bsr_last_range_min)
 
     @staticmethod
     def is_keyword_search_static(simple_query_filters):
@@ -496,8 +516,10 @@ class FsDocumentsCacher(object):
         filter_takedown_value: Optional[bool] = self.get_value_by_filters(simple_query_filters, "takedown")
         # TODO: if doc_id_cursor self.doc_id2cache_doc.values() must be sorted by order by. otherwise doc_id_cursor cuts valid documents
         with log_time(fn_name=f"Sort fs cacher docs dict by {order_by}"):
-            ordered_cacher_docs: List[CacherDocument] = self.get_ordered_cacher_docs(order_by)
+            ordered_cacher_docs: List[CacherDocument] = self.get_ordered_cacher_docs(order_by, reverse=order_by_direction == OrderByDirection.DESC)
 
+        # make sure doc_id_cursor is only used if cache contains this document
+        doc_id_cursor = doc_id_cursor if doc_id_cursor and doc_id_cursor in self.doc_id2cache_doc else None
         tmp_id = uuid.uuid4().hex
         self._uuid2filter_true_counter[tmp_id] = 0
         self._uuid2doc_id_found[tmp_id] = False
@@ -577,7 +599,9 @@ class FsDocumentsCacher(object):
             order_by_direction: OrderByDirection = MBA_SHIRT_ORDERBY_DICT[order_by_filter.field].direction
             batch_load_request = BatchLoadRequest(batch_size=load_batch_in_cache_size, order_by=order_by_filter.field,
                                                   order_by_direction=order_by_direction, all_simple_query_filters=simple_query_filters,
-                                                  id=get_batch_request_id, doc_id_cursor=doc_id_cursor)
+                                                  id=get_batch_request_id, doc_id_cursor=doc_id_cursor,
+                                                  bsr_last_range_max=bsr_max)
+
 
             print(f"Load data with different order_by {order_by_filter.field} with direction {order_by_direction} and filter {batch_load_request.simple_query_filters}")
             # 3. change bsr_range filter
@@ -585,7 +609,7 @@ class FsDocumentsCacher(object):
                 bsr_range_filter = list(filter(lambda s_filter: s_filter.field == FSMbaShirtsIndexField.BSR_RANGE, batch_load_request.simple_query_filters))
                 if bsr_range_filter != []:
                     # call by reference change of fs_possible_query_filters
-                    if doc_id_cursor: # use bsr_min from last cursor or previous min value but maximum of 2 (make sure bsr does not jump to high value)
+                    if doc_id_cursor and doc_id_cursor in self.doc_id2cache_doc: # use bsr_min from last cursor or previous min value but maximum of 2 (make sure bsr does not jump to high value)
                         bsr_range_filter[0].value = get_bsr_range_list((bsr2bsr_range_value(self.doc_id2cache_doc[doc_id_cursor].fs_document[FSMbaShirtsIndexField.BSR]), bsr_max),2)
                     else:
                         bsr_range_filter[0].value = get_bsr_range_list((bsr_range_filter[0].value[0], bsr_max),2)
@@ -601,7 +625,7 @@ class FsDocumentsCacher(object):
     #     bsr_min = bsr_range_list_filters[0].value[0] if len(bsr_range_list_filters) > 0 else None
     #     return FSSimpleFilterQuery(field=FSMbaShirtsIndexField.BSR_RANGE, comparison_operator=FSComparisonOperator.IN, value=get_bsr_range_list((bsr_min,bsr_max),51))
 
-    def get_batch_by_cache(self, batch_size, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None,
+    def get_batch_by_cache(self, batch_size, simple_query_filters: Optional[List[FSSimpleFilterQuery]]=None, is_meta_search=False,
                            load_batch_in_cache_size=100, order_by=None, order_by_direction: OrderByDirection = OrderByDirection.ASC, doc_id_cursor: Optional[str]=None, bsr_range_list_max: Optional[int]=None, page=None) -> List[FSDocument]:
         """ Try to load data from cache filtered by simple_query_filters
 
@@ -626,6 +650,9 @@ class FsDocumentsCacher(object):
         number_docs_in_cache_start = len(self.doc_id2cache_doc.keys())
         is_search_from_bsr_last_range_start = self.get_bsr_last_range_min_by_filters(simple_query_filters) == 0 if self.get_bsr_last_range_min_by_filters(simple_query_filters) else False
 
+        # integer representation if max value is None
+        bsr_range_list_max_int = bsr_range_list_max if bsr_range_list_max else 51
+
         # bsr_last_range_all_filter = self.get_bsr_last_range_all_filter(simple_query_filters)
         # keyword search does not use order by but increments bsr_range value to sort values
         # fs_possible_query_filters = self.get_fs_possible_filters(simple_query_filters, MBA_SHIRTS_COLLECTION_INDEXES, order_by, order_by_direction, is_keyword_search=is_keyword_search)
@@ -635,12 +662,13 @@ class FsDocumentsCacher(object):
         batch_load_request = BatchLoadRequest(batch_size=load_batch_in_cache_size, order_by=order_by,
                                               order_by_direction=order_by_direction,
                                               all_simple_query_filters=simple_query_filters,
-                                              doc_id_cursor=doc_id_cursor)
+                                              doc_id_cursor=doc_id_cursor,
+                                              bsr_last_range_max=bsr_range_list_max)
 
         max_load_new_batch_nr = self._max_load_new_batch_nr if not batch_load_request.is_keyword_search() else 8
 
         if batch_load_request.is_keyword_search():
-            bsr_last_range_cursor = self.update_beginning_bsr_last_range_filter(batch_load_request, doc_id_cursor)
+            bsr_last_range_cursor = self.update_beginning_bsr_last_range_filter(batch_load_request, doc_id_cursor, update_only_if_cursor_found=True)
 
         # check if batch_load_request was already queried in FS. If page is > 1 we can assume that was_batch_load_req_already_queried_in_fs is True
         matching_batch_load_requests_filter = [cached_batch_load_request.simple_query_filters == batch_load_request.simple_query_filters for cached_batch_load_request in self._all_batch_load_requests]
@@ -657,12 +685,35 @@ class FsDocumentsCacher(object):
         filter_docs_by_order_by_key = batch_load_request.is_simple_fs_order_by_query(self._order_by_cursors)#, use_fs_simple_query_filters=False)
         # check if we already find enough cacher_docs (but only if was_batch_load_req_already_queried_in_fs is True). Otherwise try to get new data from FS
         filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(batch_load_request.local_simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key, doc_id_cursor=doc_id_cursor) if was_batch_load_req_already_queried_in_fs else []
+        # normal search tried to get 100 docs therefore 50 required meta data docs should be also loaded if they exists.
+        # Otherwise this speeds up search because no second load is required
+        meta_keyword_search_finished = len(matching_batch_load_requests) > 0 and batch_load_request.is_keyword_search() and batch_size < 100 and is_meta_search
 
-        while len(filtered_cacher_docs) < batch_size:
+        while len(filtered_cacher_docs) < batch_size and not meta_keyword_search_finished:
             # if last cursor of bsr_last_range indicates that no more data left (-1) we finish loop directly
             if batch_load_request.is_keyword_search() and bsr_last_range_cursor and bsr_last_range_cursor == -1: break
 
             batch_load_response: BatchLoadResponse = self.load_batch_in_cache(batch_load_request)
+            # if keyword search and bsr_last_range filter does not exist, we try to get all data without bsr_range filter (fast and possible for < 100 docs)
+            # if we got more than 100, we start with bsr_last_range = [1] filter and increment over loop
+            # skip for meta search to make process faster
+            if batch_load_request.is_keyword_search() and not is_meta_search:
+                bsr_last_range_filters = filter_simple_query_filters(batch_load_request.simple_query_filters,
+                                                                     field=FSMbaShirtsIndexField.BSR_RANGE)
+                filter_bsr_last_range_max = batch_load_request.get_bsr_last_range_max_by_filter(bsr_last_range_filters)
+                contains_more_data_but_has_no_bsr_last_range_filter = len(bsr_last_range_filters) == 0 and page in [
+                    None, 1] and batch_load_response.highest_bsr_last_range != -1
+                # contains more data if first batch_load request and full batch was loaded
+                contains_more_data = page in [
+                    None, 1] and batch_load_request.get_load_batch_counter() == 0 and batch_load_response.full_batch_size_loaded #batch_load_response.highest_bsr_last_range not in [-1, filter_bsr_last_range_max, bsr_range_list_max_int-1]
+                if contains_more_data_but_has_no_bsr_last_range_filter or contains_more_data: # case keyword earch but not finished
+                    bsr_last_range_min = batch_load_request.get_bsr_last_range_min_by_filter()
+                    bsr_last_range_min = bsr_last_range_min if bsr_last_range_min else 0
+                    #batch_load_request.add_bsr_last_range_filter(bsr_last_range_min=bsr_last_range_min)
+                    batch_load_request.update_bsr_last_range_filter(1, bsr_last_range_min=bsr_last_range_min,
+                                                 update_bsr_min_with_bsr_last_range_max=False)
+                    batch_load_response: BatchLoadResponse = self.load_batch_in_cache(batch_load_request)
+
             self.update_cursors(batch_load_response, batch_load_request, update_search_cursor=is_search_from_bsr_last_range_start)
 
             batch_load_request.inc_load_batch_counter()
@@ -720,11 +771,11 @@ class FsDocumentsCacher(object):
                 filtered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by], reverse=order_by_direction == OrderByDirection.DESC)
             return [cacher_doc.fs_document for cacher_doc in filtered_cacher_docs[0:batch_size]]
 
-    def update_beginning_bsr_last_range_filter(self, batch_load_request, doc_id_cursor, matching_batch_load_requests: list=None):
+    def update_beginning_bsr_last_range_filter(self, batch_load_request, doc_id_cursor, matching_batch_load_requests: list=None, update_only_if_cursor_found=True):
         # speed up meta keyword search requests, by updating bsr_last_range filter with matching_batch_load_requests
         if matching_batch_load_requests:
-            bsr_last_range_cursor = max([list(self._uuid2order_by_cursor[cached_batch_load_request.id].values())[0] if cached_batch_load_request.id in self._uuid2order_by_cursor else 0 for cached_batch_load_request in matching_batch_load_requests])
-            if bsr_last_range_cursor:
+            bsr_last_range_cursor = max([list(self._uuid2order_by_cursor[cached_batch_load_request.id].values())[0] if cached_batch_load_request.id in self._uuid2order_by_cursor else -1 for cached_batch_load_request in matching_batch_load_requests])
+            if bsr_last_range_cursor != None and bsr_last_range_cursor > -1:
                 batch_load_request.update_bsr_last_range_filter(1, bsr_last_range_cursor, update_bsr_min_with_bsr_last_range_max=True)
         else:
             # For keyword research beginning bsr_last_range cursor should start with one element and optionally where last cursor ended
@@ -732,13 +783,15 @@ class FsDocumentsCacher(object):
                 batch_load_request.order_by_key].cursor if batch_load_request.order_by_key in self._order_by_cursors else None
             # if cursor was not found we can try to get it from doc_id_cursor
             # TODO: check if this works after page=1
-            if not bsr_last_range_cursor and doc_id_cursor:
+            # TODO: KeyError: 'B07PW28FZC' fix it. Case doc_id_cursor provided
+            if not bsr_last_range_cursor and doc_id_cursor and doc_id_cursor in self.doc_id2cache_doc:
                 bsr_last_range_cursor = self.doc_id2cache_doc[doc_id_cursor].fs_document[
                     FSMbaShirtsIndexField.BSR_RANGE]
                 print(
                     f"Try to get bsr_last_range_cursor {self.doc_id2cache_doc[doc_id_cursor].fs_document[FSMbaShirtsIndexField.BSR_RANGE]}")
-            # TODO: use load_batch request method
-            batch_load_request.update_bsr_last_range_filter(1, bsr_last_range_cursor,
+            # only update if it already exists
+            if len(filter_simple_query_filters(batch_load_request.simple_query_filters,field=FSMbaShirtsIndexField.BSR_RANGE)) > 0 and (not update_only_if_cursor_found  or bsr_last_range_cursor):
+                batch_load_request.update_bsr_last_range_filter(1, bsr_last_range_cursor,
                                                             update_bsr_min_with_bsr_last_range_max=False)
 
         return bsr_last_range_cursor
