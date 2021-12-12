@@ -3,8 +3,11 @@ from google.cloud import firestore
 from mwfunctions.pydantic import OrderByDirection
 from pydantic import BaseModel, Field
 from typing import List, Optional, Union, Iterable
+from contextlib import suppress
+
 import logging
 import google
+import re
 
 from mwfunctions.time import date_to_integer
 from mwfunctions.exceptions import log_suppress
@@ -118,9 +121,13 @@ class FSComparisonOperator(str, EnumBase):
     NOT_EQUAL="!="
     ARRAY_CONTAINS="array_contains"
     ARRAY_CONTAINS_ANY="array_contains_any"
-    ARRAY_CONTAINS_ALL="array_contains_all"
     IN="in"
     NOT_IN="not_in"
+    # not possible in FS
+    ARRAY_CONTAINS_ALL="array_contains_all"
+    ARRAY_CONTAINS_NOT_ANY="array_contains_not_any"
+    TEXT_CONTAINS_NOT_ANY="text_contains_not_any"
+    TEXT_CONTAINS_NOT_ANY_BETWEEN_WORDS="text_contains_not_any_between_words"
 
 class FSSimpleFilterQuery(BaseModel):
     field: str = Field(description="FS field to filter on", example="active")
@@ -157,7 +164,7 @@ def filter_simple_query_filters(simple_query_filters: List[FSSimpleFilterQuery],
 
     return filtered_simple_query_filters
 
-def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,list,str], comparison_operator:FSComparisonOperator, compare_value: Union[bool,float,int,datetime,list,str]):
+def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,list,str], comparison_operator:FSComparisonOperator, compare_value: Union[bool,float,int,datetime,list,str], case_sensitive=False):
     """ General filter function for all types of FSComparisonOperator.
         Can be used to filter Data after FS documents are streamed. Helpfull if to many indexes would be required.
         Return bool if field_value matches compare_value by comparison_operator
@@ -168,8 +175,11 @@ def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,
     if isinstance(compare_value, datetime):
         compare_value = date_to_integer(compare_value)
     # try to transform type to float if not both are string
-    if isinstance(field_value, str) and not isinstance(compare_value, str): field_value = float(field_value)
-    if isinstance(compare_value, str) and not isinstance(field_value, str): compare_value = float(compare_value)
+    # try to transform type to float if one is number and the other one is string
+    with suppress(ValueError):
+        if isinstance(field_value, str) and (isinstance(compare_value, int) or isinstance(compare_value, float)): field_value = float(field_value)
+    with suppress(ValueError):
+        if isinstance(compare_value, str) and (isinstance(field_value, int) or isinstance(field_value, float)): compare_value = float(compare_value)
 
     if comparison_operator == FSComparisonOperator.GREATER_THAN:
         return field_value > compare_value
@@ -186,10 +196,11 @@ def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,
     elif comparison_operator == FSComparisonOperator.ARRAY_CONTAINS:
         assert isinstance(field_value, list), f"field_value {field_value} must be of type list but is {type(field_value)}"
         return compare_value in field_value
-    elif comparison_operator == FSComparisonOperator.ARRAY_CONTAINS_ANY:
+    elif comparison_operator in [FSComparisonOperator.ARRAY_CONTAINS_ANY, FSComparisonOperator.ARRAY_CONTAINS_NOT_ANY]:
         assert isinstance(field_value, list), f"field_value {field_value} must be of type list but is {type(field_value)}"
         assert isinstance(compare_value, list), f"compare_value {compare_value} must be of type list but is {type(compare_value)}"
-        return any(compare_value_i in field_value for compare_value_i in compare_value)
+        contains_any = any(compare_value_i in field_value for compare_value_i in compare_value)
+        return contains_any if comparison_operator == FSComparisonOperator.ARRAY_CONTAINS_ANY else not contains_any
     elif comparison_operator == FSComparisonOperator.ARRAY_CONTAINS_ALL:
         assert isinstance(field_value, list), f"field_value {field_value} must be of type list but is {type(field_value)}"
         assert isinstance(compare_value, list), f"compare_value {compare_value} must be of type list but is {type(compare_value)}"
@@ -200,6 +211,11 @@ def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,
     elif comparison_operator == FSComparisonOperator.NOT_IN:
         assert isinstance(compare_value, list), f"compare_value {compare_value} must be of type list but is {type(compare_value)}"
         return field_value not in compare_value
+    elif comparison_operator in [FSComparisonOperator.TEXT_CONTAINS_NOT_ANY, FSComparisonOperator.TEXT_CONTAINS_NOT_ANY_BETWEEN_WORDS]:
+        assert isinstance(field_value, str), f"field_value {field_value} must be of type str but is {type(field_value)}"
+        assert isinstance(compare_value, list), f"compare_value {compare_value} must be of type list but is {type(compare_value)}"
+        whitespace = " " if comparison_operator == FSComparisonOperator.TEXT_CONTAINS_NOT_ANY_BETWEEN_WORDS else ""
+        return not any([bool(re.search(whitespace + v + whitespace, field_value, re.IGNORECASE if not case_sensitive else 0)) for v in compare_value])
     else:
         raise NotImplementedError
 

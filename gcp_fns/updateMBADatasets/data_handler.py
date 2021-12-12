@@ -19,6 +19,7 @@ from django.conf import settings
 import logging
 from firestore_handler import Firestore
 from mwfunctions.text import TextRank4Keyword
+from mwfunctions.constants.trademarks import TRADEMARKS
 from langdetect import detect
 import difflib
 from pytz import timezone
@@ -1314,15 +1315,10 @@ class DataHandler():
         df = pd.read_gbq("SELECT DISTINCT brand FROM mba_{}.products_details group by brand".format(marketplace), project_id="mba-pipeline")
         df["trademark"] = True
         df_listings = pd.read_gbq("SELECT product_features, brand FROM mba_{}.products_details".format(marketplace), project_id="mba-pipeline")
-        trademarks = ["Visit the", "disney", "star wars", "marvel", "warner bros", "dc comics", "besuchen sie den", "cartoon network", "fx networks", "jurassic world",
-        "wizarding world", "naruto", "peanuts", "looney tunes", "jurassic park", "20th century fox tv", "transformers", "grumpy cat", "nickelodeon",
-        "harry potter", "my little pony", "pixar", "stranger things", "netflix", "the walking dead", "wwe", "world of tanks", "motorhead", "iron maiden"
-        , "bob marley", "rise against", "roblox", "tom & jerry", "outlander", "care bears", "gypsy queen", "werner", "the simpsons", "Breaking Bad", "Slayer Official",
-        "Power Rangers", "Guns N Roses", "Black Sabbath", "Justin Bieber", "Kung Fu Panda", "BTS", "Britney Spears", "Winx", "Dungeons & Dragons", "super.natural"
-        "Terraria", "Teletubbies", "Slipknot", "Woodstock", "Shaun das schaf", "Adult Swim", "Despicable Me", "Shrek", "The Thread Shop", "Licensed"]
+
         #df_trademarks = df[df["brand"].str.contains("|".join(trademarks),regex=True, case=False)]
         df_trademarks = pd.DataFrame(columns=['brand', 'trademark'])
-        for trademark in trademarks:
+        for trademark in TRADEMARKS:
             df_trademarks_row = df[df["brand"].str.contains(trademark, regex=True, case=False)]
             df_listings_trademarked_brands_row = df_listings[df_listings["product_features"].str.contains(" " + trademark + " ", case=False)][["brand"]]
             for i, df_listings_trademarked_brands_row_i in df_listings_trademarked_brands_row.iterrows():
@@ -1343,7 +1339,7 @@ class DataHandler():
         
         # FIRESTORE
         firestore_trademark = Firestore(f"{marketplace}_trademarks")
-        for trademark in trademarks:
+        for trademark in TRADEMARKS:
             df_firestore = df_trademarks[df_trademarks["trademark"]==trademark]
             brands = df_firestore["brand"].tolist()
             firestore_dict = {"brands": brands, "trademark": trademark}
