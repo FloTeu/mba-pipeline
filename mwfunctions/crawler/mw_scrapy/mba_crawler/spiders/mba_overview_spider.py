@@ -276,16 +276,20 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # if self.debug:
                     #     mba_image_items.image_items = mba_image_items.image_items[0:2]
                     if self.marketplace in ["com", "de"] and len(mba_image_items.image_items) > 0:
-                        r = None
-                        with suppress(requests.exceptions.ReadTimeout):
-                            #store_uri: str = Field(description="gs_url for image location")
-                            img_pip_request = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{page}",
-                                                                    mba_product_type=self.pod_product, mba_image_items=mba_image_items, fs_crawling_log_parent_doc_path=f"{self.fs_log_col_path}/{self.crawling_job.id}")
-                            cf_request = CrawlingMBACloudFunctionRequest(crawling_type=CrawlingType.IMAGE, crawling_mba_request=img_pip_request)
-                            r = requests.post(self.image_pipeline_endpoint_url, data=cf_request.json(),
-                                              headers=get_headers_by_service_url(self.image_pipeline_endpoint_url), timeout=0.1)
-                        if r:
-                            assert r.status_code == 200, f"Status code should be 200 but is '{r.status_code}', error: {r.text}"
+                        # either crawl images directly in this instance or use loud functions
+                        if self.mba_crawling_request.use_image_crawling_pipeline:
+                            yield mba_image_items
+                        else:
+                            r = None
+                            with suppress(requests.exceptions.ReadTimeout):
+                                #store_uri: str = Field(description="gs_url for image location")
+                                img_pip_request = CrawlingMBAImageRequest(marketplace=self.marketplace, crawling_job_id=f"{self.crawling_job.id}_{page}",
+                                                                        mba_product_type=self.pod_product, mba_image_items=mba_image_items, fs_crawling_log_parent_doc_path=f"{self.fs_log_col_path}/{self.crawling_job.id}")
+                                cf_request = CrawlingMBACloudFunctionRequest(crawling_type=CrawlingType.IMAGE, crawling_mba_request=img_pip_request)
+                                r = requests.post(self.image_pipeline_endpoint_url, data=cf_request.json(),
+                                                  headers=get_headers_by_service_url(self.image_pipeline_endpoint_url), timeout=0.1)
+                            if r:
+                                assert r.status_code == 200, f"Status code should be 200 but is '{r.status_code}', error: {r.text}"
 
                         #yield {"pydantic_class": mba_image_items}
 

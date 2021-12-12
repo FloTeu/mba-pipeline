@@ -147,6 +147,7 @@ class CrawlingMBARequest(MWBaseModel):
     parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path")
     fs_crawling_log_parent_doc_path: Optional[Union[None, str]] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path", example=None)
     settings: Optional[ScrapySettings] = Field({}, description="Scrapy Settings which will be set in beginning of crawling")
+    use_image_crawling_pipeline: bool = False
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex
@@ -168,6 +169,7 @@ class CrawlingMBAOverviewRequest(CrawlingMBARequest):
 class CrawlingMBAImageRequest(CrawlingMBARequest):
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     mba_image_items: MBAImageItems = Field(description="Contains data which should be crawled")
+    use_image_crawling_pipeline: bool = True
     #crawling_mba_request: CrawlingMBAOverviewRequest
 
 class CrawlingMBADailyProportions(MWBaseModel):

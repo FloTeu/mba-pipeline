@@ -76,7 +76,7 @@ class MBASpider(scrapy.Spider):
                 self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.PROD]
 
 
-        if self.website_crawling_target == CrawlingType.IMAGE.value:
+        if mba_crawling_request.use_image_crawling_pipeline:
             self.custom_settings.update({
                 'ITEM_PIPELINES': {
                     'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
