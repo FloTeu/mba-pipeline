@@ -278,7 +278,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     if self.marketplace in ["com", "de"] and len(mba_image_items.image_items) > 0:
                         # either crawl images directly in this instance or use loud functions
                         if self.mba_crawling_request.use_image_crawling_pipeline:
-                            yield mba_image_items
+                            yield {"pydantic_class": mba_image_items}
                         else:
                             r = None
                             with suppress(requests.exceptions.ReadTimeout):
