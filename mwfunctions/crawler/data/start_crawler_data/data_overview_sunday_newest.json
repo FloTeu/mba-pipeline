@@ -7,7 +7,7 @@
         "keyword": "",
         "start_page": 1,
         "pages": 0,
-        "use_image_crawling_pipeline": true
+        "use_image_crawling_pipeline": false
       },
       {
         "marketplace": "com",
@@ -16,7 +16,7 @@
         "keyword": "",
         "start_page": 100,
         "pages": 200,
-        "use_image_crawling_pipeline": true
+        "use_image_crawling_pipeline": false
       }
     ],
     "split_after_n": 10

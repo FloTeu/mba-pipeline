@@ -7,7 +7,7 @@
         "keyword": "",
         "start_page": 1,
         "pages": 10,
-        "use_image_crawling_pipeline": true
+        "use_image_crawling_pipeline": false
       }
     ],
     "split_after_n": 10
