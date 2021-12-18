@@ -22,8 +22,8 @@ class FSMBACrawlingProductLogsSubcollectionDoc(FSDocument):
         self.create_timestamp = datetime.now()
 
 class FSMBACrawlingProductLogsSubcollection(FSSubcollection):
-    subcollection_col_name: CrawlingType
-    subcollection_doc_dict: Optional[Dict[str, FSMBACrawlingProductLogsSubcollectionDoc]] = Field({}, description="All documents contained in subcollection. key of dict is doc_id of FSDocument")
+    col_name: CrawlingType
+    doc_dict: Optional[Dict[str, FSMBACrawlingProductLogsSubcollectionDoc]] = Field({}, description="All documents contained in subcollection. key of dict is doc_id of FSDocument")
 
 class FSMBACrawlingProductLogs(FSDocument):
     _fs_subcollections: Dict[str, Union[FSMBACrawlingProductLogsSubcollection]] = PrivateAttr({})

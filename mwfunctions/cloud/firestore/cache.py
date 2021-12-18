@@ -3,11 +3,13 @@ import uuid
 from datetime import datetime
 from typing import Optional, Union, List, Dict
 
-from mwfunctions.cloud.firestore import FSSimpleFilterQuery, filter_simple_query_filters_by_fs_indexes, \
-    FSComparisonOperator, filter_simple_query_filters, create_client, get_docs_batch, filter_by_fs_comparison_operator
+from mwfunctions.cloud.firestore import create_client, get_docs_batch
+from mwfunctions.cloud.firestore.commons import filter_simple_query_filters, filter_by_fs_comparison_operator, \
+    filter_simple_query_filters_by_fs_indexes, FSComparisonOperator, FSSimpleFilterQuery, OrderByDirection
 from mwfunctions.profiling import log_time
-from mwfunctions.pydantic import OrderByDirection, FSDocument, get_bsr_range_list, FSMBAShirt, MBA_SHIRT_ORDERBY_DICT, \
-    MBAShirtOrderByField, bsr2bsr_range_value
+from mwfunctions.pydantic import FSDocument
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, MBAShirtOrderByField, MBA_SHIRT_ORDERBY_DICT, \
+    bsr2bsr_range_value, get_bsr_range_list
 from mwfunctions.pydantic.firestore.indexes import FSMbaShirtsIndexField, FSIndex, MBA_SHIRTS_COLLECTION_INDEXES
 from pydantic import BaseModel, Field, validator, ValidationError
 from itertools import compress

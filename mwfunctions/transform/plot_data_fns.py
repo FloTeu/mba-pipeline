@@ -4,7 +4,9 @@ import time
 import random
 from datetime import date, datetime
 
-from mwfunctions.pydantic import FSWatchItemSubCollectionDict, BQPlotDataRaw
+from mwfunctions.pydantic import BQPlotDataRaw
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSWatchItemSubCollectionDict
+
 max_number_of_plot_points = 20
 
 
