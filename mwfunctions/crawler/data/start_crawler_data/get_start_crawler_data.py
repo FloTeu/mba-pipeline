@@ -21,5 +21,10 @@ def get_crawling_request_data(crawling_type: CrawlingJsonType):
         data = json.load(json_file)
     return data
 
+def set_crawling_request_data(crawling_type: CrawlingJsonType, data_dict):
+    assert crawling_type in CrawlingJsonType.to_list(), f"crawl_type must be one of '{CrawlingJsonType.to_list()}'"
+    dir_path = pathlib.Path(__file__).parent.resolve()
+    with open(f'{dir_path}/data_{crawling_type}.json', 'w') as fp:
+        json.dump(data_dict, fp)
 
 

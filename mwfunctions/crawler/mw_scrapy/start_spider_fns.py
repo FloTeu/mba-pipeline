@@ -109,14 +109,17 @@ class Scraper:
         if result is not None:
             raise result
 
-    def run_spider_multi_requesta(self, crawling_mba_requests: List[CrawlingMBARequest]):
+    def run_spider_multi_requests(self, crawling_mba_requests: List[CrawlingMBARequest], url_data_path=None):
         process = CrawlerProcess(get_project_settings())
         for crawling_mba_request in crawling_mba_requests:
             # change settings
             settings_dict = crawling_mba_request.settings if isinstance(crawling_mba_request.settings, dict) else crawling_mba_request.settings.dict()
             for setting_name, setting_value in settings_dict.items():
                 process.settings.set(setting_name, setting_value, priority='cmdline')
-            process.crawl(self.spider, crawling_mba_request)
+            if url_data_path:
+                process.crawl(self.spider, crawling_mba_request, url_data_path=url_data_path)
+            else:
+                process.crawl(self.spider, crawling_mba_request)
         process.start(stop_after_crawl=True)  # the script will block here until the crawling is finished
         process.stop()
 

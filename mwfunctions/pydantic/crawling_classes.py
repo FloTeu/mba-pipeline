@@ -197,7 +197,7 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
     request_input_to_log_list = Field(["number_products"], description="List of request input pydantic field, which should be logged")
-
+    url_data_path: Optional[str] = Field(None, description="Path to csv file. must contains to columns 'asin' and 'url'. If set this urls will be crawled.")
 
 class CrawlingMBACloudFunctionRequest(MWBaseModel):
     # cloud function can take this object and start a crawler scaling to the moon
