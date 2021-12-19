@@ -11,10 +11,12 @@ from mwfunctions import environment
 def has_cloud_log_write_permission():
     """Tests IAM permissions of the caller"""
 
-    credentials = service_account.Credentials.from_service_account_file(
-        filename=environment.get_gcp_credentials(),
-        scopes=["https://www.googleapis.com/auth/cloud-platform"],
-    )
+    credentials = environment.get_gcp_credentials()
+    if type(credentials) == str:
+        credentials = service_account.Credentials.from_service_account_file(
+            filename=credentials,
+            scopes=["https://www.googleapis.com/auth/cloud-platform"],
+        )
     service = discovery.build(
         "cloudresourcemanager", "v1", credentials=credentials
     )
