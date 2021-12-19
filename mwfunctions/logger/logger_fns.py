@@ -59,8 +59,7 @@ def get_logger(name, log_level=logging.INFO, do_cloud_logging=False, labels_dict
     with suppress(KeyError):
         do_cloud_logging = environment.cloud_logging()
 
-    has_log_write_permission = has_cloud_log_write_permission()
-    if do_cloud_logging and has_log_write_permission:
+    if do_cloud_logging and has_cloud_log_write_permission():
         return get_googled_logger(name, excluded_loggers=excluded_loggers, log_level=log_level, labels_dict=labels_dict)
     else:
         logger = logging.getLogger(name)
