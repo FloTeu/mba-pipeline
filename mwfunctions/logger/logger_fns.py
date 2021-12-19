@@ -19,7 +19,7 @@ def has_cloud_log_write_permission():
         )
     service = discovery.build(
         "cloudresourcemanager", "v1", credentials=credentials
-    )
+        , cache_discovery=False)
 
     permissions = {
         "permissions": [
