@@ -1,7 +1,36 @@
 import logging
 import tqdm
+import asyncio
+import google
+
+from googleapiclient import discovery
+from google.oauth2 import service_account
 
 from mwfunctions import environment
+
+def has_cloud_log_write_permission():
+    """Tests IAM permissions of the caller"""
+
+    credentials = service_account.Credentials.from_service_account_file(
+        filename=environment.get_gcp_credentials(),
+        scopes=["https://www.googleapis.com/auth/cloud-platform"],
+    )
+    service = discovery.build(
+        "cloudresourcemanager", "v1", credentials=credentials
+    )
+
+    permissions = {
+        "permissions": [
+            "logging.logEntries.create"
+        ]
+    }
+
+    request = service.projects().testIamPermissions(
+        resource=environment.get_gcp_project(), body=permissions
+    )
+    returnedPermissions = request.execute()
+    return type(returnedPermissions) == dict and "permissions" in returnedPermissions and ["logging.logEntries.create"] == returnedPermissions["permissions"]
+
 
 def get_logger(name, log_level=logging.INFO, do_cloud_logging=False, labels_dict=None, excluded_loggers=('tensorflow',)):
     """
@@ -28,7 +57,8 @@ def get_logger(name, log_level=logging.INFO, do_cloud_logging=False, labels_dict
     with suppress(KeyError):
         do_cloud_logging = environment.cloud_logging()
 
-    if do_cloud_logging:
+    has_log_write_permission = has_cloud_log_write_permission()
+    if do_cloud_logging and has_log_write_permission:
         return get_googled_logger(name, excluded_loggers=excluded_loggers, log_level=log_level, labels_dict=labels_dict)
     else:
         logger = logging.getLogger(name)
