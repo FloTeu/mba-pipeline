@@ -1,32 +1,26 @@
 {
-    "crawler_start_request_list": [
-      {
-        "marketplace": "de",
-        "daily": false,
-        "number_products": 200,
-        "proportions": {
-            "best_seller": 0.7,
-            "lowest_bsr_count": 0.2,
-            "random": 0.1
-        },
-        "settings": {
-          "CLOSESPIDER_TIMEOUT": 900
-        }
+  "crawler_start_request_list": [
+    {
+      "marketplace": "de",
+      "settings": {
+        "CLOSESPIDER_TIMEOUT": 900
       },
-      {
-        "marketplace": "com",
-        "daily": false,
-        "number_products": 200,
-        "proportions": {
-            "best_seller": 0.7,
-            "lowest_bsr_count": 0.2,
-            "random": 0.1
-        },
-        "settings": {
-          "CLOSESPIDER_TIMEOUT": 900
-        }
-      }
-    ],
-    "split_after_n": 0,
-    "wait_n_minutes": 0
+      "daily": false,
+      "number_products": 200,
+      "proportions": {},
+      "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_functions/crawler/data/products_to_crawl/general_de.csv"
+    },
+    {
+      "marketplace": "com",
+      "settings": {
+        "CLOSESPIDER_TIMEOUT": 900
+      },
+      "daily": false,
+      "number_products": 200,
+      "proportions": {},
+      "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_functions/crawler/data/products_to_crawl/general_com.csv"
+    }
+  ],
+  "split_after_n": 0,
+  "wait_n_minutes": 0
 }
