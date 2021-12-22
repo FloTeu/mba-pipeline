@@ -187,6 +187,15 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     with suppress(Exception):
         exclude_asins = exclude_asins + pd.read_gbq(get_sql_products_no_mba_shirt(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)["asin"].to_list()
 
+    # get 40 top 10 best_seller + trend + bsr_change + bsr_last
+    try:
+        df_ranking = pd.read_gbq(get_sql_top_categories(mba_product_request.marketplace, top_n=mba_product_request.top_n), project_id=bq_project_id, progress_bar_type=progress_bar_type)
+    except:
+        df_ranking = df_random.iloc[0:2]
+    df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
+
+    exclude_asins = exclude_asins + df_ranking["asin"].to_list()
+
     # get 70% random best seller
     number_best_sellers = int(int(mba_product_request.number_products) * mba_product_request.proportions.best_seller)
     with suppress(Exception):
@@ -226,13 +235,6 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     # update exclude_asins
     exclude_asins = exclude_asins + df_random["asin"].to_list()
 
-    # get 40 top 10 best_seller + trend + bsr_change + bsr_last
-    try:
-        df_ranking = pd.read_gbq(get_sql_top_categories(mba_product_request.marketplace, top_n=mba_product_request.top_n), project_id=bq_project_id, progress_bar_type=progress_bar_type)
-    except:
-        df_ranking = df_random.iloc[0:2]
-    df_ranking = df_ranking[~df_ranking['asin'].isin(exclude_asins)]
-
     # get watchlist data
     try:
         df_watchlist = pd.read_gbq(get_sql_watchlist(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
@@ -241,13 +243,15 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     except:
         df_watchlist = df_random.iloc[0:2]
     df_watchlist = df_watchlist[~df_watchlist['asin'].isin(exclude_asins)]
-    # allow only a maximum of 50 watchlist asins per crawling
-    df_watchlist = df_watchlist.iloc[0:50]
+    # allow all watchlist asins but maximum 10% of total number products to crawl
+    df_watchlist = df_watchlist.iloc[0:int(mba_product_request.number_products * 0.1)]
 
-    pd_list = [df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_ranking[["asin"]], df_watchlist[["asin"]]]
-    df_total = pd.concat(pd_list).drop_duplicates(["asin"])
-    # return shuffled
-    return df_total.sample(len(df_total))["asin"].tolist()
+    df_prio = pd.concat([df_ranking[["asin"]]])
+    # shuffle only all but not those from df_ranking to keep start pages up to date
+    df_shuffle = pd.concat([df_best_seller[["asin"]], df_lowest_bsr_count[["asin"]], df_random[["asin"]], df_watchlist[["asin"]]])
+    df_shuffle = df_shuffle.sample(len(df_shuffle))
+    df_total = pd.concat([df_prio, df_shuffle]).drop_duplicates(["asin"])
+    return df_total["asin"].tolist()
 
 
 def get_asin_product_detail_daily_crawled(marketplace):
