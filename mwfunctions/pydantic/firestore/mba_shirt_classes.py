@@ -1,9 +1,10 @@
 import copy
-from datetime import datetime, date
+import collections
+from datetime import datetime, date, timedelta
 from typing import Dict, Union, Optional, List, Any
 
-from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase
-from mwfunctions.cloud.firestore import OrderByDirection
+from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace
+from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot
 from pydantic import Field, validator, PrivateAttr, BaseModel
 
 
@@ -47,12 +48,24 @@ class FSWatchItemSubCollectionPlotData(FSSubcollection):
                     }
             }
     """
-    col_name: str = "plot_data"
+    _table = 'test_to_delete'
     doc_dict: Optional[Dict[str, FSWatchItemSubCollectionPlotDataYear]] = Field({})# str/key is year
 
     @classmethod
     def get_subcollection_col_name(cls):
         return "plot_data"
+
+    def get_all_bsr_data(self):
+        all_bsr_data = {}
+        for year, plot_data in self.doc_dict.items():
+            all_bsr_data.update(plot_data.bsr)
+        return all_bsr_data
+
+    def get_all_price_data(self):
+        all_price_data = {}
+        for year, plot_data in self.doc_dict.items():
+            all_price_data.update(plot_data.prices)
+        return all_price_data
 
 class FSWatchItemShortenedPlotData(MWBaseModel):
     """ Example:
@@ -68,6 +81,7 @@ class FSWatchItemShortenedPlotData(MWBaseModel):
     bsr_short: Optional[Dict[str, int]] = Field(None, description="Dict with date as key and bsr as value. First value is most in past last closest to present") # str is date_str
     prices_short: Optional[Dict[str, float]] = Field(None, description="Dict with date as key and price in float as value. First value is most in past last closest to present") # str is date_str
 
+    # deprcated, but used in frontend
     # init deprecated values later, because they can than be initilaised by bsr_short and prices_short
     plot_x: Optional[Union[str, List[str]]] = Field(None, description="Deprecated. List of x axis data, which are dates in '%d/%m/%Y' format")
     plot_y: Optional[Union[str, List[int]]] = Field(None, description="Deprecated. List of y axis data, which is a list of bsr")
@@ -129,35 +143,66 @@ class FSWatchItemShortenedPlotData(MWBaseModel):
         self.set_bsr_short()
         self.set_prices_short()
 
+
 class FSBSRData(MWBaseModel):
-    bsr_last: int
-    bsr_first: int
-    bsr_max: int
-    bsr_min: int
-    bsr_mean: int
-    bsr_category: str
-    bsr_last_change: int
+    bsr_last: int = Field(description="Last bsr known. If not exists value is set to self.get_bsr_to_high_to_filter_value(). Takedown shirts should keep their last bsr")
+    bsr_first: Optional[int] = None
+    bsr_max: Optional[int] = None
+    bsr_min: Optional[int] = None
+    #bsr_mean: int
+    bsr_category: str = Field(description="Matching top category by amazon to bsr data")
+    # bsr_last_change: int
     bsr_change: Union[int, float] = Field(description="Bsr change of last month. Is used for merchwatch watch page sorting by strongest change.")
-    bsr_change_total: Optional[Union[int, float]] = None
+    # bsr_change_total: Optional[Union[int, float]] = None
     bsr_last_range: int = Field(description="Small Integer representation of bsr_last. 0 means bsr_last is between 0-100.000. Every increments is a 100000 range. 99 if higher than 5.000.000")
     bsr_count: int
+
+    def get_bsr_to_high_to_filter_value(self):
+        return 999999999
+
+    def inc_bsr_count(self):
+        self.bsr_count += 1
+        return self
 
     @validator("bsr_last_range", always=True)
     def set_bsr_last_range(cls, bsr_last_range, values):
         # 99 stands for higher than max filterable value, i.e. 50.000.000
         return bsr_last_range if bsr_last_range else int(values["bsr_last"] / 100000) if values["bsr_last"] < 5000000 else 99
 
+    @validator("bsr_first", always=True)
+    def set_bsr_first(cls, bsr_first, values):
+        return bsr_first if bsr_first else values["bsr_last"]
+
+    @validator("bsr_max", always=True)
+    def set_bsr_max(cls, bsr_max, values):
+        return bsr_max if bsr_max and bsr_max > values["bsr_last"] else values["bsr_last"]
+
+    @validator("bsr_min", always=True)
+    def set_bsr_min(cls, bsr_min, values):
+        return bsr_min if bsr_min and bsr_min < values["bsr_last"] else values["bsr_last"]
 
 class FSPriceData(MWBaseModel):
     price_last: float
-    price_max: float
-    price_min: float
-    price_first: float
+    price_max: Optional[float] = Field(description="Highest price ever found. Equals to price_last if not set already")
+    price_min: Optional[float] = Field(description="Lowest price ever found. Equals to price_last if not set already")
+    price_first: Optional[float] = Field(description="Equals to price_last if not set already")
     price_change: float
-    price_mean: float
-
-    price_last_ranges_array: List[int]
     price_last_range: int
+
+    #price_mean: float
+    #price_last_ranges_array: List[int] = Field(description="Was before used for FS filtering. List of price range indication e.g. 1321 means price is between 13 and 21.")
+
+    @validator("price_first", always=True)
+    def set_price_first(cls, price_first, values):
+        return price_first if price_first else values["price_last"]
+
+    @validator("price_max", always=True)
+    def set_price_max(cls, price_max, values):
+        return price_max if price_max and price_max > values["price_last"] and int(values["price_last"]) != 404 else values["price_last"]
+
+    @validator("price_min", always=True)
+    def set_price_min(cls, price_min, values):
+        return price_min if price_min and price_min < values["price_last"] else values["price_last"]
 
 class FSImageData(MWBaseModel):
     # TODO: make image urls only required if takedown == False
@@ -169,7 +214,7 @@ class FSImageData(MWBaseModel):
     url: Optional[str] = Field(None, description="Http url to private stored image")
 
 class FSKeywordData(MWBaseModel):
-    keywords_stem: Dict[str, bool]
+    keywords_stem: Dict[str, bool] = Field(description="Important for search alogrithm. Must be set. Keys are keywords stemmed with SnowballStemmer")
 
     # TODO: replace keywords_meaningful with splitted keyword list. Can be concatinated dynamically afterwards
     keywords_brand: Optional[List[str]] = Field(None, description="Optional due to backwards comp. Should be required in future")
@@ -198,20 +243,21 @@ class FSKeywordData(MWBaseModel):
 
 class FSUploadData(MWBaseModel):
     upload_date: Union[datetime, date]
-    upload_since_days: Optional[int] = None
-    upload_since_days_map: Optional[Dict[str, bool]] = None
-    time_since_upload: Optional[float] = None
+    # Try to remove everything that is not mandatory to safe in FS
+    #upload_since_days: Optional[int] = None
+    #upload_since_days_map: Optional[Dict[str, bool]] = None
+    #time_since_upload: Optional[float] = None
 
 class FSTrendData(MWBaseModel):
-    trend_nr: int
-    trend: float
-    trend_change: int
+    trend_nr: int = Field(description="trend_nr is to top n ranking index if documents would be sorted by trend")
+    trend: float = Field(description="Float trend value calculated by trend formular. Take upload date and bsr into account")
+    trend_change: int = Field(description="trend_nr new - trend_nr old. Negativ/low values are better since ranking is better than before.")
 
 class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData):
     ''' Child of FSDocument must contain all field values of document to create this document.
     '''
     _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionPlotData]] = PrivateAttr({})
-    # marketplace: Optional[Marketplace] = Field(None, description="Currently not existent in FS, but if known it can be provided to directly set fs_col_path")
+    marketplace: Optional[Marketplace] = Field(None, description="Currently not existent in FS, but if known it can be provided to directly set fs_col_path")
     asin: str
 
     title: str
@@ -234,15 +280,68 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
     img_affiliate: Optional[str] = None
     affiliate_exists: Optional[bool] = None
 
+    @staticmethod
+    def get_change_total(current, previous):
+        current = float(current)
+        previous = float(previous)
+        try:
+            return current - previous
+        except ZeroDivisionError:
+            return 0
 
-    def set_bsr_change(self):
+    def get_date_str2data_dict(self, data_type) -> Dict[str,Union[float, int]]:
+        plot_data_col_name = FSWatchItemSubCollectionPlotData.get_subcollection_col_name()
+        if data_type == "bsr":
+            # get data from subcollection
+            if plot_data_col_name in self._fs_subcollections:
+                return self._fs_subcollections[plot_data_col_name].get_all_bsr_data()
+            # get data from shortened data
+            else:
+                return self.bsr_short
+        elif data_type == "price":
+            if plot_data_col_name in self._fs_subcollections:
+                return self._fs_subcollections[plot_data_col_name].get_all_price_data()
+            # get data from shortened data
+            else:
+                return self.prices_short
+        else:
+            raise NotImplementedError
+
+    def calculate_data_change(self, data_type, days=30):
         """ If subcollections exists take all bsr data to update bsr_change, otherwise take shortened bsr_short plot data
         """
-        plot_data_col_name = FSWatchItemSubCollectionPlotData.get_subcollection_col_name()
-        if plot_data_col_name in self._fs_subcollections:
-            for year, plot_data in self._fs_subcollections[plot_data_col_name].doc_dict.items():
-                pass
+        assert data_type in ["bsr", "price"]
 
+        data_dict = self.get_date_str2data_dict(data_type)
+        data_last = self.bsr_last if data_type == "bsr" else self.price_last
+        # if no bsr data exists change is expected to be zero
+        if not data_dict:
+            return 0
+
+        # get datetime object n_days before last bsr date
+        last_bsr_date_str = list(collections.OrderedDict(sorted(data_dict.items(), reverse=True)).keys())[0]
+        date_n_days_ago = datetime.strptime(str(last_bsr_date_str), '%Y-%m-%d') - timedelta(days=days)
+
+        # key is distance (int) value is date_str (if distance higher than 0 [which means at least n days ago not less])
+        distance_to_date_n_days_ago_dict = {(date_n_days_ago - datetime.strptime(str(date_str), '%Y-%m-%d')).days: date_str for date_str, bsr in data_dict.items() if (date_n_days_ago - datetime.strptime(str(date_str), '%Y-%m-%d')).days >= 0}
+        if not distance_to_date_n_days_ago_dict:
+            # if no value exists with more days than provided days param take closest value, i.e. last of sorted values with distance < 0
+            distance_to_date_n_days_ago_dict = {
+                (date_n_days_ago - datetime.strptime(str(date_str), '%Y-%m-%d')).days: date_str for date_str, bsr in
+                data_dict.items() if (date_n_days_ago - datetime.strptime(str(date_str), '%Y-%m-%d')).days < 0}
+            return int(self.get_change_total(data_last, data_dict[list(collections.OrderedDict(sorted(distance_to_date_n_days_ago_dict.items(), reverse=False)).values())[-1]]))
+
+        # sort dict by value (distance) and get first element value (date_str with shortest distance to date_n_days_ago
+        data_n_days_ago = data_dict[list(collections.OrderedDict(sorted(distance_to_date_n_days_ago_dict.items(), reverse=False)).values())[0]]
+        return int(self.get_change_total(data_last, data_n_days_ago if data_n_days_ago else data_last))
+
+    def update_bsr_change(self):
+        self.bsr_change = self.calculate_data_change("bsr", days=30)
+        return self
+
+    def update_price_change(self):
+        self.price_change = self.calculate_data_change("price", days=30)
+        return self
 
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
@@ -271,10 +370,28 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         api_output_dict.update(plot_data)
         return api_output_dict
 
-    # def __init__(self, **data: Any) -> None:
-    #     super().__init__(**data)
-    #     if self.marketplace:
-    #         self.set_fs_col_path( f"{self.marketplace}_shirts")
+    def extract_marketplace_by_fs_col_path(self) -> Optional[Marketplace]:
+        for marketplace in Marketplace.to_list():
+            if marketplace in self._fs_col_path:
+                return Marketplace(marketplace)
+        return None
+
+    def set_marketplace(self):
+        self.marketplace = self.marketplace if self.marketplace else self.extract_marketplace_by_fs_col_path()
+
+    def set_fields_of_not_comparable_mba_shirt(self):
+        self.bsr_last = self.get_bsr_to_high_to_filter_value()
+        # TODO: prevent bsr_short and bsr value in history/subcollection to be set
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self.set_marketplace()
+        # if bsr_category is not comparable with other mba shirts, set bsr_last to 999999999
+        if self.bsr_category not in get_bsr_top_category_names_list(self.marketplace):
+            print(f"Warning: Shirt with asin {self.asin} does not contain a comparable bsr category, but {self.bsr_category} for marketplace {self.marketplace}")
+            self.set_fields_of_not_comparable_mba_shirt()
+
+
 
 
 class MBAShirtOrderByField(str, EnumBase):
@@ -329,7 +446,22 @@ def get_bsr_range_list(bsr_last_range: tuple, bsr_range_to_query):
         return []
 
 
+def get_default_category_name(marketplace):
+    if marketplace == "de":
+        return "Fashion"
+    else:
+        return "Clothing, Shoes & Jewelry"
 
+
+def get_bsr_top_category_names_list(marketplace):
+    if marketplace == "de":
+        return ["Fashion", "Bekleidung"]
+    else:
+        return ["Clothing, Shoes & Jewelry"]
+
+t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B085FMFWZX"), read_subcollections=[FSWatchItemSubCollectionPlotData])
+t.set_bsr_change()
+#test = 0
 
 # deprecated
 

@@ -3,13 +3,14 @@ from google.cloud import bigquery
 from bigquery_handler import BigqueryHandler
 
 import pandas as pd
-import dask.dataframe as dd
 import numpy as np
 import time
 import argparse
 import sys
 import gc
 import re
+
+from mwfunctions.pydantic.firestore.mba_shirt_classes import get_default_category_name, get_bsr_top_category_names_list
 from sklearn import preprocessing
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool as ThreadPool 
@@ -119,18 +120,6 @@ def create_plot_data(df_asin_detail_daily):
             y_plot = y_plot + "," + str(bsr)
     return x_plot[1:], y_plot[1:]
 
-
-def get_default_category_name(marketplace):
-    if marketplace == "de":
-        return "Fashion"
-    else:
-        return "Clothing, Shoes & Jewelry"
-
-def get_bsr_top_category_names_list(marketplace):
-    if marketplace == "de":
-        return ["Fashion", "Bekleidung"]
-    else:
-        return ["Clothing, Shoes & Jewelry"]
 
 def get_bsr_category(df_row, marketplace):
     if marketplace == "de":
