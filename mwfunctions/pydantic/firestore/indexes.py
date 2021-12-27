@@ -29,7 +29,7 @@ class FSMbaShirtsIndexField(FSIndexField):
     # index fields are all order by fields plus special filter fields
     BSR="bsr_last"
     PRICE="price_last"
-    TREND="trend_nr"
+    TREND="trend"
     UPLOAD="upload_date"
     BSR_CHANGE="bsr_change"
     TAKEDOWN="takedown"
@@ -50,7 +50,7 @@ MBA_SHIRTS_COLLECTION_INDEXES: List[FSMbaShirtsIndex] = [
     #     {"index_items": [{"field": FSMbaShirtsIndexField.KEYWORD_LIST, "index_option": FSIndexOption.ARRAY},
     #                                             {"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
     #                                             {"field": FSMbaShirtsIndexField.BSR, "index_option": FSIndexOption.ASC}]}),
-    # bsr_last_range: ASC, takedown: ASC, trend_nr: ASC
+    # bsr_last_range: ASC, takedown: ASC, trend: ASC
     FSMbaShirtsIndex.parse_obj(
         {"index_items": [{"field": FSMbaShirtsIndexField.BSR_RANGE, "index_option": FSIndexOption.ASC},
                          {"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
@@ -70,7 +70,7 @@ MBA_SHIRTS_COLLECTION_INDEXES: List[FSMbaShirtsIndex] = [
             {"index_items": [{"field": FSMbaShirtsIndexField.BSR_RANGE, "index_option": FSIndexOption.ASC},
                              {"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
                              {"field": FSMbaShirtsIndexField.PRICE, "index_option": FSIndexOption.ASC}]}),
-    # takedown: ASC, trend_nr: ASC
+    # takedown: ASC, trend: ASC
     FSMbaShirtsIndex.parse_obj(
         {"index_items": [{"field": FSMbaShirtsIndexField.TAKEDOWN, "index_option": FSIndexOption.ASC},
                          {"field": FSMbaShirtsIndexField.TREND, "index_option": FSIndexOption.ASC}]}),

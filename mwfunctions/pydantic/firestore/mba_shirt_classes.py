@@ -4,6 +4,7 @@ from datetime import datetime, date, timedelta
 from typing import Dict, Union, Optional, List, Any
 
 from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace
+from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
 from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot
 from pydantic import Field, validator, PrivateAttr, BaseModel
 
@@ -248,6 +249,10 @@ class FSUploadData(MWBaseModel):
     #upload_since_days_map: Optional[Dict[str, bool]] = None
     #time_since_upload: Optional[float] = None
 
+    def get_days_since_upload(self):
+        upload_date_dt = self.upload_date.replace(tzinfo=None) if type(self.upload_date) == datetime else datetime.combine(self.upload_date, datetime.min.time()).replace(tzinfo=None)
+        return (datetime.now() - upload_date_dt).days
+
 class FSTrendData(MWBaseModel):
     trend_nr: int = Field(description="trend_nr is to top n ranking index if documents would be sorted by trend")
     trend: float = Field(description="Float trend value calculated by trend formular. Take upload date and bsr into account")
@@ -343,6 +348,18 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         self.price_change = self.calculate_data_change("price", days=30)
         return self
 
+    def calculate_trend(self, month_decreasing_trend=6):
+        """ Trend score is low (better) if days since uplaod are low and bsr_last
+            if upload is longer in past than month_decreasing_trend, trend score should be higher
+        """
+        return get_trend_multiplicator(self.get_days_since_upload()) * self.bsr_last
+
+    def update_trend_value(self):
+        trend_old = copy.deepcopy(self.trend)
+        self.trend = self.calculate_trend()
+        self.trend_change = self.trend - trend_old
+        return self
+
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
         plot_x = [datetime.strptime(date_str, '%d/%m/%Y').strftime('%Y-%m-%d') for date_str in self.plot_x] if self.plot_x else None
@@ -355,7 +372,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
                      "plot_x_price": ",".join(plot_x_price) if plot_x_price else None,
                      "plot_y_price": ",".join(plot_y_price) if plot_y_price else None}
 
-        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
+        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
         api_output_dict = self.dict(include=fields_included)
         if not meta_api:
             api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
@@ -398,7 +415,7 @@ class MBAShirtOrderByField(str, EnumBase):
     # value is FS field
     BSR="bsr_last"
     PRICE="price_last"
-    TREND="trend_nr"
+    TREND="trend"
     UPLOAD="upload_date"
     BSR_CHANGE="bsr_change"
 
@@ -459,8 +476,8 @@ def get_bsr_top_category_names_list(marketplace):
     else:
         return ["Clothing, Shoes & Jewelry"]
 
-t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B085FMFWZX"), read_subcollections=[FSWatchItemSubCollectionPlotData])
-t.set_bsr_change()
+#t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B085FMFWZX"), read_subcollections=[FSWatchItemSubCollectionPlotData])
+#t.set_bsr_change()
 #test = 0
 
 # deprecated
