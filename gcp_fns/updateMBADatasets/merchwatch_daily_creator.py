@@ -8,9 +8,9 @@ import time
 import argparse
 import sys
 import gc
-import re
 
-from mwfunctions.pydantic.firestore.mba_shirt_classes import get_default_category_name, get_bsr_top_category_names_list
+from mwfunctions.pydantic.firestore.mba_shirt_classes import get_default_category_name, get_bsr_top_category_names_list, \
+    get_bsr_category
 from sklearn import preprocessing
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool as ThreadPool 
@@ -121,29 +121,6 @@ def create_plot_data(df_asin_detail_daily):
     return x_plot[1:], y_plot[1:]
 
 
-def get_bsr_category(df_row, marketplace):
-    if marketplace == "de":
-        try:
-            bsr_category = df_row["array_bsr_categorie"].strip("[]").split(",")[
-                0].strip("'")
-        except Exception as e:
-            print(df_row["array_bsr_categorie"])
-            print("Could not extract bsr_category", str(e))
-            bsr_category = ""
-    else:
-        # does not split "," which does not work for "Clothing, Shoes & Jewelry"
-        try:
-            bsr_category = re.findall(
-                "'([^']*)'", df_row["array_bsr_categorie"].strip("[]"))[0]
-        except Exception as e:
-            print(df_row["array_bsr_categorie"])
-            print("Could not extract bsr_category", str(e))
-            bsr_category = ""
-    if bsr_category == "404" or bsr_category == "":
-        bsr_category = get_default_category_name(marketplace)
-    return bsr_category
-
-
 def get_change_total(current, previous):
     current = float(current)
     previous = float(previous)
@@ -248,7 +225,7 @@ def get_initial_additional_data_dict(marketplace, df_asin_detail_daily):
         df_asin_detail_daily, latest_occ_bsr_ue_zero, n_days=30)
     #print("elapsed time", (time.time()-time_start))
     price_last = get_last_price(df_asin_detail_daily, latest_occ_price_ue_zero)
-    bsr_category = get_bsr_category(latest_occ_bsr_ue_zero, marketplace)
+    bsr_category = get_bsr_category(latest_occ_bsr_ue_zero["array_bsr_categorie"], marketplace)
 
     # additional_data_dict["bsr_last"].append(latest_occ_bsr_ue_zero["bsr"])
     # additional_data_dict["price_last"].append(price_last)

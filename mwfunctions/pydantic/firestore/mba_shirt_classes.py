@@ -1,17 +1,21 @@
 import copy
 import collections
+import re
 from datetime import datetime, date, timedelta
-from typing import Dict, Union, Optional, List, Any
+from typing import Dict, Union, Optional, List, Any, Type
 
-from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace
+from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
+from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
-from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot
+from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot, get_docs_batch
 from pydantic import Field, validator, PrivateAttr, BaseModel
 
 
 class FSWatchItemSubCollectionPlotDataYear(FSDocument):
-    bsr: Dict[str, Union[int, float]] # str is date_str
-    prices: Dict[str, Union[int, float]] # str is date_str
+    bsr: Dict[str, int] # str is date_str
+    bsr_category: Dict[str, str] = Field({}, description="Optional dict sync to bsr which defines bsr_category as value e.g. Bekleidung")
+    prices: Dict[str, float] # str is date_str
+    scores: Dict[str, float] = Field({}, description="Dict with date_str as key and mean review score as value")
     year: int
     doc_id: Optional[str] = Field(description="Firestore document id")
 
@@ -20,6 +24,36 @@ class FSWatchItemSubCollectionPlotDataYear(FSDocument):
         values["doc_id"] = str(year)
         return year
 
+    def get_marketplace(self) -> Optional[Marketplace]:
+        marketplace = None
+        if self.is_fs_col_path_set():
+            for marketplace_ in Marketplace.to_list():
+                if marketplace_ in self._fs_col_path.split("_")[0]:
+                    marketplace = marketplace_
+        return marketplace if marketplace == None else Marketplace(marketplace)
+
+    def sync_bsr_category(self):
+        # try to extract marketplace from fs col path
+        marketplace = self.get_marketplace()
+        if marketplace:
+            for date_str, bsr in self.bsr.items():
+                if not date_str in self.bsr_category:
+                    self.bsr_category[date_str] = get_default_category_name(marketplace)
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self.sync_bsr_category()
+
+    def get_bsr_dict_filtered_by_categories(self, bsr_categories: Optional[List[str]]=None) -> Dict[str, int]:
+        """ get bsr if they match bsr_categories. If bsr_categories not set, default top categories by marketplace are used.
+        """
+        marketplace = self.get_marketplace()
+        bsr_categories = bsr_categories if bsr_categories else get_bsr_top_category_names_list(marketplace)
+        bsr_dict_filtered = {}
+        for (date_str, bsr), (date_str, bsr_cat) in zip(self.bsr.items(), self.bsr_category.items()):
+            if bsr_cat in bsr_categories:
+                bsr_dict_filtered[date_str] = bsr
+        return bsr_dict_filtered
 
 class FSWatchItemSubCollectionDict(MWBaseModel):
     """ Example:
@@ -49,22 +83,25 @@ class FSWatchItemSubCollectionPlotData(FSSubcollection):
                     }
             }
     """
-    _table = 'test_to_delete'
-    doc_dict: Optional[Dict[str, FSWatchItemSubCollectionPlotDataYear]] = Field({})# str/key is year
+    #doc_dict: Optional[Dict[str, FSWatchItemSubCollectionPlotDataYear]] = Field({})# str/key is year
 
     @classmethod
     def get_subcollection_col_name(cls):
         return "plot_data"
 
+    @classmethod
+    def get_subcollection_docs_pydantic_cls(cls) -> Type[FSDocument]:
+        return FSWatchItemSubCollectionPlotDataYear
+
     def get_all_bsr_data(self):
         all_bsr_data = {}
-        for year, plot_data in self.doc_dict.items():
+        for year, plot_data in self.items():
             all_bsr_data.update(plot_data.bsr)
         return all_bsr_data
 
     def get_all_price_data(self):
         all_price_data = {}
-        for year, plot_data in self.doc_dict.items():
+        for year, plot_data in self.items():
             all_price_data.update(plot_data.prices)
         return all_price_data
 
@@ -81,6 +118,7 @@ class FSWatchItemShortenedPlotData(MWBaseModel):
     # TODO: try to change format of key to date not date_str
     bsr_short: Optional[Dict[str, int]] = Field(None, description="Dict with date as key and bsr as value. First value is most in past last closest to present") # str is date_str
     prices_short: Optional[Dict[str, float]] = Field(None, description="Dict with date as key and price in float as value. First value is most in past last closest to present") # str is date_str
+    scores_short: Optional[Dict[str, float]] = Field(None, description="Dict with date as key and review score mean in float as value. First value is most in past last closest to present") # str is date_str
 
     # deprcated, but used in frontend
     # init deprecated values later, because they can than be initilaised by bsr_short and prices_short
@@ -165,10 +203,14 @@ class FSBSRData(MWBaseModel):
         self.bsr_count += 1
         return self
 
+    @staticmethod
+    def bsr2bsr_last_range(bsr: int):
+        return int(bsr / 100000) if bsr < 5000000 else 99
+
     @validator("bsr_last_range", always=True)
     def set_bsr_last_range(cls, bsr_last_range, values):
         # 99 stands for higher than max filterable value, i.e. 50.000.000
-        return bsr_last_range if bsr_last_range else int(values["bsr_last"] / 100000) if values["bsr_last"] < 5000000 else 99
+        return bsr_last_range if bsr_last_range else cls.bsr2bsr_last_range(values["bsr_last"])
 
     @validator("bsr_first", always=True)
     def set_bsr_first(cls, bsr_first, values):
@@ -258,9 +300,15 @@ class FSTrendData(MWBaseModel):
     trend: float = Field(description="Float trend value calculated by trend formular. Take upload date and bsr into account")
     trend_change: int = Field(description="trend_nr new - trend_nr old. Negativ/low values are better since ranking is better than before.")
 
-class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData):
+class FSScoreData(MWBaseModel):
+    score_count: int = 0
+    score_last: Optional[float] = None
+    score_last_rounded: Optional[int] = Field(None, description="int(round(score_last, 0))")
+
+class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData, FSScoreData):
     ''' Child of FSDocument must contain all field values of document to create this document.
     '''
+    _add_timestamp: bool = PrivateAttr(True)
     _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionPlotData]] = PrivateAttr({})
     marketplace: Optional[Marketplace] = Field(None, description="Currently not existent in FS, but if known it can be provided to directly set fs_col_path")
     asin: str
@@ -273,9 +321,6 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
     takedown: bool
     takedown_date: Optional[date] = None
 
-    score_count: Optional[int] = None
-    score_last: Optional[float] = None
-    score_last_rounded: Optional[int] = None
 
     language: Optional[str] = None
     timestamp: datetime
@@ -344,8 +389,129 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         self.bsr_change = self.calculate_data_change("bsr", days=30)
         return self
 
+    def update_short_dicts(self, bsr_last: Optional[int]=None, price_last: Optional[float]=None):
+        """
+            bsr_last: last bsr (today crawled). If not set it is expected, that latest bsr data is set in subcollection data
+        """
+        today_date_str = str(datetime.now().date())
+        is_plotdata_subcol_set = self.are_subcollections_set(fs_subcol_cls_list=[FSWatchItemSubCollectionPlotData])
+        # if no subcollections set, just append bsr_last to bsr_short dict
+        if not is_plotdata_subcol_set and bsr_last and bsr_last != 404 and (not self.bsr_short or today_date_str not in self.bsr_short):
+            if not self.bsr_short:
+                self.bsr_short = {today_date_str: bsr_last}
+            else:
+                self.bsr_short[today_date_str] = bsr_last
+        if not is_plotdata_subcol_set and price_last != None and int(price_last) != 404 and (not self.prices_short or today_date_str not in self.prices_short):
+            # if either no prices_short data exists or current last element is different from provided price_last
+            if not self.prices_short:
+                self.prices_short = {today_date_str: price_last}
+            elif self.prices_short[sorted(list(self.prices_short.keys()))[-1]] != price_last:
+                self.prices_short[today_date_str] = price_last
+        # if subcollections are set use all bsr data and calculate a new bsr_short with rdp
+        if is_plotdata_subcol_set:
+            sub_collection_dict = copy.deepcopy(self._fs_subcollections)
+            for year_str, fs_doc in sub_collection_dict[FSWatchItemSubCollectionPlotData.get_subcollection_col_name()].items():
+                fs_doc.bsr = fs_doc.get_bsr_dict_filtered_by_categories()
+            self.update(get_shortened_plot_data(sub_collection_dict, max_number_of_plot_points=20, min_number_of_plot_points=18))
+        return self
+
+    def sync_shortened_dicts2subcollections(self):
+        """ Sync shortened data like bsr_short to subcollections, so that subcollections contain at least short data
+            TODO: Threat of droping existing subcol data in FS for older years than current year. If only one document would exist in local subcollections  e.g. 2022, 2020 in FS would be overwritten with short data
+        """
+        for data_type, short_dict in {"bsr": self.bsr_short, "prices": self.prices_short, "scores": self.scores_short}.items():
+            if type(short_dict) == dict:
+                for date_str, data in short_dict.items():
+                    data_dt = datetime.strptime(str(date_str), '%Y-%m-%d')
+                    if data_type=="bsr":
+                        self.update_plot_data_subcollection(bsr_last=data, data_dt=data_dt)
+                    if data_type=="prices":
+                        self.update_plot_data_subcollection(price_last=data, data_dt=data_dt)
+                    if data_type=="scores":
+                        self.update_plot_data_subcollection(score_last=data, data_dt=data_dt)
+        return self
+
+    def update_plot_data_subcollection(self, bsr_last=None, bsr_category=None, price_last=None, score_last=None, data_dt: Optional[datetime]=None):
+        """ This functions creates a plot data subcollection if it not exists or updates data with provided bsr, price or score data
+            Important: It is expected that data was crawled today. If not please provide data_dt
+        """
+        # if subcollections are not set, try first to get them from FS (but only last existing document)
+        fs_subcol_cls = FSWatchItemSubCollectionPlotData
+        if not self.are_subcollections_set(fs_subcol_cls_list=[fs_subcol_cls]):
+            self.update_fs_subcollections(
+                fs_subcol_cls.parse_fs_col_path(f"{self.get_fs_col_path()}/{self.doc_id}/{fs_subcol_cls.get_subcollection_col_name()}",
+                                                get_docs_settings=GetFSDocsSettings(limit=1, order_by="year", order_by_direction=OrderByDirection.DESC)))
+
+        data_dt = data_dt if data_dt else datetime.now()
+        year_str: str = str(data_dt.year)
+        date_today_str: str = str(data_dt.date())
+        plotdata_col_name = fs_subcol_cls.get_subcollection_col_name()
+        # case no plot data exists for year_current
+        if not self._fs_subcollections or (plotdata_col_name in self._fs_subcollections and year_str not in self._fs_subcollections[plotdata_col_name]):
+            fs_subcol_doc = FSWatchItemSubCollectionPlotDataYear(year=year_str, doc_id=year_str,
+                                                 bsr={date_today_str: bsr_last} if bsr_last != None else {},
+                                                 bsr_category={date_today_str: bsr_category} if bsr_category != None else {},
+                                                 prices={date_today_str: price_last} if price_last != None else {},
+                                                 scores={date_today_str: score_last} if score_last != None else {})
+            fs_subcol_doc.set_fs_col_path(f"{self.get_fs_col_path()}/{self.doc_id}/{fs_subcol_cls.get_subcollection_col_name()}")
+            if not self._fs_subcollections:
+                self._fs_subcollections = {plotdata_col_name: fs_subcol_cls.parse_obj({fs_subcol_doc.doc_id: fs_subcol_doc.dict()})}
+            elif year_str not in self._fs_subcollections[plotdata_col_name]:
+                self._fs_subcollections[plotdata_col_name].update_doc_dict(fs_subcol_doc)
+        # case data exists already and should be extended
+        else:
+            if bsr_last:
+                self._fs_subcollections[plotdata_col_name][year_str].bsr[date_today_str] = bsr_last
+            if bsr_category:
+                self._fs_subcollections[plotdata_col_name][year_str].bsr_category[date_today_str] = bsr_category
+            if price_last:
+                self._fs_subcollections[plotdata_col_name][year_str].prices[date_today_str] = price_last
+            if score_last:
+                self._fs_subcollections[plotdata_col_name][year_str].scores[date_today_str] = score_last
+
+    def update_bsr_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None):
+        # Function to update bsr data with NEW bsr_last
+        if bsr_last != 404 and bsr_last != self.bsr_last and bsr_last != 0 and bsr_last != None:
+            # What should happen if bsr_category is different from before?
+            # 28.12.21: Add them also to subcol and filter afterwards
+            self.bsr_last = bsr_last
+            self.bsr_category = bsr_category
+            #self.sync_shortened_dicts2subcollections() # use it only with care (threat of removing existing data in FS)
+            self.update_plot_data_subcollection(bsr_last=bsr_last, bsr_category=bsr_category) # reads subcol data (at least one document if existend)
+            self.inc_bsr_count()
+            # update bsr last range
+            self.bsr_last_range = self.bsr2bsr_last_range(self.bsr_last)
+            # update bsr_min and max
+            if not self.bsr_min or (self.bsr_last < self.bsr_min):
+                self.bsr_min = self.bsr_last
+            if not self.bsr_max or (self.bsr_last > self.bsr_max):
+                self.bsr_max = self.bsr_last
+            return self.update_bsr_change()
+        return self
+
+    def update_price_data(self, price_last: Optional[float]=None):
+        # exlucde update with unreal price data
+        if price_last > 0 and price_last < 404 and price_last != None and price_last != self.price_last:
+            self.price_last = price_last
+            self.update_plot_data_subcollection(price_last=price_last)
+            # update price_max
+            if not self.price_max or (self.price_last > self.price_max):
+                self.price_max = self.price_last
+            self.price_last_range = int(self.price_last)
+            return self.update_price_change()
+        return self
+
     def update_price_change(self):
         self.price_change = self.calculate_data_change("price", days=30)
+        return self
+
+    def update_score_data(self, score_last: Optional[float]=None, score_count: Optional[int]=None):
+        if type(score_last) == float and score_last > 0:
+            self.score_last = score_last
+            self.score_last_rounded = int(round(score_last, 0))
+            self.update_plot_data_subcollection(score_last=score_last)
+        if score_count:
+            self.score_count = score_count
         return self
 
     def calculate_trend(self, month_decreasing_trend=6):
@@ -359,6 +525,10 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         self.trend = self.calculate_trend()
         self.trend_change = self.trend - trend_old
         return self
+
+    def update_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None, price_last: Optional[float]=None, score_last: Optional[float]=None, score_count: Optional[int]=None):
+        # TODO: Update keyword data (splitted in subcategories)
+        return self.update_bsr_data(bsr_last, bsr_category).update_price_data(price_last).update_score_data(score_last,score_count).update_short_dicts().update_trend_value()
 
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
@@ -400,6 +570,10 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         self.bsr_last = self.get_bsr_to_high_to_filter_value()
         # TODO: prevent bsr_short and bsr value in history/subcollection to be set
 
+    def write_to_firestore(self, exclude_doc_id=False, exclude_fields=["plot_x", "plot_y", "plot_x_price", "plot_y_price"], overwrite_doc=None, array_union=None, write_subcollections=True, client=None):
+        super().write_to_firestore(exclude_doc_id=exclude_doc_id, exclude_fields=exclude_fields, overwrite_doc=overwrite_doc, array_union=array_union,write_subcollections=write_subcollections, client=client)
+
+
     def __init__(self, **data: Any) -> None:
         super().__init__(**data)
         self.set_marketplace()
@@ -407,8 +581,6 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         if self.bsr_category not in get_bsr_top_category_names_list(self.marketplace):
             print(f"Warning: Shirt with asin {self.asin} does not contain a comparable bsr category, but {self.bsr_category} for marketplace {self.marketplace}")
             self.set_fields_of_not_comparable_mba_shirt()
-
-
 
 
 class MBAShirtOrderByField(str, EnumBase):
@@ -463,7 +635,7 @@ def get_bsr_range_list(bsr_last_range: tuple, bsr_range_to_query):
         return []
 
 
-def get_default_category_name(marketplace):
+def get_default_category_name(marketplace) -> str:
     if marketplace == "de":
         return "Fashion"
     else:
@@ -476,7 +648,33 @@ def get_bsr_top_category_names_list(marketplace):
     else:
         return ["Clothing, Shoes & Jewelry"]
 
-#t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B085FMFWZX"), read_subcollections=[FSWatchItemSubCollectionPlotData])
+def get_bsr_category(array_bsr_categorie_str: str, marketplace):
+    # array_bsr_categorie_str e.g. "['Spielzeug', 'Schultüten']"
+    if marketplace == "de":
+        try:
+            bsr_category = array_bsr_categorie_str.strip("[]").split(",")[
+                0].strip("'")
+        except Exception as e:
+            print(array_bsr_categorie_str)
+            print("Could not extract bsr_category", str(e))
+            bsr_category = ""
+    else:
+        # does not split "," which does not work for "Clothing, Shoes & Jewelry"
+        try:
+            bsr_category = re.findall(
+                "'([^']*)'", array_bsr_categorie_str.strip("[]"))[0]
+        except Exception as e:
+            print(array_bsr_categorie_str)
+            print("Could not extract bsr_category", str(e))
+            bsr_category = ""
+    if bsr_category == "404" or bsr_category == "":
+        bsr_category = get_default_category_name(marketplace)
+    return bsr_category
+
+
+#t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B089SKWDJN"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+#t.update_data(bsr_last=12312, bsr_category="Schuhe", price_last=22.24, score_last=4.6)
+#t.write_to_firestore()
 #t.set_bsr_change()
 #test = 0
 

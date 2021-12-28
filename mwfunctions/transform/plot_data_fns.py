@@ -2,10 +2,10 @@ from rdp import rdp
 import copy
 import time
 import random
+import collections
 from datetime import date, datetime
 
 from mwfunctions.pydantic import BQPlotDataRaw
-from mwfunctions.pydantic.firestore.mba_shirt_classes import FSWatchItemSubCollectionDict
 
 max_number_of_plot_points = 20
 
@@ -45,8 +45,9 @@ def get_shortened_plot_data_dict(plot_data_dict, max_number_of_plot_points=20, m
     time_start = time.time()
     shortened_plot_data_dict = {}
 
-    key_list = list(plot_data_dict.keys())
-    value_list = list(plot_data_dict.values())
+    plot_data_dict_od = collections.OrderedDict(sorted(plot_data_dict.items()))
+    key_list = list(plot_data_dict_od.keys())
+    value_list = list(plot_data_dict_od.values())
     value_list_length = len(value_list)
     value_list_short = []
     key_list_short = []
@@ -105,7 +106,7 @@ def get_shortened_plot_data_dict(plot_data_dict, max_number_of_plot_points=20, m
     return shortened_plot_data_dict
 
 
-def get_shortened_plot_data(sub_collection_dict: FSWatchItemSubCollectionDict, max_number_of_plot_points=20, min_number_of_plot_points=18):
+def get_shortened_plot_data(sub_collection_dict, max_number_of_plot_points=20, min_number_of_plot_points=18):
     """
         sub_collection_dict:
             {
@@ -130,7 +131,7 @@ def get_shortened_plot_data(sub_collection_dict: FSWatchItemSubCollectionDict, m
     """
     shortened_plot_data = {}
     if "plot_data" in sub_collection_dict:
-        for plot_key in ["bsr", "prices"]:
+        for plot_key in ["bsr", "prices", "scores"]:
             plot_dict = {}
             for year in sub_collection_dict["plot_data"].keys():
                 if plot_key in sub_collection_dict["plot_data"][year]:
@@ -173,9 +174,10 @@ def list2year_dict(data_list, date_list, year_dict, data_name, date_format='%d/%
     return year_dict
 
 
-def df_dict2subcollections(df_dict: BQPlotDataRaw, date_format='%d/%m/%Y') -> FSWatchItemSubCollectionDict:
+def df_dict2subcollections(df_dict: BQPlotDataRaw, date_format='%d/%m/%Y'):
     """
     """
+    from mwfunctions.pydantic.firestore.mba_shirt_classes import FSWatchItemSubCollectionDict
     sub_collection_dict = {}
 
     dates_bsr_list = []

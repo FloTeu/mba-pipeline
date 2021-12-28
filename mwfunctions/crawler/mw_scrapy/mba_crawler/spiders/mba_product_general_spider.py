@@ -23,8 +23,12 @@ from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr, BQMBAProductsNoMbaShirt
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, get_bsr_category, FSWatchItemSubCollectionPlotData
+from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
 from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling
+from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
+from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
@@ -105,6 +109,14 @@ class MBALocalProductSpider(MBAProductSpider):
                 if not self.daily:
                     bq_mba_products_details: BQMBAProductsDetails = self.get_BQMBAProductsDetails(response, asin)
                     yield {"pydantic_class": bq_mba_products_details}
+                # else:
+                #     fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
+                #     if fs_doc_snap.exists:
+                #         fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap, read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+                #         # TODO: Update keyword data (splitted in dsubcategories)
+                #         # TODO: keep splitted keyword data in FS. But only if its set, otherwise only keywords_meaningful list
+                #         fs_doc.update_data(bsr_last=bq_mba_products_details_daily.bsr, bsr_category=get_bsr_category(bq_mba_products_details_daily.array_bsr_categorie, self.marketplace), price_last=bq_mba_products_details_daily.price, score_last=bq_mba_products_details_daily.customer_review_score_mean)
+                #         yield {"pydantic_class": fs_doc}
 
                 self.page_count = self.page_count + 1
 
