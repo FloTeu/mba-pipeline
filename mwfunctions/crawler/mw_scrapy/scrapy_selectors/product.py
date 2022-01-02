@@ -200,8 +200,11 @@ def get_product_features(response):
 
 
 def get_description(response):
-    product_description = response.css('div#productDescription p::text').get()
+    product_description = response.css('div#productDescription span *::text').get()
     if product_description != None:
+        # try to get text from p tag if nothing could be found in span tag
+        if product_description.strip() == "":
+            product_description = response.css('div#productDescription p *::text').get()
         return product_description.strip()
     else:
         raise ValueError("Could not get product description")

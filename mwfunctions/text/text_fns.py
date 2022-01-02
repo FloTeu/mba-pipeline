@@ -1,40 +1,66 @@
+import os
+import nltk
 from collections import OrderedDict
 import numpy as np
 import spacy
-from spacy.lang.en.stop_words import STOP_WORDS
-from spacy.lang.de.stop_words import STOP_WORDS as STOP_WORDS_DE
 from rake_nltk import Metric, Rake
+from mwfunctions.pydantic import TextLanguage
 
+from typing import Optional, List, Set, Dict
+from nltk.stem.snowball import SnowballStemmer
+#from nltk.corpus import stopwords
+from mwfunctions.pydantic.base_classes import EnumBase, Marketplace
+
+
+def textLanguage2SpacyDefaultPackage(language: TextLanguage) -> str:
+    if language == TextLanguage.GERMAN:
+        return "de_core_news_sm"
+    elif language == TextLanguage.ENGLISH:
+        return "en_core_web_sm"
+    elif language == TextLanguage.SPANISH:
+        return "es_core_news_sm"
+    elif language == TextLanguage.FRENCH:
+        return "fr_core_news_sm"
+    elif language == TextLanguage.ITALIAN:
+        return "it_core_news_sm"
+    elif language == TextLanguage.JAPANESE:
+        return "ja_core_news_sm"
+    else:
+        raise NotImplementedError
+
+def download_language_package(language_package: str):
+    os.system(f"python -m spacy download {language_package}")
+
+def download_default_language_package(language: TextLanguage):
+    download_language_package(textLanguage2SpacyDefaultPackage(language))
 
 class TextRank4Keyword():
     """Extract keywords from text
         Tutorial: https://towardsdatascience.com/textrank-for-keyword-extraction-by-python-c0bae21bcec0
     """
 
-    def __init__(self, language="en"):
+    def get_nlp_obj(self):
+        try:
+            return spacy.load(textLanguage2SpacyDefaultPackage(self.language))
+        except OSError:
+            download_default_language_package(self.language)
+            return spacy.load(textLanguage2SpacyDefaultPackage(self.language))
+
+    def __init__(self, language: TextLanguage=TextLanguage.ENGLISH):
         self.d = 0.85  # damping coefficient, usually is .85
         self.min_diff = 1e-5  # convergence threshold
         self.steps = 10  # iteration steps
         self.node_weight = None  # save keywords and its weight
-        assert language in ["de", "en"], "Language need to be either en or de"
+        assert language in TextLanguage.to_list(), f"Language need to be one of {TextLanguage.to_list()} but is {TextLanguage.to_list()}"
         self.language = language
-        if self.language == "en":
-            self.nlp = spacy.load('en_core_web_sm')
-            self.nlp_de = spacy.load('de_core_news_sm')
-        elif self.language == "de":
-            self.nlp = spacy.load('de_core_news_sm')
-            self.nlp_en = spacy.load('en_core_web_sm')
+
+        self.nlp = self.get_nlp_obj()
 
     def set_stopwords(self, stopwords):
         """Set stop words"""
-        if self.language == "en":
-            for word in STOP_WORDS.union(set(stopwords)):
-                lexeme = self.nlp.vocab[word]
-                lexeme.is_stop = True
-        elif self.language == "de":
-            for word in STOP_WORDS_DE.union(set(stopwords)):
-                lexeme = self.nlp.vocab[word]
-                lexeme.is_stop = True
+        for word in language2StopWords(text_language=self.language).union(set(stopwords)):
+            lexeme = self.nlp.vocab[word]
+            lexeme.is_stop = True
 
     def sentence_segment(self, doc, candidate_pos, lower):
         """Store those words only in cadidate_pos"""
@@ -123,6 +149,9 @@ class TextRank4Keyword():
         else:
             entities = list([ent.text for ent in doc.ents])
 
+        # filter stopwords from entities (only those where each word is a stopword)
+        entities = [ent for ent in entities if all(all(stopword != ent_word for ent_word in ent.split(" ")) for stopword in stopwords)]
+
         # Filter sentences
         sentences = self.sentence_segment(doc, candidate_pos, lower)  # list of list of words
 
@@ -198,8 +227,15 @@ class TextRank4Keyword():
 
         self.node_weight = node_weight
 
-import os
-import nltk
+Language2TR4W_DICT_CACHE: Dict[TextLanguage, TextRank4Keyword] = {}
+
+def get_tr4w_obj(language: TextLanguage):
+    if language in Language2TR4W_DICT_CACHE:
+        tr4w = Language2TR4W_DICT_CACHE[language]
+    else:
+        tr4w = TextRank4Keyword(language=language)
+        Language2TR4W_DICT_CACHE[language] = tr4w
+    return tr4w
 
 cwd = os.getcwd()
 
@@ -208,18 +244,55 @@ nltk.data.path.append("nltk_data")
 nltk.data.path.append(".nltk_data")
 nltk.data.path.append(".")
 
-from nltk.stem.snowball import SnowballStemmer
-from nltk.corpus import stopwords
-from mwfunctions.pydantic.base_classes import EnumBase
 
 class StemmerLanguage(str, EnumBase):
+    # contains names to init stemmer from nltk library. Is different to TextLanguage, because englisch products in german MBA market are stemmed with german stemmer, but TextLanguage is ENGLISH
     GERMAN="german"
     ENGLISH="english"
+    ITALIAN="italian"
+    SPANISH="spanish"
+    FRENCH="french"
+    #JAPANESE="japanese" TODO: how to handle japanese stem operation?
+
+def marketplace2StemmerLanguage(marketplace: Marketplace):
+    if marketplace == Marketplace.DE:
+        return StemmerLanguage.GERMAN
+    elif marketplace == Marketplace.COM:
+        return StemmerLanguage.ENGLISH
+    else:
+        raise NotImplementedError
+
+
+def language2StopWords(stemmer_language: StemmerLanguage=None, text_language: TextLanguage=None) -> Set[str]:
+    # import within function to reduce startup time
+    if stemmer_language == StemmerLanguage.GERMAN or text_language == TextLanguage.GERMAN:
+        from spacy.lang.de.stop_words import STOP_WORDS as STOP_WORDS_DE
+        return STOP_WORDS_DE
+    elif stemmer_language == StemmerLanguage.ENGLISH or text_language == TextLanguage.ENGLISH:
+        from spacy.lang.en.stop_words import STOP_WORDS
+        return STOP_WORDS
+    elif stemmer_language == StemmerLanguage.ITALIAN or text_language == TextLanguage.ITALIAN:
+        from spacy.lang.it.stop_words import STOP_WORDS as STOP_WORDS_IT
+        return STOP_WORDS_IT
+    elif stemmer_language == StemmerLanguage.SPANISH or text_language == TextLanguage.SPANISH:
+        from spacy.lang.es.stop_words import STOP_WORDS as STOP_WORDS_ES
+        return STOP_WORDS_ES
+    elif stemmer_language == StemmerLanguage.FRENCH or text_language == TextLanguage.FRENCH:
+        from spacy.lang.fr.stop_words import STOP_WORDS as STOP_WORDS_FR
+        return STOP_WORDS_FR
+    elif text_language == TextLanguage.JAPANESE:
+        from spacy.lang.ja.stop_words import STOP_WORDS as STOP_WORDS_JA
+        return STOP_WORDS_JA
+    else:
+        raise NotImplementedError
 
 # this function requires nltk_data
-def get_stem_keywords_language(keywords, language: StemmerLanguage):
+# TODO: Does it also requires to download stuff first? dont now where..
+def get_stem_keywords_language(keywords: List[str], language: Optional[StemmerLanguage]=None, marketplace: Optional[Marketplace]=None):
+    assert language!=None or marketplace!=None, "Either language or marketplace must be set"
     stem_keywords = []
-    stop_words = set(stopwords.words(language))
+    language: StemmerLanguage = language if language else marketplace2StemmerLanguage(marketplace)
+    stop_words = language2StopWords(language)
     keywords_filtered = [w for w in keywords if not w in stop_words]
     snowball_stemmer = SnowballStemmer(language)
 
@@ -231,6 +304,7 @@ def get_stem_keywords_language(keywords, language: StemmerLanguage):
 ### Constants
 """
 
+# keywords everybody uses and therefore dont have an impact for further anylsis (are not meaningful)
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design",
                               "Weihnachten", "Frau",
                               "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren",
@@ -243,4 +317,7 @@ KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Gesc
 KEYWORDS_TO_REMOVE_EN = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "gift", "Brand", "family", "children",
                               "friends", "sister", "brother",
                               "childreen", "present", "boys", "girls"]
+
 KEYWORDS_TO_REMOVE_MARKETPLACE_DICT = {"de": KEYWORDS_TO_REMOVE_DE, "com": KEYWORDS_TO_REMOVE_EN}
+TextLanguage2KeywordsToRemove_dict = {TextLanguage.ENGLISH: KEYWORDS_TO_REMOVE_EN, TextLanguage.GERMAN: KEYWORDS_TO_REMOVE_DE,
+                                      TextLanguage.FRENCH: [], TextLanguage.ITALIAN: [], TextLanguage.SPANISH: [], TextLanguage.JAPANESE: []}

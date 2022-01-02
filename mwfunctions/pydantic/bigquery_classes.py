@@ -5,7 +5,7 @@ from pydantic import BaseModel, Field, validator, PrivateAttr
 from typing import Union, Dict, List, Optional #, Literal
 from datetime import datetime, date
 
-from mwfunctions.pydantic.base_classes import MWBaseModel
+from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace
 from mwfunctions.time import get_berlin_timestamp
 
 class BQTable(MWBaseModel):
@@ -35,10 +35,7 @@ class BQKeywordDataRaw(MWBaseModel):
 
     def get_keyword_text(self, marketplace):
         # all keyword related text combined with whitespaces.
-        product_features_list = bq_list_str_to_list(self.product_features)
-        product_features_list = [v.strip("'").strip('"') for v in product_features_list]
-        product_features = cut_product_feature_list(marketplace, product_features_list)
-        return " ".join([self.title + "."] + [self.brand + "."] + product_features + [self.description])
+        return " ".join([self.title + "."] + [self.brand + "."] + get_product_listings_by_list_str(self.product_features, marketplace) + [self.description])
 
     def get_filtered_keyword_list(self, marketplace, tr4k_lang_dict: Dict[str, object], language: str=None): # object = TextRank4Keyword of mwfunctions.text
         assert language or self.language, "Either 'langugae' or attribute 'language' must be provided"
@@ -162,6 +159,12 @@ class BQMBAProductsNoMbaShirt(BQTable):
 ### functions
 """
 
+def get_product_listings_by_list_str(product_listings_str, marketplace: Marketplace) -> List[str]:
+    product_features_list = bq_list_str_to_list(product_listings_str)
+    product_features_list = [v.strip("'").strip('"') for v in product_features_list]
+    return cut_product_feature_list(marketplace, product_features_list)
+
+
 def bq_list_str_to_list(list_str):
     # create list out of BQ dumped list
     list_str = list_str.strip("[]")
@@ -199,7 +202,7 @@ def is_product_feature_listing(marketplace, product_feature):
         else:
             return True
     else:
-        raise ValueError("Not defined for marketplace %s" % self.marketplace)
+        raise ValueError("Not defined for marketplace %s" % marketplace)
 
 def cut_product_feature_list(marketplace, product_features_list):
     if marketplace == "de":
@@ -214,9 +217,12 @@ def cut_product_feature_list(marketplace, product_features_list):
         # if less than 4 choose no bullet
         else:
             product_features_list = []
-    if marketplace == "com":
+    elif marketplace == "com":
         product_features_list = [feature for feature in product_features_list if
                                  is_product_feature_listing(marketplace, feature)]
+    else:
+        raise NotImplementedError
+
     return product_features_list
 
 

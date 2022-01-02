@@ -106,9 +106,10 @@ class FSDocument(MWBaseModel):
 
 
     def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
+        # set _fs_col_path as early as possible because children might depend on it (e.g. to extract marketplace information)
         if "_fs_col_path" in data:
             self.set_fs_col_path(data["_fs_col_path"])
+        super().__init__(**data)
 
         #
     # def update_fs_subcollections(self, col_name, subcollection_doc: FSDocument):

@@ -4,18 +4,33 @@ import re
 from datetime import datetime, date, timedelta
 from typing import Dict, Union, Optional, List, Any, Type
 
+from mwfunctions.profiling import log_time
 from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
-from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings
+from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings, TextLanguage, Marketplace2DefaultTextLanguage_dict
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
-from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot, get_docs_batch
+from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot
+from mwfunctions.text import get_stem_keywords_language, TextRank4Keyword, TextLanguage2KeywordsToRemove_dict, get_tr4w_obj
 from pydantic import Field, validator, PrivateAttr, BaseModel
+from langdetect import detect
 
 
-class FSWatchItemSubCollectionPlotDataYear(FSDocument):
+class FSMBADocument(FSDocument):
+    def extract_marketplace_by_fs_col_path(self) -> Optional[Marketplace]:
+        # Assumption: col path is defined as follows: <marketplace>_x/x/x/...
+        # if possible try to get marketplace infotmation out of _fs_col_path
+        marketplace = None
+        if self.is_fs_col_path_set():
+            for marketplace_ in Marketplace.to_list():
+                if marketplace_ in self._fs_col_path.split("_")[0]:
+                    marketplace = marketplace_
+        return marketplace if marketplace == None else Marketplace(marketplace)
+
+class FSWatchItemSubCollectionPlotDataYear(FSMBADocument):
     bsr: Dict[str, int] # str is date_str
     bsr_category: Dict[str, str] = Field({}, description="Optional dict sync to bsr which defines bsr_category as value e.g. Bekleidung")
     prices: Dict[str, float] # str is date_str
     scores: Dict[str, float] = Field({}, description="Dict with date_str as key and mean review score as value")
+    scores_count: Dict[str, float] = Field({}, description="Dict with date_str as key and count of reviews as value")
     year: int
     doc_id: Optional[str] = Field(description="Firestore document id")
 
@@ -24,36 +39,58 @@ class FSWatchItemSubCollectionPlotDataYear(FSDocument):
         values["doc_id"] = str(year)
         return year
 
-    def get_marketplace(self) -> Optional[Marketplace]:
-        marketplace = None
-        if self.is_fs_col_path_set():
-            for marketplace_ in Marketplace.to_list():
-                if marketplace_ in self._fs_col_path.split("_")[0]:
-                    marketplace = marketplace_
-        return marketplace if marketplace == None else Marketplace(marketplace)
-
-    def sync_bsr_category(self):
+    def get_synced_bsr_category(self):
+        # returns a bsr_category dict with same size and date key as bsr dict
+        bsr_category_dict: Dict[str, str] = {}
         # try to extract marketplace from fs col path
-        marketplace = self.get_marketplace()
-        if marketplace:
-            for date_str, bsr in self.bsr.items():
-                if not date_str in self.bsr_category:
-                    self.bsr_category[date_str] = get_default_category_name(marketplace)
+        marketplace = self.extract_marketplace_by_fs_col_path()
+        bsr_category_start: str = self.get_last_value_of_bsr_category(reverse=True) #  first bsr category of current year
+        bsr_category_last_i = bsr_category_start if bsr_category_start else get_default_category_name(marketplace) if marketplace else None
 
-    def __init__(self, **data: Any) -> None:
-        super().__init__(**data)
-        self.sync_bsr_category()
+        for date_obj in (date(self.year,1,1) + timedelta(n) for n in range(365)):
+            date_str = str(date_obj)
+            if date_str in self.bsr_category:
+                bsr_category_last_i = self.bsr_category[date_str]
+            if date_str in self.bsr:
+                bsr_category_dict[date_str] = bsr_category_last_i
+        return bsr_category_dict
 
     def get_bsr_dict_filtered_by_categories(self, bsr_categories: Optional[List[str]]=None) -> Dict[str, int]:
         """ get bsr if they match bsr_categories. If bsr_categories not set, default top categories by marketplace are used.
         """
-        marketplace = self.get_marketplace()
+        marketplace = self.extract_marketplace_by_fs_col_path()
         bsr_categories = bsr_categories if bsr_categories else get_bsr_top_category_names_list(marketplace)
         bsr_dict_filtered = {}
-        for (date_str, bsr), (date_str, bsr_cat) in zip(self.bsr.items(), self.bsr_category.items()):
+        for (date_str, bsr), (date_str, bsr_cat) in zip(self.bsr.items(), self.get_synced_bsr_category().items()):
             if bsr_cat in bsr_categories:
                 bsr_dict_filtered[date_str] = bsr
         return bsr_dict_filtered
+
+    @staticmethod
+    def get_ordered_date_dict(date_dict: Dict[Union[date,str], Any], reverse=False) -> Optional[Any]:
+        # sorts dict by date/date_str key and returns latest value
+        return collections.OrderedDict(sorted(date_dict.items(), reverse=reverse))
+
+    @classmethod
+    def get_last_value_of_date_dict(cls, date_dict: Dict[Union[date,str], Any], reverse=False) -> Optional[Any]:
+        # sorts dict by date/date_str key and returns latest value
+        return list(cls.get_ordered_date_dict(date_dict,reverse=reverse).values())[-1] if date_dict else None
+
+    def get_last_value_of_bsr(self, reverse=False) -> Optional[int]:
+        return self.get_last_value_of_date_dict(self.bsr, reverse=reverse)
+
+    def get_last_value_of_bsr_category(self, reverse=False) -> Optional[str]:
+        return self.get_last_value_of_date_dict(self.bsr_category, reverse=reverse)
+
+    def get_last_value_of_prices(self, reverse=False) -> Optional[float]:
+        return self.get_last_value_of_date_dict(self.prices, reverse=reverse)
+
+    def get_last_value_of_scores(self, reverse=False) -> Optional[float]:
+        return self.get_last_value_of_date_dict(self.scores, reverse=reverse)
+
+    def get_last_value_of_scores_count(self, reverse=False) -> Optional[int]:
+        return self.get_last_value_of_date_dict(self.scores_count, reverse=reverse)
+
 
 class FSWatchItemSubCollectionDict(MWBaseModel):
     """ Example:
@@ -257,32 +294,111 @@ class FSImageData(MWBaseModel):
     url: Optional[str] = Field(None, description="Http url to private stored image")
 
 class FSKeywordData(MWBaseModel):
-    keywords_stem: Dict[str, bool] = Field(description="Important for search alogrithm. Must be set. Keys are keywords stemmed with SnowballStemmer")
+    marketplace: Optional[str] = Field(None, description="Marketplace is important to be able to define keyword stemmer")
+    asin: str
+    title: str
+    brand: str
+    listings: Optional[List[str]] = Field(None, description="List of text blocks for each listing point. Optional due to backwards comp. Should be required in future")
+    description: Optional[str] = Field(None, description="Description text block. Optional due to backwards comp. Should be required in future")
 
-    # TODO: replace keywords_meaningful with splitted keyword list. Can be concatinated dynamically afterwards
-    keywords_brand: Optional[List[str]] = Field(None, description="Optional due to backwards comp. Should be required in future")
-    keywords_title: Optional[List[str]] = Field(None, description="Optional due to backwards comp. Should be required in future")
-    keywords_listings: Optional[List[str]] = Field(None, description="Optional due to backwards comp. Should be required in future")
-    keywords_description: Optional[List[str]] = Field(None, description="Optional due to backwards comp. Should be required in future")
-
+    language: Optional[TextLanguage] = None
     keywords_meaningful: Optional[List[str]] = Field(None, description="List of meaningful keywords. Can be full word (not stemmed) or multiple words (long tail keywords). If not set it will be created by brand, title, listings and description")
+    keywords_stem: Dict[str, bool] = Field(None, description="Important for search alogrithm. Must be set. Keys are keywords stemmed with SnowballStemmer")
 
-    # field keywords_stem_list is not needed, because keywords search does not need index on this list
-    # keywords_stem_list: Optional[List[str]] = None
-    # @validator("keywords_stem")
-    # def set_keywords(cls, keywords_stem, values):
-    #     if "keywords_stem_list" not in values or values["keywords_stem_list"] == None:
-    #         values["keywords_stem_list"] = list(keywords_stem.keys())
-    #     return keywords_stem
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        self.update_marketplace_if_none()
+        self.update_language_if_none()
+        # TODO: This will lead to error for first japanese market crawl
+        self.set_keywords_stem_if_none()
+        self.set_keywords_meaningful_if_none()
 
-    @validator("keywords_meaningful", always=True)
-    def set_keywords_meaningful(cls, keywords_meaningful, values):
-        keyword_lists_field_strs = ["keywords_brand", "keywords_title", "keywords_listings", "keywords_description"]
-        if not keywords_meaningful:
-            keywords_meaningful = []
-            for keyword_lists_field_str in keyword_lists_field_strs:
-                keywords_meaningful.extend(keyword_lists_field_str)
-        return list(set(keywords_meaningful))
+    def get_keyword_text_block(self, include_title=True, include_brand=True, include_listings=True, include_description=True) -> str:
+        keyword_text_blocks: List[str] = []
+        if include_title: keyword_text_blocks.append(self.title + ".")
+        if include_brand: keyword_text_blocks.append(self.brand + ".")
+        if include_listings and type(self.listings) == list: keyword_text_blocks.extend(self.listings)
+        if include_description and type(self.description) == str: keyword_text_blocks.append(self.description)
+        return " ".join(keyword_text_blocks)
+
+    def detect_language(self) -> str:
+        # dont use description to prevent case e.g. listings in german and description in english because of lazyness
+        return detect(self.get_keyword_text_block(include_description=False))
+
+    def update_language(self):
+        detected_language = self.detect_language()
+        # take detected_language if its part of allowed TextLanguage. Else try to get default language by marketplace. If not found take english as default language
+        self.language: TextLanguage = detected_language if detected_language in TextLanguage.to_list() else Marketplace2DefaultTextLanguage_dict[self.marketplace] if self.marketplace in Marketplace2DefaultTextLanguage_dict else TextLanguage.ENGLISH
+
+    def update_language_if_none(self):
+        if self.language == None: self.update_language()
+
+    def get_keywords_meaningful(self, text_block: Optional[str]=None, tr4w: Optional[TextRank4Keyword]=None) -> List[str]:
+        text_block = text_block if text_block else t.get_keyword_text_block()
+        tr4w = tr4w if tr4w else get_tr4w_obj(self.language if self.language else TextLanguage.ENGLISH)
+        return list(set(tr4w.get_unsorted_keywords(text_block, candidate_pos=['NOUN', 'PROPN'], lower=False, stopwords=TextLanguage2KeywordsToRemove_dict[tr4w.language])))
+
+    def update_keywords_meaningful(self):
+        # filter keywords
+        #keywords_filtered = self.filter_keywords(keywords)
+        self.keywords_meaningful = self.get_keywords_meaningful(self.get_keyword_text_block())
+        return self
+
+    def set_keywords_meaningful_if_none(self):
+        if self.keywords_meaningful == None: self.update_keywords_meaningful()
+
+    def get_brand_meaningful_keywords(self):
+        return self.get_keywords_meaningful(self.brand)
+
+    def get_title_meaningful_keywords(self):
+        return self.get_keywords_meaningful(self.title)
+
+    def get_listings_meaningful_keywords(self):
+        return self.get_keywords_meaningful(" ".join(self.listings))
+
+    def get_description_meaningful_keywords(self):
+        return self.get_keywords_meaningful(self.description)
+
+    def update_keywords_stem(self):
+        # TODO: might include description also?
+        keyword_text: str = self.get_keyword_text_block(include_description=False)
+        keyword_list = re.findall(r'\w+', keyword_text)
+        fs_stem_word_dict = {}
+        stem_words = get_stem_keywords_language(keyword_list, marketplace=self.marketplace)
+        # drop duplicates
+        for stem_word in stem_words:
+            fs_stem_word_dict.update({stem_word.lower(): True})
+
+        fs_stem_word_dict.update({self.asin.lower(): True})
+        self.keywords_stem = fs_stem_word_dict
+
+    def set_keywords_stem_if_none(self):
+        if self.keywords_stem == None: self.update_keywords_stem()
+
+    def update_marketplace_if_none(self):
+        # try to define marketplace out of fs col path if possible
+        if self.marketplace == None:
+            if isinstance(self, FSMBADocument) and self.extract_marketplace_by_fs_col_path():
+                self.marketplace = self.extract_marketplace_by_fs_col_path()
+            else:
+                self.marketplace = Marketplace.COM
+
+    def update_keyword_data(self, brand: Optional[str]=None, title: Optional[str]=None, listings: Optional[List[str]]=None, description: Optional[str]=None):
+        if brand and brand != "":
+            self.brand = brand
+        if title and title != "":
+            self.title = title
+        if listings and type(listings) == list:
+            self.listings = listings
+        if description and description != "":
+            self.description = description
+
+        # TODO: Should language always be new detected or is once enough?
+        self.update_keywords_stem()
+        self.update_keywords_meaningful()
+
+        return self
+
 
 class FSUploadData(MWBaseModel):
     upload_date: Union[datetime, date]
@@ -305,16 +421,13 @@ class FSScoreData(MWBaseModel):
     score_last: Optional[float] = None
     score_last_rounded: Optional[int] = Field(None, description="int(round(score_last, 0))")
 
-class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData, FSScoreData):
+class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData, FSScoreData):
     ''' Child of FSDocument must contain all field values of document to create this document.
     '''
     _add_timestamp: bool = PrivateAttr(True)
     _fs_subcollections: Dict[str, Union[FSWatchItemSubCollectionPlotData]] = PrivateAttr({})
     marketplace: Optional[Marketplace] = Field(None, description="Currently not existent in FS, but if known it can be provided to directly set fs_col_path")
     asin: str
-
-    title: str
-    brand: str
 
     is_trademarked: bool = Field(False, description="Whether product is trademarked. If True they can be filtered")
 
@@ -392,6 +505,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
     def update_short_dicts(self, bsr_last: Optional[int]=None, price_last: Optional[float]=None):
         """
             bsr_last: last bsr (today crawled). If not set it is expected, that latest bsr data is set in subcollection data
+            Note: takes ~ 2 seconds
         """
         today_date_str = str(datetime.now().date())
         is_plotdata_subcol_set = self.are_subcollections_set(fs_subcol_cls_list=[FSWatchItemSubCollectionPlotData])
@@ -431,7 +545,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
                         self.update_plot_data_subcollection(score_last=data, data_dt=data_dt)
         return self
 
-    def update_plot_data_subcollection(self, bsr_last=None, bsr_category=None, price_last=None, score_last=None, data_dt: Optional[datetime]=None):
+    def update_plot_data_subcollection(self, bsr_last=None, bsr_category=None, price_last=None, score_last=None, score_last_count=None, data_dt: Optional[datetime]=None):
         """ This functions creates a plot data subcollection if it not exists or updates data with provided bsr, price or score data
             Important: It is expected that data was crawled today. If not please provide data_dt
         """
@@ -452,7 +566,8 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
                                                  bsr={date_today_str: bsr_last} if bsr_last != None else {},
                                                  bsr_category={date_today_str: bsr_category} if bsr_category != None else {},
                                                  prices={date_today_str: price_last} if price_last != None else {},
-                                                 scores={date_today_str: score_last} if score_last != None else {})
+                                                 scores={date_today_str: score_last} if score_last != None else {},
+                                                 scores_count={date_today_str: score_last_count} if score_last_count != None else {})
             fs_subcol_doc.set_fs_col_path(f"{self.get_fs_col_path()}/{self.doc_id}/{fs_subcol_cls.get_subcollection_col_name()}")
             if not self._fs_subcollections:
                 self._fs_subcollections = {plotdata_col_name: fs_subcol_cls.parse_obj({fs_subcol_doc.doc_id: fs_subcol_doc.dict()})}
@@ -460,18 +575,21 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
                 self._fs_subcollections[plotdata_col_name].update_doc_dict(fs_subcol_doc)
         # case data exists already and should be extended
         else:
-            if bsr_last:
+            # only add if its new for value for date_dicts
+            if bsr_last and self._fs_subcollections[plotdata_col_name][year_str].get_last_value_of_bsr() != bsr_last:
                 self._fs_subcollections[plotdata_col_name][year_str].bsr[date_today_str] = bsr_last
-            if bsr_category:
+            if bsr_category and self._fs_subcollections[plotdata_col_name][year_str].get_last_value_of_bsr_category() != bsr_category:
                 self._fs_subcollections[plotdata_col_name][year_str].bsr_category[date_today_str] = bsr_category
-            if price_last:
+            if price_last and self._fs_subcollections[plotdata_col_name][year_str].get_last_value_of_prices() != price_last:
                 self._fs_subcollections[plotdata_col_name][year_str].prices[date_today_str] = price_last
-            if score_last:
+            if score_last and self._fs_subcollections[plotdata_col_name][year_str].get_last_value_of_scores() != score_last:
                 self._fs_subcollections[plotdata_col_name][year_str].scores[date_today_str] = score_last
+            if score_last_count and self._fs_subcollections[plotdata_col_name][year_str].get_last_value_of_scores_count() != score_last_count:
+                self._fs_subcollections[plotdata_col_name][year_str].scores_count[date_today_str] = score_last_count
 
     def update_bsr_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None):
         # Function to update bsr data with NEW bsr_last
-        if bsr_last != 404 and bsr_last != self.bsr_last and bsr_last != 0 and bsr_last != None:
+        if bsr_last != 404 and bsr_last != self.bsr_last and bsr_last != 0 and type(bsr_last) == int:
             # What should happen if bsr_category is different from before?
             # 28.12.21: Add them also to subcol and filter afterwards
             self.bsr_last = bsr_last
@@ -491,7 +609,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
 
     def update_price_data(self, price_last: Optional[float]=None):
         # exlucde update with unreal price data
-        if price_last > 0 and price_last < 404 and price_last != None and price_last != self.price_last:
+        if price_last > 0 and price_last < 404 and type(price_last) == float and price_last != self.price_last:
             self.price_last = price_last
             self.update_plot_data_subcollection(price_last=price_last)
             # update price_max
@@ -510,8 +628,9 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
             self.score_last = score_last
             self.score_last_rounded = int(round(score_last, 0))
             self.update_plot_data_subcollection(score_last=score_last)
-        if score_count:
+        if type(score_count) == int and score_count:
             self.score_count = score_count
+            self.update_plot_data_subcollection(score_last_count=score_count)
         return self
 
     def calculate_trend(self, month_decreasing_trend=6):
@@ -526,9 +645,9 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
         self.trend_change = self.trend - trend_old
         return self
 
-    def update_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None, price_last: Optional[float]=None, score_last: Optional[float]=None, score_count: Optional[int]=None):
-        # TODO: Update keyword data (splitted in subcategories)
-        return self.update_bsr_data(bsr_last, bsr_category).update_price_data(price_last).update_score_data(score_last,score_count).update_short_dicts().update_trend_value()
+    def update_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None, price_last: Optional[float]=None, score_last: Optional[float]=None, score_count: Optional[int]=None, brand: Optional[str]=None, title: Optional[str]=None, listings: Optional[List[str]]=None, description: Optional[str]=None):
+        # TODO: scores only update if change happens
+        return self.update_bsr_data(bsr_last, bsr_category).update_price_data(price_last).update_score_data(score_last,score_count).update_short_dicts().update_trend_value().update_keyword_data(brand, title, listings, description)
 
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
@@ -544,6 +663,7 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
 
         fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
         api_output_dict = self.dict(include=fields_included)
+        api_output_dict["keywords_meaningful"] = api_output_dict["keywords_meaningful"] if api_output_dict["keywords_meaningful"] else self.get_keywords_meaningful() # calculate keywords meaningful if firestore does not contain data
         if not meta_api:
             api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
         else:
@@ -556,12 +676,6 @@ class FSMBAShirt(FSDocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceDat
 
         api_output_dict.update(plot_data)
         return api_output_dict
-
-    def extract_marketplace_by_fs_col_path(self) -> Optional[Marketplace]:
-        for marketplace in Marketplace.to_list():
-            if marketplace in self._fs_col_path:
-                return Marketplace(marketplace)
-        return None
 
     def set_marketplace(self):
         self.marketplace = self.marketplace if self.marketplace else self.extract_marketplace_by_fs_col_path()
@@ -671,9 +785,11 @@ def get_bsr_category(array_bsr_categorie_str: str, marketplace):
         bsr_category = get_default_category_name(marketplace)
     return bsr_category
 
-
+# with log_time("First"):
+#     t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "My Brand", "title": "Geiles Shirt 69 für richtig heiße Boys", "listings": ["Mein Shirt ist krass, muss man haben.", "Zweites listing für interessierte Leser"], "description": "Das ist eine beschreibung des Produktes P. Wenn ihr dieses Produkt kauft, wachsen euch Einhorn Hörner.", "marketplace": "de"})
+#t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "専をろとね質親じばよぶ持演わみゅ図際セ可育っめへリ訪著ゅせ試4場そかへわ陳除キミラ色東賞ざむフ感権ヲチリ度旅とざぼ辺象れぜば覧博なれス意43昨届88昨届6覧ワ政更ラホロ徴販歩みけねぼ。困ケノワ社掲フ暮記総通ケ身謙ニウホ朝日加しみでら楽格ずリ頑震べあへほ規山稿セタ望航話問クヨフネ平芸ヒミ乱定づびーを領日ケコ夫7暮ぱク象召ひ", "title": "千葉 弘幸", "marketplace": "de"})
 #t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B089SKWDJN"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
-#t.update_data(bsr_last=12312, bsr_category="Schuhe", price_last=22.24, score_last=4.6)
+#t.update_data(bsr_last=12312, bsr_category="Schuhe", price_last=22.24, score_last=4.6, score_count=20, title="Neuer Amerikaner")
 #t.write_to_firestore()
 #t.set_bsr_change()
 #test = 0
