@@ -16,14 +16,17 @@ from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
 
 from mwfunctions.crawler.proxy import proxy_handler
+from mwfunctions.cloud.firestore import get_document_snapshot
 from mwfunctions.pydantic.crawling_classes import CrawlingInputItem, CrawlingType, CrawlingMBARequest
 from mwfunctions.pydantic.security_classes import MWSecuritySettings, EndpointId, EndpointServiceDevOp
 from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogs
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
 from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.overview as overview_selector
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.crawler.proxy.utils import get_random_headers
 from mwfunctions.environment import is_debug, get_gcp_project, set_default_gcp_project_if_not_exists
+from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 import mwfunctions.cloud.firestore as firestore_fns
 
 from mwfunctions.logger import get_logger
@@ -150,6 +153,13 @@ class MBASpider(scrapy.Spider):
                 if response.status == 404:
                     self.crawling_job.count_inc("response_404_count")
                     # TODO: if product is the target yield BQ item with 404 data
+                    # update FS data directly
+                    fs_doc_snap = get_document_snapshot(
+                        f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{response.meta['asin']}")
+                    if fs_doc_snap.exists:
+                        fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap)
+                        fs_doc.update_takedown().write_to_firestore(exclude_doc_id=True,overwrite_doc=False)
+
                     if self.website_crawling_target == CrawlingType.PRODUCT.value:
                         if self.daily:
                             yield {"pydantic_class": BQMBAProductsDetailsDaily(asin=response.meta["asin"], price=404.0, price_str="404", bsr=404, bsr_str="404", array_bsr="[404]", array_bsr_categorie="['404']", customer_review_score_mean=404.0, customer_review_score="404", customer_review_count=404)}

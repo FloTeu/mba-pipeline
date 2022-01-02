@@ -209,6 +209,11 @@ def get_description(response):
     else:
         raise ValueError("Could not get product description")
 
+def get_image_url(response):
+    try:
+        return response.css('.image img::attr(src)').get()
+    except Exception as e:
+        raise ValueError("Could not get image url")
 
 def get_weight(response):
     weight = "not found"

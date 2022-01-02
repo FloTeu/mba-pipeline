@@ -6,6 +6,7 @@ from typing import Union, Dict, List, Optional #, Literal
 from datetime import datetime, date
 
 from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace
+from mwfunctions.pydantic.firestore.utils import get_bsr_category
 from mwfunctions.time import get_berlin_timestamp
 
 class BQTable(MWBaseModel):
@@ -84,6 +85,20 @@ class BQMBAProductsMbaImages(BQTable):
     url_image_hq: str
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
+    @classmethod
+    def parse_with_one_url(cls, image_url, asin):
+        # method can be used if only one image url exists
+        return cls.parse_obj({"asin": asin, "url_image_lowq": image_url,
+                       "url_image_q2": image_url, "url_image_q3": image_url,
+                       "url_image_q4": image_url, "url_image_hq": image_url, "timestamp": datetime.now()
+                       })
+
+
+    def get_fs_import_dict(self):
+        # transforms data to FS standard naming for e.g. FSMBAShirt class
+        return {**self.dict(include={"url_image_q2", "url_image_q3", "url_image_q4"}), "url_mba_lowq": self.url_image_lowq, "url_mba_hq": self.url_image_hq}
+
+
 class BQMBAOverviewProduct(BQTable):
     # mba-pipeline:mba_de.products
     _bq_table_name: str = PrivateAttr("products")
@@ -128,6 +143,11 @@ class BQMBAProductsDetails(BQTable):
     mba_bsr_categorie: str
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
 
+    def get_fs_import_dict(self, marketplace: Marketplace):
+        # transforms data to FS standard naming for e.g. FSMBAShirt class
+        return {**self.dict(include={"asin", "title", "brand", "description", "upload_date"}), "listings": get_product_listings_by_list_str(self.product_features, marketplace)}
+
+
 class BQMBAProductsDetailsDaily(BQTable):
     _bq_table_name: str = PrivateAttr("products_details_daily")
     asin: str
@@ -141,6 +161,11 @@ class BQMBAProductsDetailsDaily(BQTable):
     customer_review_score: str
     customer_review_count: int
     timestamp: Optional[datetime] = Field(get_berlin_timestamp(without_tzinfo=True))
+
+    def get_fs_import_dict(self, marketplace: Marketplace):
+        # transforms data to FS standard naming for e.g. FSMBAShirt class
+        return {"price_last": self.price, "bsr_last": self.bsr, "bsr_category": get_bsr_category(self.array_bsr_categorie,marketplace), "score_count": self.customer_review_count, "score_last": self.customer_review_score_mean}
+
 
 class BQMBAProductsNoBsr(BQTable):
     _bq_table_name: str = PrivateAttr("products_no_bsr")
@@ -159,7 +184,7 @@ class BQMBAProductsNoMbaShirt(BQTable):
 ### functions
 """
 
-def get_product_listings_by_list_str(product_listings_str, marketplace: Marketplace) -> List[str]:
+def get_product_listings_by_list_str(product_listings_str: str, marketplace: Marketplace) -> List[str]:
     product_features_list = bq_list_str_to_list(product_listings_str)
     product_features_list = [v.strip("'").strip('"') for v in product_features_list]
     return cut_product_feature_list(marketplace, product_features_list)

@@ -3,7 +3,7 @@ import datetime
 from pathlib import Path
 #from proxy import proxy_handler
 import pandas as pd
-from typing import List
+from typing import List, Optional
 from scrapy.exceptions import CloseSpider
 
 import time
@@ -16,17 +16,19 @@ from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRef
 from twisted.web._newclient import ResponseNeverReceived
 from scrapy.core.downloader.handlers.http11 import TunnelError
 
+import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem
-from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
-from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, get_bsr_category, FSWatchItemSubCollectionPlotData
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, FSWatchItemSubCollectionPlotData
+from mwfunctions.pydantic import get_bsr_category
 from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
 from mwfunctions.io import str2bool
-from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling
+from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict
 from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
 from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 
@@ -64,6 +66,9 @@ class MBALocalProductSpider(MBAProductSpider):
         self.reset_was_banned_every_hour()
 
         urls, asins = get_urls_asins_for_product_crawling(self.mba_crawling_request, self.marketplace, self.bq_project_id, url_data_path=self.url_data_path, debug=self.debug)
+        asin2overview_data_dict = {}
+        if not self.daily:
+            asin2overview_data_dict = get_asin2overview_data_dict(self.mba_crawling_request, self.marketplace, asins=asins, debug=self.debug)
 
         # send_msg(self.target, "Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)), self.api_key)
         LOGGER.info("Start scraper {} daily {} with {} products".format(self.name, self.daily, len(urls)))
@@ -74,8 +79,9 @@ class MBALocalProductSpider(MBAProductSpider):
             #proxies = proxy_handler.get_random_proxy_url_dict()
             headers = get_random_headers(self.marketplace)
             self.crawling_job.count_inc("request_count")
+            overview_data = asin2overview_data_dict[asin] if asin in asin2overview_data_dict else {"price_overview": None}
             yield scrapy.Request(url=url, callback=self.parse, headers=headers, priority=i,
-                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url,"page_nr":i, "total_page_target": len(asins)}) # "proxy": proxies["http"],
+                                    errback=self.errback_httpbin, meta={"asin": asin, "max_proxies_to_try": 20, "url": url,"page_nr":i, "total_page_target": len(asins), **overview_data}) # "proxy": proxies["http"],
 
     def status_update(self):
         if self.page_count % 100 == 0:
@@ -104,19 +110,22 @@ class MBALocalProductSpider(MBAProductSpider):
                 # daily table should always be filled (also in case of first time general product crawling)
                 bq_mba_products_details_daily: BQMBAProductsDetailsDaily = self.get_BQMBAProductsDetailsDaily(response, asin)
                 bq_mba_products_details: BQMBAProductsDetails = self.get_BQMBAProductsDetails(response, asin)
+
                 # workaround for error Spider must return request, item, or None
                 yield {"pydantic_class": bq_mba_products_details_daily}
 
                 if not self.daily:
+                    fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
+                                                                 bq_mba_products_details_daily, response)
                     yield {"pydantic_class": bq_mba_products_details}
-                # else:
-                #     fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
-                #     if fs_doc_snap.exists:
-                #         fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap, read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
-                #         # TODO: Update keyword data (splitted in dsubcategories)
-                #         # TODO: keep splitted keyword data in FS. But only if its set, otherwise only keywords_meaningful list
-                #         fs_doc.update_data(bsr_last=bq_mba_products_details_daily.bsr, bsr_category=get_bsr_category(bq_mba_products_details_daily.array_bsr_categorie, self.marketplace), price_last=bq_mba_products_details_daily.price, score_last=bq_mba_products_details_daily.customer_review_score_mean, brand=bq_mba_products_details.brand, title=bq_mba_products_details.title, listings=get_product_listings_by_list_str(bq_mba_products_details.product_features, self.marketplace), description=bq_mba_products_details.description)
-                #         yield {"pydantic_class": fs_doc}
+                    yield {"pydantic_class": fs_mba_shirt}
+                else:
+                    fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
+                    if fs_doc_snap.exists:
+                        fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap, read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+                        # TODO: keep splitted keyword data in FS. But only if its set, otherwise only keywords_meaningful list
+                        fs_doc.update_data(bsr_last=bq_mba_products_details_daily.bsr, bsr_category=get_bsr_category(bq_mba_products_details_daily.array_bsr_categorie, self.marketplace), price_last=bq_mba_products_details_daily.price, score_last=bq_mba_products_details_daily.customer_review_score_mean, brand=bq_mba_products_details.brand, title=bq_mba_products_details.title, listings=get_product_listings_by_list_str(bq_mba_products_details.product_features, self.marketplace), description=bq_mba_products_details.description)
+                        yield {"pydantic_class": fs_doc}
 
                 self.page_count = self.page_count + 1
 
@@ -130,3 +139,19 @@ class MBALocalProductSpider(MBAProductSpider):
             self.crawling_job.finished_with_error = True
             self.crawling_job.error_msg = str(e)
             raise e
+
+    def get_new_fs_mba_shirt_obj(self, bq_mba_products_details, bq_mba_products_details_daily, response) -> FSMBAShirt:
+        # TODO create FSMBASshirt class and write it to FS. Test this and include overview data as well
+        price_overview = None
+        try:
+            price_overview: Optional[float] = response.meta["price_overview"]
+            bq_mba_images = BQMBAProductsMbaImages.parse_obj(response.meta)
+        except Exception as e:
+            bq_mba_images = BQMBAProductsMbaImages.parse_with_one_url(
+                product_selector.get_image_url(response), response.meta["asin"])
+        fs_mba_shirt = FSMBAShirt.parse_crawling_classes(bq_mba_products_details,
+                                                         bq_mba_products_details_daily, bq_mba_images,
+                                                         self.marketplace,
+                                                         fs_col_path=self.fs_product_data_col_path,
+                                                         price_overview=price_overview)
+        return fs_mba_shirt

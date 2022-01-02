@@ -31,7 +31,7 @@ import hashlib
 import nltk
 from nltk.stem.snowball import SnowballStemmer
 from nltk.corpus import stopwords
-from mwfunctions.pydantic.firestore.mba_shirt_classes import get_bsr_top_category_names_list
+from mwfunctions.pydantic.firestore.utils import get_bsr_top_category_names_list
 
 KEYWORDS_TO_REMOVE_DE = ["T-Shirt", "tshirt", "Shirt", "shirt", "T-shirt", "Geschenk", "Geschenkidee", "Design", "Weihnachten", "Frau",
         "Geburtstag", "Freunde", "Sohn", "Tochter", "Vater", "Geburtstagsgeschenk", "Herren", "Frauen", "Mutter", "Schwester", "Bruder", "Kinder", 

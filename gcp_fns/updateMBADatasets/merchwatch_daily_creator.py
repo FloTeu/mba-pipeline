@@ -9,8 +9,8 @@ import argparse
 import sys
 import gc
 
-from mwfunctions.pydantic.firestore.mba_shirt_classes import get_default_category_name, get_bsr_top_category_names_list, \
-    get_bsr_category
+from mwfunctions.pydantic import get_bsr_category
+from mwfunctions.pydantic.firestore.utils import get_default_category_name, get_bsr_top_category_names_list
 from sklearn import preprocessing
 from datetime import datetime, timedelta
 from multiprocessing.dummy import Pool as ThreadPool 

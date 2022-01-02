@@ -4,11 +4,12 @@ import re
 from datetime import datetime, date, timedelta
 from typing import Dict, Union, Optional, List, Any, Type
 
-from mwfunctions.profiling import log_time
+from mwfunctions.pydantic.firestore.utils import get_default_category_name, get_bsr_top_category_names_list
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsMbaImages, BQMBAProductsDetails, BQMBAProductsDetailsDaily
 from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
 from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings, TextLanguage, Marketplace2DefaultTextLanguage_dict
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
-from mwfunctions.cloud.firestore import OrderByDirection, get_document_snapshot
+from mwfunctions.cloud.firestore import OrderByDirection
 from mwfunctions.text import get_stem_keywords_language, TextRank4Keyword, TextLanguage2KeywordsToRemove_dict, get_tr4w_obj
 from pydantic import Field, validator, PrivateAttr, BaseModel
 from langdetect import detect
@@ -230,7 +231,7 @@ class FSBSRData(MWBaseModel):
     # bsr_last_change: int
     bsr_change: Union[int, float] = Field(description="Bsr change of last month. Is used for merchwatch watch page sorting by strongest change.")
     # bsr_change_total: Optional[Union[int, float]] = None
-    bsr_last_range: int = Field(description="Small Integer representation of bsr_last. 0 means bsr_last is between 0-100.000. Every increments is a 100000 range. 99 if higher than 5.000.000")
+    bsr_last_range: Optional[int] = Field(None, description="Small Integer representation of bsr_last. 0 means bsr_last is between 0-100.000. Every increments is a 100000 range. 99 if higher than 5.000.000")
     bsr_count: int
 
     def get_bsr_to_high_to_filter_value(self):
@@ -267,7 +268,7 @@ class FSPriceData(MWBaseModel):
     price_min: Optional[float] = Field(description="Lowest price ever found. Equals to price_last if not set already")
     price_first: Optional[float] = Field(description="Equals to price_last if not set already")
     price_change: float
-    price_last_range: int
+    price_last_range: Optional[int] = Field(None, description="integer representation of price_last")
 
     #price_mean: float
     #price_last_ranges_array: List[int] = Field(description="Was before used for FS filtering. List of price range indication e.g. 1321 means price is between 13 and 21.")
@@ -283,6 +284,10 @@ class FSPriceData(MWBaseModel):
     @validator("price_min", always=True)
     def set_price_min(cls, price_min, values):
         return price_min if price_min and price_min < values["price_last"] else values["price_last"]
+
+    @validator("price_last_range", always=True)
+    def set_price_last_range(cls, price_last_range, values):
+        return price_last_range if price_last_range else int(values["price_last"])
 
 class FSImageData(MWBaseModel):
     # TODO: make image urls only required if takedown == False
@@ -412,14 +417,29 @@ class FSUploadData(MWBaseModel):
         return (datetime.now() - upload_date_dt).days
 
 class FSTrendData(MWBaseModel):
-    trend_nr: int = Field(description="trend_nr is to top n ranking index if documents would be sorted by trend")
-    trend: float = Field(description="Float trend value calculated by trend formular. Take upload date and bsr into account")
-    trend_change: int = Field(description="trend_nr new - trend_nr old. Negativ/low values are better since ranking is better than before.")
+    trend: Optional[float] = Field(None, description="Float trend value calculated by trend formular. Take upload date and bsr into account")
+    trend_nr: Optional[int] = Field(None, description="trend_nr is to top n ranking index if documents would be sorted by trend")
+    trend_change: Optional[int] = Field(None, description="trend_nr new - trend_nr old. Negativ/low values are better since ranking is better than before.")
+
+    def __init__(self, **data: Any) -> None:
+        super().__init__(**data)
+        if isinstance(self, FSMBADocument) and self.trend == None:
+            self.update_trend_value()
+
+    @validator("trend_nr", always=True)
+    def set_trend_nr(cls, trend_nr):
+        return trend_nr if trend_nr else 999999999
+
 
 class FSScoreData(MWBaseModel):
     score_count: int = 0
     score_last: Optional[float] = None
     score_last_rounded: Optional[int] = Field(None, description="int(round(score_last, 0))")
+
+    @validator("score_last_rounded", always=True)
+    def set_score_last_rounded(cls, score_last_rounded, values):
+        return score_last_rounded if score_last_rounded else int(round(values["score_last"], 0))
+
 
 class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData, FSScoreData):
     ''' Child of FSDocument must contain all field values of document to create this document.
@@ -438,10 +458,12 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
     language: Optional[str] = None
     timestamp: datetime
     time_since_upload_power: Optional[float] = None
-    update_last: date
     url_affiliate: Optional[str] = None
     img_affiliate: Optional[str] = None
     affiliate_exists: Optional[bool] = None
+
+    # deprecated
+    #update_last: date
 
     @staticmethod
     def get_change_total(current, previous):
@@ -642,7 +664,12 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
     def update_trend_value(self):
         trend_old = copy.deepcopy(self.trend)
         self.trend = self.calculate_trend()
-        self.trend_change = self.trend - trend_old
+        self.trend_change = self.trend - trend_old if trend_old != None else 0
+        return self
+
+    def update_takedown(self):
+        self.takedown = True
+        self.takedown_date = datetime.now().date()
         return self
 
     def update_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None, price_last: Optional[float]=None, score_last: Optional[float]=None, score_count: Optional[int]=None, brand: Optional[str]=None, title: Optional[str]=None, listings: Optional[List[str]]=None, description: Optional[str]=None):
@@ -696,6 +723,18 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
             print(f"Warning: Shirt with asin {self.asin} does not contain a comparable bsr category, but {self.bsr_category} for marketplace {self.marketplace}")
             self.set_fields_of_not_comparable_mba_shirt()
 
+    @classmethod
+    def parse_crawling_classes(cls, bq_mba_products_details: BQMBAProductsDetails, bq_mba_products_details_daily: BQMBAProductsDetailsDaily, bq_mba_images: BQMBAProductsMbaImages, marketplace:Marketplace, fs_col_path:str=None, price_overview: Optional[float]=None):
+        fs_mba_obj = cls.parse_obj({"doc_id": bq_mba_products_details.asin, "takedown": False, "timestamp": datetime.now(),
+                              "bsr_count": 1, "bsr_change": 0, "price_change": 0, **bq_mba_images.get_fs_import_dict(),
+                              **bq_mba_products_details.get_fs_import_dict(marketplace), **bq_mba_products_details_daily.get_fs_import_dict(marketplace),
+                              "_fs_col_path": fs_col_path if fs_col_path else f"{marketplace}_shirts"})
+        fs_mba_obj.price_last = float(price_overview) if (fs_mba_obj.price_last == 0 or fs_mba_obj.price_last == None) and price_overview else fs_mba_obj.price_last
+        fs_mba_obj.update_plot_data_subcollection(bsr_last=fs_mba_obj.bsr_last, bsr_category=fs_mba_obj.bsr_category, price_last=fs_mba_obj.price_last,
+                                                  score_last=fs_mba_obj.score_last, score_last_count=fs_mba_obj.score_count)
+
+        return fs_mba_obj
+
 
 class MBAShirtOrderByField(str, EnumBase):
     # value is FS field
@@ -719,71 +758,6 @@ MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
     MBAShirtOrderByField.UPLOAD.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.UPLOAD, direction=OrderByDirection.DESC, start_value=datetime.max),
     MBAShirtOrderByField.BSR_CHANGE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
 }
-
-
-def bsr2bsr_range_value(bsr) -> int:
-    # returns value between 0 and 50
-    # old code: return (int(self.bsr_min/100000),math.ceil(self.bsr_max/100000))
-    return int(bsr/100000)
-
-
-def get_bsr_range_list(bsr_last_range: tuple, bsr_range_to_query):
-    try:
-        bsr_range_list = []
-        if type(bsr_last_range) == tuple:
-            bsr_start = bsr_last_range[0] if type(bsr_last_range[0]) == int else 0
-            bsr_end = bsr_last_range[1] if type(bsr_last_range[1]) == int and bsr_last_range[1] < (bsr_start + bsr_range_to_query) else bsr_start + bsr_range_to_query # firestore filter does allow only 10 values for "IN" query
-            if bsr_end > 51:
-                bsr_end = 52
-            # catch the case get designs without bsr
-            if bsr_start > (50-bsr_range_to_query) and bsr_last_range[1] == None:
-                bsr_end = bsr_end - 1
-                bsr_range_list = [i for i in range(bsr_start, bsr_end)] + [99]
-            else:
-                bsr_range_list = [i for i in range(bsr_start, bsr_end)]
-            return bsr_range_list
-        else:
-            return bsr_range_list
-    except Exception as e:
-        print(str(e))
-        return []
-
-
-def get_default_category_name(marketplace) -> str:
-    if marketplace == "de":
-        return "Fashion"
-    else:
-        return "Clothing, Shoes & Jewelry"
-
-
-def get_bsr_top_category_names_list(marketplace):
-    if marketplace == "de":
-        return ["Fashion", "Bekleidung"]
-    else:
-        return ["Clothing, Shoes & Jewelry"]
-
-def get_bsr_category(array_bsr_categorie_str: str, marketplace):
-    # array_bsr_categorie_str e.g. "['Spielzeug', 'Schultüten']"
-    if marketplace == "de":
-        try:
-            bsr_category = array_bsr_categorie_str.strip("[]").split(",")[
-                0].strip("'")
-        except Exception as e:
-            print(array_bsr_categorie_str)
-            print("Could not extract bsr_category", str(e))
-            bsr_category = ""
-    else:
-        # does not split "," which does not work for "Clothing, Shoes & Jewelry"
-        try:
-            bsr_category = re.findall(
-                "'([^']*)'", array_bsr_categorie_str.strip("[]"))[0]
-        except Exception as e:
-            print(array_bsr_categorie_str)
-            print("Could not extract bsr_category", str(e))
-            bsr_category = ""
-    if bsr_category == "404" or bsr_category == "":
-        bsr_category = get_default_category_name(marketplace)
-    return bsr_category
 
 # with log_time("First"):
 #     t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "My Brand", "title": "Geiles Shirt 69 für richtig heiße Boys", "listings": ["Mein Shirt ist krass, muss man haben.", "Zweites listing für interessierte Leser"], "description": "Das ist eine beschreibung des Produktes P. Wenn ihr dieses Produkt kauft, wachsen euch Einhorn Hörner.", "marketplace": "de"})
