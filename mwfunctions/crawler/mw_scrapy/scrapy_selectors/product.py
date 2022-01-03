@@ -37,7 +37,7 @@ def mba_bsr_str_to_mba_data(mba_bsr_str, marketplace):
     array_mba_bsr = []
     array_mba_bsr_categorie = []
 
-    if marketplace == "de":
+    if "Nr. " in mba_bsr_str: #  marketplace de or com with germand language
         bsr_iterator = mba_bsr_str.split("Nr. ")
         bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
         for bsr_str in bsr_iterator:
@@ -47,7 +47,7 @@ def mba_bsr_str_to_mba_data(mba_bsr_str, marketplace):
             bsr_categorie = bsr_str.split("(")[0].replace("\xa0", " ").split("in ")[1].strip()
             array_mba_bsr_categorie.append(bsr_categorie)
         mba_bsr = int(bsr_iterator[0].split("in")[0].replace(".", "").replace(",", ""))
-    elif marketplace == "com":
+    elif "#" in mba_bsr_str: # marketplace com
         bsr_iterator = mba_bsr_str.split("#")
         bsr_iterator = bsr_iterator[1:len(bsr_iterator)]
         for bsr_str in bsr_iterator:
@@ -77,7 +77,7 @@ def get_bsr(response, marketplace):
     array_mba_bsr = []
     array_mba_bsr_categorie = []
     if bsr_li != None and bsr_li != [] and type(bsr_li) == scrapy.selector.unified.SelectorList and "".join(
-            bsr_li.css("::text").getall()).replace("\n", "") != "":
+            bsr_li.css("::text").getall()).replace("\n", "").strip() != "":
         try:
             mba_bsr_str = "".join(bsr_li.css("::text").getall()).replace("\n", "")
             mba_bsr, array_mba_bsr, array_mba_bsr_categorie = mba_bsr_str_to_mba_data(mba_bsr_str, marketplace)
