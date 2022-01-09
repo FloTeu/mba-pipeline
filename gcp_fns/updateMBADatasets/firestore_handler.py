@@ -49,7 +49,8 @@ class Firestore():
                     col_path = f"{self.collection_name}/{doc_id}/{subcollection_id}"
                     #print(col_path, subcollection_data_key)
                     doc_sub_collection_ref = self.db.collection(col_path).document(str(subcollection_data_key))
-                    batch.set(doc_sub_collection_ref, subcollection_doc_data)
+                    # update to prevent loosing data like review score
+                    batch.update(doc_sub_collection_ref, subcollection_doc_data)
         
         batch.set(doc_ref, fs_dict)
 

@@ -31,7 +31,7 @@ def get_bsr_range_list(bsr_last_range: tuple, bsr_range_to_query):
 
 def get_default_category_name(marketplace) -> str:
     if marketplace == "de":
-        return "Fashion"
+        return "Bekleidung"
     else:
         return "Clothing, Shoes & Jewelry"
 
@@ -40,7 +40,7 @@ def get_bsr_top_category_names_list(marketplace):
     if marketplace == "de":
         return ["Fashion", "Bekleidung"]
     else:
-        return ["Clothing, Shoes & Jewelry"]
+        return ["Clothing, Shoes & Jewelry", "Kleidung, Schuhe & Schmuck"]
 
 
 def get_bsr_category(array_bsr_categorie_str: str, marketplace):

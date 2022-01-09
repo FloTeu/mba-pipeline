@@ -234,7 +234,8 @@ class FSBSRData(MWBaseModel):
     bsr_last_range: Optional[int] = Field(None, description="Small Integer representation of bsr_last. 0 means bsr_last is between 0-100.000. Every increments is a 100000 range. 99 if higher than 5.000.000")
     bsr_count: int
 
-    def get_bsr_to_high_to_filter_value(self):
+    @staticmethod
+    def get_bsr_to_high_to_filter_value():
         return 999999999
 
     def inc_bsr_count(self):
@@ -252,15 +253,32 @@ class FSBSRData(MWBaseModel):
 
     @validator("bsr_first", always=True)
     def set_bsr_first(cls, bsr_first, values):
-        return bsr_first if bsr_first else values["bsr_last"]
+        return bsr_first if bsr_first or values["bsr_last"] == cls.get_bsr_to_high_to_filter_value() else values["bsr_last"]
 
     @validator("bsr_max", always=True)
     def set_bsr_max(cls, bsr_max, values):
-        return bsr_max if bsr_max and bsr_max > values["bsr_last"] else values["bsr_last"]
+        return bsr_max if bsr_max and bsr_max > values["bsr_last"] or values["bsr_last"] == cls.get_bsr_to_high_to_filter_value() else values["bsr_last"]
 
     @validator("bsr_min", always=True)
     def set_bsr_min(cls, bsr_min, values):
         return bsr_min if bsr_min and bsr_min < values["bsr_last"] else values["bsr_last"]
+
+    def update_bsr_last_and_category_if_comparable(self, bsr_last, bsr_category, marketplace):
+        # if bsr_category is different from top category for mba shirts (which are comparable for watch page) bsr_last should be a high number to prevent wrong results
+        curr_bsr_category_is_comparable = self.bsr_category in get_bsr_top_category_names_list(marketplace)
+        new_bsr_category_is_comparable = bsr_category in get_bsr_top_category_names_list(marketplace)
+
+        # case new data which is comparable
+        if new_bsr_category_is_comparable:
+            self.bsr_last = bsr_last
+            self.bsr_category = bsr_category
+            self.bsr_max = self.set_bsr_max(self.bsr_max, self.dict())
+            self.bsr_min = self.set_bsr_min(self.bsr_min, self.dict())
+        # if not curr_bsr_category_is_comparable we overwrite uncomparable bsr with high value
+        elif not curr_bsr_category_is_comparable:
+            self.bsr_category = bsr_category
+            self.bsr_last = self.get_bsr_to_high_to_filter_value()
+        # if old bsr data was comparable (while new one is not) keep it without overwriting
 
 class FSPriceData(MWBaseModel):
     price_last: float
@@ -339,7 +357,7 @@ class FSKeywordData(MWBaseModel):
         if self.language == None: self.update_language()
 
     def get_keywords_meaningful(self, text_block: Optional[str]=None, tr4w: Optional[TextRank4Keyword]=None) -> List[str]:
-        text_block = text_block if text_block else t.get_keyword_text_block()
+        text_block = text_block if text_block else self.get_keyword_text_block()
         tr4w = tr4w if tr4w else get_tr4w_obj(self.language if self.language else TextLanguage.ENGLISH)
         return list(set(tr4w.get_unsorted_keywords(text_block, candidate_pos=['NOUN', 'PROPN'], lower=False, stopwords=TextLanguage2KeywordsToRemove_dict[tr4w.language])))
 
@@ -614,8 +632,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
         if bsr_last != 404 and bsr_last != self.bsr_last and bsr_last != 0 and type(bsr_last) == int:
             # What should happen if bsr_category is different from before?
             # 28.12.21: Add them also to subcol and filter afterwards
-            self.bsr_last = bsr_last
-            self.bsr_category = bsr_category
+            self.update_bsr_last_and_category_if_comparable(bsr_last, bsr_category, self.marketplace)
             #self.sync_shortened_dicts2subcollections() # use it only with care (threat of removing existing data in FS)
             self.update_plot_data_subcollection(bsr_last=bsr_last, bsr_category=bsr_category) # reads subcol data (at least one document if existend)
             self.inc_bsr_count()
@@ -759,14 +776,16 @@ MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
     MBAShirtOrderByField.BSR_CHANGE.value: FSMBAShirtOrderBy(fs_field=MBAShirtOrderByField.BSR_CHANGE, direction=OrderByDirection.ASC, start_value=-100000000),
 }
 
+# TODO: B094LGKKNW score saved but not score count
 # with log_time("First"):
 #     t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "My Brand", "title": "Geiles Shirt 69 für richtig heiße Boys", "listings": ["Mein Shirt ist krass, muss man haben.", "Zweites listing für interessierte Leser"], "description": "Das ist eine beschreibung des Produktes P. Wenn ihr dieses Produkt kauft, wachsen euch Einhorn Hörner.", "marketplace": "de"})
 #t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "専をろとね質親じばよぶ持演わみゅ図際セ可育っめへリ訪著ゅせ試4場そかへわ陳除キミラ色東賞ざむフ感権ヲチリ度旅とざぼ辺象れぜば覧博なれス意43昨届88昨届6覧ワ政更ラホロ徴販歩みけねぼ。困ケノワ社掲フ暮記総通ケ身謙ニウホ朝日加しみでら楽格ずリ頑震べあへほ規山稿セタ望航話問クヨフネ平芸ヒミ乱定づびーを領日ケコ夫7暮ぱク象召ひ", "title": "千葉 弘幸", "marketplace": "de"})
-#t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B089SKWDJN"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
-#t.update_data(bsr_last=12312, bsr_category="Schuhe", price_last=22.24, score_last=4.6, score_count=20, title="Neuer Amerikaner")
+# from mwfunctions.cloud.firestore import get_document_snapshot
+# t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B089SKWDJN"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+# t.update_data(bsr_last=1002312, bsr_category="Bekleidung", price_last=22.24, score_last=4.6, score_count=20, title="Neuer Amerikaner")
 #t.write_to_firestore()
 #t.set_bsr_change()
-#test = 0
+test = 0
 
 # deprecated
 

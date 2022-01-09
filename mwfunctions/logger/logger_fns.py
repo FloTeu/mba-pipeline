@@ -1,8 +1,4 @@
 import logging
-import tqdm
-import asyncio
-import google
-
 from googleapiclient import discovery
 from google.oauth2 import service_account
 
