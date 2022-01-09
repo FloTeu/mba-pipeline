@@ -29,7 +29,7 @@ def textLanguage2SpacyDefaultPackage(language: TextLanguage) -> str:
         raise NotImplementedError
 
 def download_language_package(language_package: str):
-    os.system(f"python -m spacy download {language_package}")
+    os.system(f"python3 -m spacy download {language_package}")
 
 def download_default_language_package(language: TextLanguage):
     download_language_package(textLanguage2SpacyDefaultPackage(language))
