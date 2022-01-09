@@ -36,8 +36,8 @@ ROTATING_PROXY_CLOSE_SPIDER = True
 ROTATING_PROXY_PAGE_RETRY_TIMES = 20 
 
 # Configure maximum concurrent requests performed by Scrapy (default: 16)
-CONCURRENT_REQUESTS = 30 # before 10 or 5
-CONCURRENT_REQUESTS_PER_DOMAIN = 30
+CONCURRENT_REQUESTS = 5 # before 10 or 5
+CONCURRENT_REQUESTS_PER_DOMAIN = 5
 
 # Configure a delay for requests for the same website (default: 0)
 # See https://docs.scrapy.org/en/latest/topics/settings.html#download-delay
