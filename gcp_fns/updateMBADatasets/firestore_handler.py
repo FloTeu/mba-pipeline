@@ -50,8 +50,10 @@ class Firestore():
                     #print(col_path, subcollection_data_key)
                     doc_sub_collection_ref = self.db.collection(col_path).document(str(subcollection_data_key))
                     # update to prevent loosing data like review score
-                    batch.update(doc_sub_collection_ref, subcollection_doc_data)
-        
+                    #batch.update(doc_sub_collection_ref, subcollection_doc_data)
+                    # TODO: what happens if update on not existent doc?
+                    batch.set(doc_sub_collection_ref, subcollection_doc_data)
+
         batch.set(doc_ref, fs_dict)
 
     def update_by_df_batch(self, df, product_id_column, batch_size=100):
