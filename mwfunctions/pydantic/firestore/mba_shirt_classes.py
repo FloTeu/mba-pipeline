@@ -781,8 +781,10 @@ MBA_SHIRT_ORDERBY_DICT: Dict[MBAShirtOrderByField, FSMBAShirtOrderBy] = {
 #     t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "My Brand", "title": "Geiles Shirt 69 für richtig heiße Boys", "listings": ["Mein Shirt ist krass, muss man haben.", "Zweites listing für interessierte Leser"], "description": "Das ist eine beschreibung des Produktes P. Wenn ihr dieses Produkt kauft, wachsen euch Einhorn Hörner.", "marketplace": "de"})
 #t = FSKeywordData.parse_obj({"asin": "B021AWDF90", "brand": "専をろとね質親じばよぶ持演わみゅ図際セ可育っめへリ訪著ゅせ試4場そかへわ陳除キミラ色東賞ざむフ感権ヲチリ度旅とざぼ辺象れぜば覧博なれス意43昨届88昨届6覧ワ政更ラホロ徴販歩みけねぼ。困ケノワ社掲フ暮記総通ケ身謙ニウホ朝日加しみでら楽格ずリ頑震べあへほ規山稿セタ望航話問クヨフネ平芸ヒミ乱定づびーを領日ケコ夫7暮ぱク象召ひ", "title": "千葉 弘幸", "marketplace": "de"})
 # from mwfunctions.cloud.firestore import get_document_snapshot
-# t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B08DDYHJJC"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
-# t.update_data(bsr_last=1002312, bsr_category="Bekleidung", price_last=22.24, score_last=4.6, score_count=20, title="Neuer Amerikaner")
+# from mwfunctions.profiling import log_memory
+# with log_memory("read FS"):
+#     t = FSMBAShirt.parse_fs_doc_snapshot(get_document_snapshot("/de_shirts/B08DDYHJJC"), read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+#     t.update_data(bsr_last=1002312, bsr_category="Bekleidung", price_last=22.24, score_last=4.6, score_count=20, title="Neuer Amerikaner")
 #t.write_to_firestore()
 #t.set_bsr_change()
 test = 0
