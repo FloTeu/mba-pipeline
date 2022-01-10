@@ -807,9 +807,13 @@ class FsDocumentsCacher(object):
 
     def get_ordered_cacher_docs(self, order_by: Optional[str], reverse=False) -> List[CacherDocument]:
         ordered_cacher_docs = list(self.doc_id2cache_doc.values())
+        # TODO: Can't compare naive and aware datetime.now() <= challenge.datetime_end
         if order_by:
-            ordered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by],
+            try:
+                ordered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by],
                                   reverse=reverse)
+            except Exception as e:
+                print("Critical: Could not sort cacher docs by:", order_by, str(e))
         return ordered_cacher_docs
 
     def get_order_by_cursor(self, doc_id: Optional[str], order_by: Optional[str], reverse=False) -> Optional[Union[float, int, str, datetime, bool]]:
