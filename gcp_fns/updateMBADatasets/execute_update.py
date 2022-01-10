@@ -120,7 +120,7 @@ def main(args):
 
         update_bq_table(args, marketplace, BigQueryHandlerModel)
         # TODO: update FS directly via crawler not from BQ. If you want to update it via keep in mind that things like customer review count are not included. in current process.
-        DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
+        # DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
         
         # Delete every day trend niche designs but only those which are older than one week
         NicheUpdaterModel.delete_all_niches_by_type("trend_niche", days=7)
