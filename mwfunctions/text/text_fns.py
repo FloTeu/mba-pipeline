@@ -170,8 +170,13 @@ class TextRank4Keyword():
         if self.language == "de":
             language_name = "german"
 
-        r = Rake(language=language_name, min_length=2, max_length=5, stopwords=stopwords)
-        r.extract_keywords_from_text(text)
+        try:
+            r = Rake(language=language_name, min_length=2, max_length=5, stopwords=stopwords)
+            r.extract_keywords_from_text(text)
+        except Exception as e:
+            nltk.download("punkt")
+            r = Rake(language=language_name, min_length=2, max_length=5, stopwords=stopwords)
+            r.extract_keywords_from_text(text)
         return r.get_ranked_phrases()
 
     def is_meaningful_keyword(self, text, keyword_to_poc):

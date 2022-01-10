@@ -770,7 +770,11 @@ class FsDocumentsCacher(object):
             # sort docs first and than get desired batch_size
             if order_by:
                 # sort by reference
-                filtered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by], reverse=order_by_direction == OrderByDirection.DESC)
+                # TODO: Can't compare naive and aware datetime.now() <= challenge.datetime_end
+                try:
+                    filtered_cacher_docs.sort(key=lambda cacher_doc: cacher_doc.fs_document[order_by], reverse=order_by_direction == OrderByDirection.DESC)
+                except Exception as e:
+                    print("Critical: Could not sort cacher docs by:", order_by, str(e))
             return [cacher_doc.fs_document for cacher_doc in filtered_cacher_docs[0:batch_size]]
 
     def update_beginning_bsr_last_range_filter(self, batch_load_request, doc_id_cursor, matching_batch_load_requests: list=None, update_only_if_cursor_found=True):
