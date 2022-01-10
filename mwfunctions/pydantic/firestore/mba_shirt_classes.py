@@ -629,6 +629,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
 
     def update_bsr_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None):
         # Function to update bsr data with NEW bsr_last
+        # TODO: why docs were updated with bsr_last=0???? destroyed bestseller + trend page
         if bsr_last != 404 and bsr_last != self.bsr_last and bsr_last != 0 and type(bsr_last) == int:
             # What should happen if bsr_category is different from before?
             # 28.12.21: Add them also to subcol and filter afterwards
