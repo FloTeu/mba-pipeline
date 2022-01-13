@@ -119,13 +119,13 @@ def get_sql_random(marketplace, number_products):
 
 def get_sql_top_categories(marketplace, top_n=10):
     SQL_STATEMENT = '''
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_last LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, trend, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_last LIMIT {1})
     UNION ALL
-    --(SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_mean LIMIT {1})
+    --(SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, trend, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_mean LIMIT {1})
     --UNION ALL
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by trend LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, trend, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by trend LIMIT {1})
     UNION ALL
-    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_change LIMIT {1})
+    (SELECT DISTINCT asin, bsr_last, bsr_mean, trend_nr, trend, bsr_change FROM `mba_{0}.merchwatch_shirts` where price_last != 404.0 order by bsr_change LIMIT {1})
     '''.format(marketplace, top_n)
     return SQL_STATEMENT
 
