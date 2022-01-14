@@ -22,7 +22,7 @@ from mwfunctions import environment
 from mwfunctions.crawler.proxy import proxy_handler
 from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, FSWatchItemSubCollectionPlotData
 from mwfunctions.pydantic import get_bsr_category
@@ -31,6 +31,7 @@ from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict
 from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
 from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
+from mwfunctions.profiling import get_memory_used_in_gb
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
@@ -54,6 +55,7 @@ class MBALocalProductSpider(MBAProductSpider):
     # }
 
     def __init__(self, mba_product_request: CrawlingMBAProductRequest, url_data_path=None, *args, **kwargs):
+        self.memory_in_gb_start: float = get_memory_used_in_gb()
         super_attrs = {"mba_crawling_request": mba_product_request, **mba_product_request.dict()}
         super(MBALocalProductSpider, self).__init__(*args, **super_attrs)
         # TODO: Add functionality to download url data directly within init
@@ -65,6 +67,7 @@ class MBALocalProductSpider(MBAProductSpider):
     def start_requests(self):
         self.reset_was_banned_every_hour()
 
+        self.crawling_job.memory_log = MemoryLog(start=self.memory_in_gb_start)
         urls, asins = get_urls_asins_for_product_crawling(self.mba_crawling_request, self.marketplace, self.bq_project_id, url_data_path=self.url_data_path, debug=self.debug)
         asin2overview_data_dict = {}
         if not self.daily:
@@ -89,6 +92,9 @@ class MBALocalProductSpider(MBAProductSpider):
 
     def parse(self, response):
         try:
+            # req_in_schedule = len(self.crawler.engine.slot.scheduler)
+            # req_in_progress = len(self.crawler.engine.slot.inprogress)
+            # print(f"Requests in schedule: {req_in_schedule}, in progress: {req_in_progress}")
             asin = response.meta["asin"]
             total_page_target = response.meta["total_page_target"]
             page_nr = response.meta["page_nr"]
@@ -115,10 +121,10 @@ class MBALocalProductSpider(MBAProductSpider):
                 yield {"pydantic_class": bq_mba_products_details_daily}
 
                 if not self.daily:
-                    fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
-                                                                 bq_mba_products_details_daily, response)
                     yield {"pydantic_class": bq_mba_products_details}
-                    yield {"pydantic_class": fs_mba_shirt}
+                    # fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
+                    #                                              bq_mba_products_details_daily, response)
+                    # yield {"pydantic_class": fs_mba_shirt}
                 # else:
                 #     fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
                 #     if fs_doc_snap.exists:

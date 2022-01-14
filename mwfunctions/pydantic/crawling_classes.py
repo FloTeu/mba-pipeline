@@ -60,6 +60,10 @@ class CrawlingSorting(str, Enum):
     PRICE_DESC="price_down"
     CUSTOMER_REVIEW_DESC='cust_review_desc'
 
+class MemoryLog(MWBaseModel):
+    start: Optional[float] = None
+    end: Optional[float] = None
+
 class CrawlingJob(MWBaseModel):
     id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job")
     start_timestamp: Optional[datetime] = Field(get_england_timestamp(without_tzinfo=False), description="Datetime of crawling start")
@@ -76,6 +80,7 @@ class CrawlingJob(MWBaseModel):
     response_3XX_count: Optional[int] = Field(0, description="Count of status code 3XX responses")
     warning_count: Optional[int] = Field(0, description="Count of warnings. e.g. if price could not be crawled due to geographic proxy problems (eu proxy for usa product)")
     proxy_ban_count: Optional[int] = Field(0, description="Count of proxy ban. Which is only temporary.")
+    memory_log: Optional[MemoryLog] = None
 
     class Config:
         validate_assignment = True

@@ -429,7 +429,7 @@ class FSKeywordData(MWBaseModel):
 
 
 class FSUploadData(MWBaseModel):
-    upload_date: Union[datetime, date]
+    upload_date: Union[date, datetime]
     # Try to remove everything that is not mandatory to safe in FS
     #upload_since_days: Optional[int] = None
     #upload_since_days_map: Optional[Dict[str, bool]] = None

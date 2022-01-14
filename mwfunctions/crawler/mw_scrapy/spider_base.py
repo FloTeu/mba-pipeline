@@ -28,6 +28,7 @@ from mwfunctions.crawler.proxy.utils import get_random_headers
 from mwfunctions.environment import is_debug, get_gcp_project, set_default_gcp_project_if_not_exists
 from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 import mwfunctions.cloud.firestore as firestore_fns
+from mwfunctions.profiling import get_memory_used_in_gb
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
@@ -266,10 +267,12 @@ class MBASpider(scrapy.Spider):
         return False
 
     def is_captcha_required(self, response):
-        captcha = "captcha" in response.body.decode("utf-8").lower()
-        content_protection = "benningtonschools" in response.body.decode("utf-8").lower() or "shield.ericomcloud" in response.url
+        body_text = response.body.decode("utf-8").lower()
+        captcha = "captcha" in body_text
+        content_protection = "benningtonschools" in body_text or "shield.ericomcloud" in response.url
         if content_protection:
             print("Found content protection of benningtonschools.org or shield.ericomcloud")
+        del body_text # set memory free
         return content_protection or captcha
 
     def get_request_again_if_captcha_required(self, url, proxy, asin=None, meta={}):
@@ -304,6 +307,8 @@ class MBASpider(scrapy.Spider):
         # self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         self.crawling_job.end_timestamp = get_england_timestamp(without_tzinfo=False)
         self.crawling_job.set_duration_in_min()
+        if self.crawling_job.memory_log:
+            self.crawling_job.memory_log["end"] = get_memory_used_in_gb()
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}", overwrite_doc=True)
 
 
