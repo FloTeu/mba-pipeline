@@ -246,6 +246,11 @@ class FSBSRData(MWBaseModel):
     def bsr2bsr_last_range(bsr: int):
         return int(bsr / 100000) if bsr < 5000000 else 99
 
+    @validator("bsr_last", always=True)
+    def set_bsr_last(cls, bsr_last, values):
+        # prevent bsr last to be set equal to 0
+        return bsr_last if bsr_last != 0 else cls.get_bsr_to_high_to_filter_value()
+
     @validator("bsr_last_range", always=True)
     def set_bsr_last_range(cls, bsr_last_range, values):
         # 99 stands for higher than max filterable value, i.e. 50.000.000

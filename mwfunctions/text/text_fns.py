@@ -175,6 +175,7 @@ class TextRank4Keyword():
             r.extract_keywords_from_text(text)
         except Exception as e:
             nltk.download("punkt")
+            nltk.download('stopwords')
             r = Rake(language=language_name, min_length=2, max_length=5, stopwords=stopwords)
             r.extract_keywords_from_text(text)
         return r.get_ranked_phrases()

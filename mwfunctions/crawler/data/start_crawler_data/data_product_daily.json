@@ -1,1 +1,26 @@
-{"crawler_start_request_list": [{"marketplace": "de", "settings": {"CLOSESPIDER_TIMEOUT": 900}, "daily": true, "number_products": 220, "proportions": {}, "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/daily_de.csv"}, {"marketplace": "com", "settings": {"CLOSESPIDER_TIMEOUT": 900}, "daily": true, "number_products": 220, "proportions": {}, "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/daily_com.csv"}], "split_after_n": 0, "wait_n_minutes": 0}
+{
+  "crawler_start_request_list": [
+    {
+      "marketplace": "de",
+      "settings": {
+        "CLOSESPIDER_TIMEOUT": 900
+      },
+      "daily": true,
+      "number_products": 220,
+      "proportions": {},
+      "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/daily_de.csv"
+    },
+    {
+      "marketplace": "com",
+      "settings": {
+        "CLOSESPIDER_TIMEOUT": 900
+      },
+      "daily": true,
+      "number_products": 220,
+      "proportions": {},
+      "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/daily_com.csv"
+    }
+  ],
+  "split_after_n": 0,
+  "wait_n_minutes": 0
+}
