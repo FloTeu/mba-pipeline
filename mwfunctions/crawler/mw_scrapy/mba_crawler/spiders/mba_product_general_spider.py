@@ -4,17 +4,23 @@ from typing import Optional
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
 
+from mwfunctions.profiling import get_memory_used_in_gb
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
-from mwfunctions.crawler.proxy.utils import get_random_headers
+from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
 from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProductSpider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, MemoryLog
-from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt
-from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, FSWatchItemSubCollectionPlotData
+from mwfunctions.pydantic import get_bsr_category
+from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
 from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict
-from mwfunctions.profiling import get_memory_used_in_gb
+from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
+from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
+
+
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
@@ -105,21 +111,21 @@ class MBALocalProductSpider(MBAProductSpider):
 
                 if not self.daily:
                     yield {"pydantic_class": bq_mba_products_details}
-                    # fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
-                    #                                              bq_mba_products_details_daily, response)
-                    # yield {"pydantic_class": fs_mba_shirt}
-                # else:
-                #     fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
-                #     if fs_doc_snap.exists:
-                #         fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap, read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
-                #         # TODO: keep splitted keyword data in FS. But only if its set, otherwise only keywords_meaningful list
-                #         fs_doc.update_data(bsr_last=bq_mba_products_details_daily.bsr, bsr_category=get_bsr_category(bq_mba_products_details_daily.array_bsr_categorie, self.marketplace),
-                #                            price_last=bq_mba_products_details_daily.price, score_last=bq_mba_products_details_daily.customer_review_score_mean,
-                #                            score_count=bq_mba_products_details_daily.customer_review_count,
-                #                            brand=bq_mba_products_details.brand, title=bq_mba_products_details.title,
-                #                            listings=get_product_listings_by_list_str(bq_mba_products_details.product_features, self.marketplace),
-                #                            description=bq_mba_products_details.description)
-                #         yield {"pydantic_class": fs_doc}
+                    fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
+                                                                 bq_mba_products_details_daily, response)
+                    yield {"pydantic_class": fs_mba_shirt}
+                else:
+                    fs_doc_snap = get_document_snapshot(f"{MWRootCollection(self.marketplace, MWRootCollectionType.SHIRTS)}/{asin}")
+                    if fs_doc_snap.exists:
+                        fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap, read_subcollections=[FSWatchItemSubCollectionPlotData], read_subcollection_docs_settings_dict={FSWatchItemSubCollectionPlotData:GetFSDocsSettings(limit=2, order_by="year", order_by_direction=OrderByDirection.DESC)})
+                        # TODO: keep splitted keyword data in FS. But only if its set, otherwise only keywords_meaningful list
+                        fs_doc.update_data(bsr_last=bq_mba_products_details_daily.bsr, bsr_category=get_bsr_category(bq_mba_products_details_daily.array_bsr_categorie, self.marketplace),
+                                           price_last=bq_mba_products_details_daily.price, score_last=bq_mba_products_details_daily.customer_review_score_mean,
+                                           score_count=bq_mba_products_details_daily.customer_review_count,
+                                           brand=bq_mba_products_details.brand, title=bq_mba_products_details.title,
+                                           listings=get_product_listings_by_list_str(bq_mba_products_details.product_features, self.marketplace),
+                                           description=bq_mba_products_details.description)
+                        yield {"pydantic_class": fs_doc}
 
                 self.page_count = self.page_count + 1
 
