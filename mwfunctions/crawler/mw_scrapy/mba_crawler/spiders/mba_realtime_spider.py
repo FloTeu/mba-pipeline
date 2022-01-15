@@ -25,7 +25,7 @@ def str2bool(v):
     else:
         raise ValueError("Provided argument is not a bool")
 
-class MBAShirtRealtimeResearchSpider(MBAOverviewSpider, MBAProductSpider):
+class MBAShirtRealtimeResearchSpider(MBAOverviewSpider):#, MBAProductSpider):
     name = "mba_realtime_research"
     website_crawling_target = CrawlingType.REALTIME_RESEARCH.value
     ip_addresses = []
@@ -40,12 +40,12 @@ class MBAShirtRealtimeResearchSpider(MBAOverviewSpider, MBAProductSpider):
         'pageType': 'Search',
         'actionSource': 'glow'
         }
- 
 
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
         super_attrs = {"mba_crawling_request": mba_overview_request, **mba_overview_request.dict()}
         # TODO init only overview parent
-        super(MBAOverviewSpider, self).__init__(*args, **super_attrs)
+        # super(MBAOverviewSpider, self).__init__(*args, **super_attrs)
+        MBAOverviewSpider.__init__(self, *args, **super_attrs)
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
         self.pod_product = mba_overview_request.mba_product_type
         self.allowed_domains = ['amazon.' + self.marketplace]

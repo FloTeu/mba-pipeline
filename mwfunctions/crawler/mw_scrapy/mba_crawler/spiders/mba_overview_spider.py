@@ -24,6 +24,8 @@ from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAPro
 from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogsSubcollectionDoc
 from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
+from mwfunctions.profiling import get_memory_used_in_gb
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -69,8 +71,10 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     # }
 
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
+        self.memory_in_gb_start: float = get_memory_used_in_gb()
         super_attrs = {"mba_crawling_request": mba_overview_request, **mba_overview_request.dict()}
-        super(MBAShirtOverviewSpider, self).__init__(*args, **super_attrs)
+        # super(MBAShirtOverviewSpider, self).__init__(*args, **super_attrs)
+        MBAOverviewSpider.__init__(self, *args, **super_attrs)
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
         self.pod_product = mba_overview_request.mba_product_type
         self.allowed_domains = ['amazon.' + self.marketplace]
@@ -86,6 +90,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         
     # called after start_spider of item pipeline
     def start_requests(self):
+        self.crawling_job.memory_log = MemoryLog(start=self.memory_in_gb_start)
         # use FS to check if data was already crawled. However lists are maintained during crawling to reduce some reading costs
         self.products_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
         # all image quality url crawled

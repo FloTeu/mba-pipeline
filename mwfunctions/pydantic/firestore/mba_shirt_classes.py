@@ -337,9 +337,10 @@ class FSKeywordData(MWBaseModel):
         super().__init__(**data)
         self.update_marketplace_if_none()
         self.update_language_if_none()
-        # TODO: This will lead to error for first japanese market crawl
+        # TODO: This will lead to error for first japanese market crawl#
         self.set_keywords_stem_if_none()
-        self.set_keywords_meaningful_if_none()
+        # TODO: keywords_meaningful consumes to much memory for small instance like e2-micro
+        #self.set_keywords_meaningful_if_none()
 
     def get_keyword_text_block(self, include_title=True, include_brand=True, include_listings=True, include_description=True) -> str:
         keyword_text_blocks: List[str] = []
@@ -423,7 +424,8 @@ class FSKeywordData(MWBaseModel):
 
         # TODO: Should language always be new detected or is once enough?
         self.update_keywords_stem()
-        self.update_keywords_meaningful()
+        # TODO: keywords_meaningful consumes to much memory for small instance like e2-micro
+        #self.update_keywords_meaningful()
 
         return self
 

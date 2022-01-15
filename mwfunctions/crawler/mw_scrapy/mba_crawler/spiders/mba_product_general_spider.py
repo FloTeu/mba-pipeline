@@ -94,6 +94,9 @@ class MBALocalProductSpider(MBAProductSpider):
             url = response.url
             if self.is_captcha_required(response):
                 yield self.get_request_again_if_captcha_required(url, proxy, asin=asin, meta={"total_page_target": total_page_target, "page_nr": page_nr})
+            # every successfull loaded product page should contain detail product information e.g. upload date, weight etc.
+            elif not self.contains_product_detail_information(response):
+                yield self.get_request_again(url, asin=asin, meta={"total_page_target": total_page_target, "page_nr": page_nr})
             # do not proceed if its not a mba shirt
             elif not self.is_mba_shirt(response):
                 self.crawling_job.count_inc("response_successful_count")

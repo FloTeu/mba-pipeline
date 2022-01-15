@@ -233,15 +233,23 @@ def get_weight(response):
     else:
         raise ValueError("Could not get weight")
 
+def get_product_information_lis(response):
+    """ Contains every li tag in detail product information (upload_date, bsr, customer review, weight etc.)
+        Might be possible that customer review and bsr are excluded (First query (detailBullets) is empty)
+    """
+    product_information = response.css('div#detailBullets li')
+    if product_information == None or product_information == []:
+        product_information = response.css('div#dpx-detail-bullets_feature_div li')
+    if product_information == None or product_information == []:
+        product_information = response.css('div#detailBullets_feature_div li')
+    return product_information
 
 def get_upload_date(response):
     possible_datetime_formats = ["%d, %B %Y", "%d %B %Y", "%dst %B %Y", "%B %dnd, %Y", "%dnd %B %Y", "%dnd, %B %Y", "%drd %B %Y", "%dth %B %Y", "%B %d, %Y", "%d. %B %Y"] # read from right to left
     upload_date_str = None
     upload_date_str_en = None
-    product_information = response.css('div#detailBullets li')
-    if product_information == None or product_information == []:
-        product_information = response.css('div#dpx-detail-bullets_feature_div li')
-    if product_information != None:
+    product_information = get_product_information_lis(response)
+    if product_information != None and product_information != []:
         for li in product_information:
             try:
                 info_text = li.css("span span::text").getall()[0].lower()
@@ -261,5 +269,6 @@ def get_upload_date(response):
                     raise ValueError(f"Could not get upload date. upload string {upload_date_str}, translated: {upload_date_str_en}")
                 else:
                     raise ValueError("Could not get upload date")
+        raise ValueError("Could not get upload date")
     else:
         raise ValueError("Could not get upload date")

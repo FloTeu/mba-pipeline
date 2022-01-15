@@ -9,7 +9,8 @@ from mwfunctions.time import get_berlin_timestamp
 class MBAOverviewSpider(MBASpider):
 
     def __init__(self, sort, pages=0, start_page=1, keyword="", *args, **kwargs):
-        super(MBAOverviewSpider, self).__init__(*args, **kwargs)
+        # super(MBAOverviewSpider, self).__init__(*args, **kwargs)
+        MBASpider.__init__(self, *args, **kwargs)
 
         self.sort = sort # e.g. newest
         self.keyword = keyword

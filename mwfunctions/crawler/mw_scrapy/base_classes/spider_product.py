@@ -123,6 +123,10 @@ class MBAProductSpider(MBASpider):
             self.log_error(e, "Could not get product upload date")
             raise e
 
+    @staticmethod
+    def contains_product_detail_information(response):
+        return product_selector.get_product_information_lis(response) != []
+
     '''
     ### Data class functions
     '''

@@ -270,12 +270,7 @@ class MBASpider(scrapy.Spider):
         del body_text # set memory free
         return content_protection or captcha
 
-    def get_request_again_if_captcha_required(self, url, proxy, asin=None, meta={}):
-        self.crawling_job.count_inc("response_captcha_count")
-        # self.response_is_ban(request, response, is_ban=True)
-        print("Captcha required for proxy: " + proxy)
-        self.captcha_count = self.captcha_count + 1
-        self.update_ban_count(proxy)
+    def get_request_again(self, url, asin=None, meta={}):
         headers = get_random_headers(self.marketplace)
         # send new request with high priority
         request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0,
@@ -283,6 +278,14 @@ class MBASpider(scrapy.Spider):
                                  errback=self.errback_httpbin, meta={**meta, "asin": asin, "url": url})
         self.crawling_job.count_inc("request_count")
         return request
+
+    def get_request_again_if_captcha_required(self, url, proxy, asin=None, meta={}):
+        self.crawling_job.count_inc("response_captcha_count")
+        # self.response_is_ban(request, response, is_ban=True)
+        print("Captcha required for proxy: " + proxy)
+        self.captcha_count = self.captcha_count + 1
+        self.update_ban_count(proxy)
+        return self.get_request_again(url, asin=asin, meta=meta)
 
     def save_content(self, response, file_name):
         filename = "data/" + self.name + "/content/%s.html" % file_name
