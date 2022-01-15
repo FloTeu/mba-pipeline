@@ -1,14 +1,13 @@
 from scrapy.crawler import CrawlerProcess
 from scrapy.utils.project import get_project_settings
-from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingMBARequest, CrawlingMBAOverviewRequest
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAOverviewRequest
 import requests
 
-
-from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem
-from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
-from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr, BQMBAProductsNoMbaShirt
+from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProductSpider
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType
+from mwfunctions.crawler.proxy.utils import get_random_headers
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, \
+    BQMBAProductsNoMbaShirt
 from mwfunctions.io import str2bool
 from mwfunctions import environment
 from mwfunctions.logger import get_logger

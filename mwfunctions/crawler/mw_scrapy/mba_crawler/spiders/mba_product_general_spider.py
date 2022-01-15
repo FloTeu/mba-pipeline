@@ -1,36 +1,19 @@
 import scrapy
-import datetime
-from pathlib import Path
 #from proxy import proxy_handler
-import pandas as pd
-from typing import List, Optional
-from scrapy.exceptions import CloseSpider
-
-import time
-import traceback
+from typing import Optional
 
 # from scrapy.contrib.spidermiddleware.httperror import HttpError
-from scrapy.spidermiddlewares.httperror import HttpError
-from twisted.internet.error import DNSLookupError
-from twisted.internet.error import TimeoutError, TCPTimedOutError, ConnectionRefusedError, ConnectionLost
-from twisted.web._newclient import ResponseNeverReceived
-from scrapy.core.downloader.handlers.http11 import TunnelError
 
 import mwfunctions.crawler.mw_scrapy.scrapy_selectors.product as product_selector
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
-from mwfunctions.crawler.proxy import proxy_handler
-from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
-from mwfunctions.crawler.mw_scrapy.spider_base import MBAProductSpider
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
-from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
-from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, FSWatchItemSubCollectionPlotData
-from mwfunctions.pydantic import get_bsr_category
-from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
+from mwfunctions.crawler.proxy.utils import get_random_headers
+from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProductSpider
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, MemoryLog
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
 from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict
-from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
-from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 from mwfunctions.profiling import get_memory_used_in_gb
 
 environment.set_cloud_logging()

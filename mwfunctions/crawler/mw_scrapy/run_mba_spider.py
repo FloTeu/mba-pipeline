@@ -9,6 +9,7 @@ from scrapy.utils.project import get_project_settings
 from mwfunctions.pydantic.crawling_classes import CrawlingType
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
+from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_realtime_spider import MBAShirtRealtimeResearchSpider as mba_realtime_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_image_spider import MBAImageSpider as mba_image_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingMBAImageRequest
 from mwfunctions.image.conversion import b64_str2dict
@@ -23,6 +24,9 @@ def main(crawling_type, data_class_dict, **kwargs):
     elif crawling_type == CrawlingType.PRODUCT.name:
         spider = mba_product_spider
         crawling_mba_request: CrawlingMBARequest = CrawlingMBAProductRequest.parse_obj(data_class_dict)
+    elif crawling_type == CrawlingType.REALTIME_RESEARCH.name:
+        spider = mba_realtime_spider
+        crawling_mba_request: CrawlingMBARequest = CrawlingMBAOverviewRequest.parse_obj(data_class_dict)
     elif crawling_type == CrawlingType.IMAGE.name:
         spider = mba_image_spider
         crawling_mba_request: CrawlingMBARequest = CrawlingMBAImageRequest.parse_obj(data_class_dict)

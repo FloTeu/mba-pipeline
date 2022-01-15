@@ -1,22 +1,12 @@
 import scrapy
-import pandas as pd
 import numpy as np
 from typing import List
 import requests
 from contextlib import suppress
-import sys
-sys.path.append("...")
-sys.path.append("..")
-#import os
-#os.environ["GOOGLE_APPLICATION_CREDENTIALS"]="C:\\Users\\flori\\Dropbox\\Apps\\MBA Pipeline\\merchwatch.de\\privacy files\\mba-pipeline-4de1c9bf6974.json"
-#from proxy.utils import get_random_headers, send_msg
-#from proxy import proxy_handler
-#import mba_url_creator as url_creator
-
-# from scrapy.contrib.spidermiddleware.httperror import HttpError
 
 from mwfunctions.crawler.proxy.utils import get_random_headers
 from mwfunctions.crawler.mw_scrapy.base_classes.spider_overview import MBAOverviewSpider
+from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProductSpider
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType, \
     CrawlingMBAImageRequest, CrawlingMBACloudFunctionRequest
@@ -35,55 +25,31 @@ def str2bool(v):
     else:
         raise ValueError("Provided argument is not a bool")
 
-class MBAShirtOverviewSpider(MBAOverviewSpider):
-    name = "mba_overview"
-    website_crawling_target = CrawlingType.OVERVIEW.value
-    # Path("data/" + name + "/content").mkdir(parents=True, exist_ok=True)
-    df_search_terms = pd.DataFrame()
-    target="869595848"
-    api_key="1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0"
+class MBAShirtRealtimeResearchSpider(MBAOverviewSpider, MBAProductSpider):
+    name = "mba_realtime_research"
+    website_crawling_target = CrawlingType.REALTIME_RESEARCH.value
     ip_addresses = []
     captcha_count = 0
     page_count = 0
     shirts_per_page = 48
     change_zip_code_post_data = {
-            'locationType': 'LOCATION_INPUT',
-            'zipCode': '90210',
-            'storeContext': 'apparel',
-            'deviceType': 'web',
-            'pageType': 'Search',
-            'actionSource': 'glow'
-            }
+        'locationType': 'LOCATION_INPUT',
+        'zipCode': '90210',
+        'storeContext': 'apparel',
+        'deviceType': 'web',
+        'pageType': 'Search',
+        'actionSource': 'glow'
+        }
  
-    # custom_settings = {
-    #     # Set by settings.py
-    #     #"ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=False),
-    #
-    #     'ITEM_PIPELINES': {
-    #         'mba_crawler.pipelines.MbaCrawlerItemPipeline': 100,
-    #         'mba_crawler.pipelines.MbaCrawlerImagePipeline': 200
-    #     },
-    #
-    #     'IMAGES_STORE': 'gs://5c0ae2727a254b608a4ee55a15a05fb7/mba-shirts/',
-    #     'GCS_PROJECT_ID': 'mba-pipeline'
-    # }
 
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
         super_attrs = {"mba_crawling_request": mba_overview_request, **mba_overview_request.dict()}
-        super(MBAShirtOverviewSpider, self).__init__(*args, **super_attrs)
+        # TODO init only overview parent
+        super(MBAOverviewSpider, self).__init__(*args, **super_attrs)
         # TODO: is pod_product necessary, since we have a class which should crawl only shirts? Class could also be extended to crawl more than just shirts..
         self.pod_product = mba_overview_request.mba_product_type
         self.allowed_domains = ['amazon.' + self.marketplace]
 
-        if csv_path != "":
-            self.df_search_terms = pd.read_csv(csv_path)
-
-        # does not work currently
-        # if self.marketplace == "com":
-        #     self.custom_settings.update({
-        #         "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(only_usa=True),
-        #     })
-        
     # called after start_spider of item pipeline
     def start_requests(self):
         # use FS to check if data was already crawled. However lists are maintained during crawling to reduce some reading costs
@@ -95,63 +61,27 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
 
         urls_mba = []
         headers = get_random_headers(self.marketplace)
-        # case use a csv with search terms
-        if not self.df_search_terms.empty:
-            for i, df_row in self.df_search_terms.iterrows():
-                search_term = df_row["search_term"]
-                url_mba = url_creator.main([search_term, self.marketplace, self.pod_product, self.sort])
-                url_mba_page = url_mba + "&page=1"#+"&ref=sr_pg_"+str(page_number)
+
+        url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
+        # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
+        self.cloud_logger.info("Start realtime scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
+
+        # if start_page is other than one, crawler should start from differnt page
+        until_page = 401
+
+        if self.pages != 0:
+            until_page = self.start_page + self.pages
+        for page_number in np.arange(self.start_page, until_page, 1):
+            if page_number <= 400:
+                url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
                 urls_mba.append(url_mba_page)
-        else:
-            url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
-            # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
-            self.cloud_logger.info("Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
-
-            # if start_page is other than one, crawler should start from differnt page
-            until_page = 401
-
-            if self.pages != 0:
-                until_page = self.start_page + self.pages
-            for page_number in np.arange(self.start_page, until_page, 1):
-                if page_number <= 400:
-                    url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
-                    urls_mba.append(url_mba_page)
 
         self.crawling_job.number_of_target_pages = len(urls_mba)
         for i, url_mba in enumerate(urls_mba):
             page = i + self.start_page
-            # if self.marketplace == "com": 
-            #     url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
-            #     yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=headers, priority=i, data=self.change_zip_code_post_data,
-            #                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
-            # else:
             self.crawling_job.count_inc("request_count")
             yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
                                     errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
-
-    def get_asin_crawled(self, table_id):
-        '''
-            Returns a unique list of asins that are already crawled
-        '''
-        # todo: change table name in future |
-        try:
-            list_asin = self.bq_client.query("SELECT asin FROM " + table_id + " group by asin").to_dataframe().drop_duplicates(["asin"])["asin"].tolist()
-        except Exception as e:
-            print(str(e))
-            list_asin = []
-        return list_asin
-
-    def change_zip_code(self, response):
-        proxy = self.get_proxy(response)
-        if self.is_perfect_privacy_proxy(response):
-            proxy = response.meta["proxy"]
-        print(proxy)
-        meta_dict = response.meta
-        meta_dict.update({"proxy": proxy, "_rotating_proxy": False})
-        self.crawling_job.count_inc("request_count")
-        yield response.follow(url=response.meta["url"], callback=self.parse, headers=response.meta["headers"], priority=0,
-                                    errback=self.errback_httpbin, meta=meta_dict, dont_filter=True)
-        test = 0
 
     def parse(self, response):
         try:
@@ -159,9 +89,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             url = response.url
             page = response.meta["page"]
             mba_image_item_list = []
-
-            #self.get_zip_code_location(response)
-            #self.get_count_results(response)
 
             if self.is_captcha_required(response):
                 yield self.get_request_again_if_captcha_required(url, proxy, meta={"page": page})

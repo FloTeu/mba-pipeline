@@ -12,6 +12,7 @@ from pathlib import Path
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_overview_spider import MBAShirtOverviewSpider as mba_overview_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_product_general_spider import MBALocalProductSpider as mba_product_spider
 from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_image_spider import MBAImageSpider as mba_image_spider
+from mwfunctions.crawler.mw_scrapy.mba_crawler.spiders.mba_realtime_spider import MBAShirtRealtimeResearchSpider as mba_realtime_spider
 from mwfunctions.crawler.mw_scrapy.tests import TestingSpider
 from mwfunctions.crawler.mw_scrapy import run_mba_spider
 from mwfunctions.pydantic.crawling_classes import CrawlingMBARequest, CrawlingMBAOverviewRequest, CrawlingMBAProductRequest, CrawlingInputItem, CrawlingMBAImageRequest
@@ -57,6 +58,7 @@ def wait_timeout(proc, seconds):
 class ScrapyMBASpider(Enum):
     OVERVIEW = mba_overview_spider
     PRODUCT = mba_product_spider
+    REALTIME_RESEARCH = mba_realtime_spider
     IMAGE = mba_image_spider
     TESTING = TestingSpider
 

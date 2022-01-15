@@ -1,17 +1,10 @@
 import scrapy
-from pathlib import Path
-import pandas as pd
-from typing import List
-
 
 from mwfunctions.logger import get_logger
 from mwfunctions import environment
-from mwfunctions.crawler.proxy.utils import get_random_headers, send_msg
-from mwfunctions.crawler.mw_scrapy.spider_base import MBASpider
-from mwfunctions.crawler.preprocessing import create_url_csv
-from mwfunctions.pydantic.crawling_classes import CrawlingMBAImageRequest, CrawlingType, CrawlingInputItem
-from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsNoBsr, BQMBAProductsNoMbaShirt
-from mwfunctions.io import str2bool
+from mwfunctions.crawler.proxy.utils import get_random_headers
+from mwfunctions.crawler.mw_scrapy.base_classes.spider_base import MBASpider
+from mwfunctions.pydantic.crawling_classes import CrawlingMBAImageRequest, CrawlingType
 
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "image", "type": "scrapy"}, do_cloud_logging=True)
