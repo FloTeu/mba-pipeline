@@ -13,7 +13,7 @@ from mwfunctions.cloud.firestore import get_docs_snap_iterator, OrderByDirection
 def date2str(dict_obj):
     # transform date values to strings, because FS cant store date format (only datetime or string)
     for key, value in dict_obj.items():
-        if isinstance(value, date):
+        if type(value) == date:
             dict_obj[key] = str(value)
 
 class GetFSDocsSettings(MWBaseModel):
