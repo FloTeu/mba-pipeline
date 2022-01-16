@@ -172,11 +172,11 @@ def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optiona
         assert order_by, "if start_after then order_by needs to be set"
     if order_by:
         assert direction in ["asc", "desc"], 'direction elem ["asc", "desc"]'
-        direction = firestore.Query.ASCENDING if direction == OrderByDirection.ASC else firestore.Query.DESCENDING
+        fs_direction = firestore.Query.ASCENDING if direction == OrderByDirection.ASC else firestore.Query.DESCENDING
 
     query = get_collection_query(collection_path, simple_query_filters=simple_query_filters, client=client)
     if order_by:
-        query = query.order_by(order_by, direction=direction)
+        query = query.order_by(order_by, direction=fs_direction)
     if start_after:
         query = query.start_after({
             order_by: start_after

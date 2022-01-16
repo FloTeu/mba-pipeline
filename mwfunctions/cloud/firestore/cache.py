@@ -821,6 +821,8 @@ class FsDocumentsCacher(object):
         return ordered_cacher_docs
 
     def get_order_by_cursor(self, doc_id: Optional[str], order_by: Optional[str], reverse=False) -> Optional[Union[float, int, str, datetime, bool]]:
+        # TODO. How to handle case: Frontend cache first page and API ist called with cursor starting from page 2?
+        # might start from beginning??
         if doc_id not in self.doc_id2cache_doc or doc_id==None or order_by==None:
             return None
         ordered_cacher_docs = self.get_ordered_cacher_docs(order_by, reverse=reverse)

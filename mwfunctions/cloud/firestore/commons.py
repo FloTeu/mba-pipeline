@@ -1,6 +1,6 @@
 import re
 from contextlib import suppress
-from datetime import datetime
+from datetime import datetime, date
 from enum import Enum
 from typing import List, Optional, Union
 
@@ -71,9 +71,9 @@ def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,
         Return bool if field_value matches compare_value by comparison_operator
     """
     # make operations possible for datetime objects
-    if isinstance(field_value, datetime):
+    if isinstance(field_value, datetime) or isinstance(compare_value, date):
         field_value = date_to_integer(field_value)
-    if isinstance(compare_value, datetime):
+    if isinstance(compare_value, datetime) or isinstance(compare_value, date):
         compare_value = date_to_integer(compare_value)
     # try to transform type to float if not both are string
     # try to transform type to float if one is number and the other one is string
