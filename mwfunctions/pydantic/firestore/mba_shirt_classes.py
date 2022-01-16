@@ -442,6 +442,11 @@ class FSUploadData(MWBaseModel):
         upload_date_dt = self.upload_date.replace(tzinfo=None) if type(self.upload_date) == datetime else datetime.combine(self.upload_date, datetime.min.time()).replace(tzinfo=None)
         return (datetime.now() - upload_date_dt).days
 
+    @validator("upload_date", always=True)
+    def set_upload_date(cls, upload_date):
+        # make upload_date always to datetime
+        return upload_date if type(upload_date) == datetime else datetime.combine(upload_date, datetime.min.time())
+
 class FSTrendData(MWBaseModel):
     trend: Optional[float] = Field(None, description="Float trend value calculated by trend formular. Take upload date and bsr into account")
     trend_nr: Optional[int] = Field(None, description="trend_nr is to top n ranking index if documents would be sorted by trend")
