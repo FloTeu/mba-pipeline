@@ -6,7 +6,7 @@
         "CLOSESPIDER_TIMEOUT": 900
       },
       "daily": false,
-      "number_products": 100,
+      "number_products": 200,
       "proportions": {},
       "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/general_de.csv"
     },
@@ -16,7 +16,7 @@
         "CLOSESPIDER_TIMEOUT": 900
       },
       "daily": false,
-      "number_products": 100,
+      "number_products": 200,
       "proportions": {},
       "url_data_path": "/home/fteutsch/PycharmProjects/private/merchwatch/gcp_fns/cloud_run/crawler/scripts/data/products_to_crawl/general_com.csv"
     }
