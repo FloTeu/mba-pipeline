@@ -18,7 +18,9 @@ class MBAProductSpider(MBASpider):
 
     def is_mba_shirt(self, response):
         # mba shirts have always fit type (Herren, Damen, Kinder)
-        return len(response.css('div#variation_fit_type span')) > 0
+        # TODO: inline-twister-row-fit_type can also exist. New Designs of amazon. Use simple fit_type is in html maybe??
+        return response.css('div#centerCol').get().count("fit_type") > 1
+        # return len(response.css('div#variation_fit_type span')) > 0
 
     def reset_was_banned_every_hour(self, reset_time_sec=60 * 60):
         # TODO: This function prevents fastapi from sending response, because proces.start() never finsihses

@@ -30,6 +30,7 @@ class CrawlingType(str, Enum):
 
 CrawlingType2LogSubCollection = {
     CrawlingType.OVERVIEW: "overview_split_logs",
+    CrawlingType.REALTIME_RESEARCH: "realtime_research_split_logs",
     CrawlingType.PRODUCT: "product_split_logs",
     CrawlingType.IMAGE: "image_pipeline_logs"
 }
@@ -111,6 +112,9 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
     already_crawled_products_count: int = Field(0, description="Count of already crawled products")
     crawling_type: CrawlingType = Field(CrawlingType.OVERVIEW.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     # keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
+
+class MBARealtimeResearchCrawlingJob(MBAOverviewCrawlingJob):
+    frontend_statistics: Optional[dict] = None # todo define, rename
 
 
 class MBAImageCrawlingJob(MBACrawlingJob):

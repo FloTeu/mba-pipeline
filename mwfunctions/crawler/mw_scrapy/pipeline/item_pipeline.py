@@ -11,7 +11,7 @@ import logging
 from itemadapter import ItemAdapter
 
 from mwfunctions.environment import is_debug, get_gcp_project
-from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION, ProjectId2CrawlingBqProjectId
+from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBARealtimeResearchCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION, ProjectId2CrawlingBqProjectId
 from mwfunctions.pydantic.bigquery_classes import BQTable
 from mwfunctions.pydantic.firestore import FSDocument
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
@@ -85,6 +85,8 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
             request_input[request_input_field] = spider.mba_crawling_request[request_input_field]
         if website_crawling_target == CrawlingType.OVERVIEW.value:
             self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
+        elif website_crawling_target == CrawlingType.REALTIME_RESEARCH:
+            self.crawling_job = MBARealtimeResearchCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.IMAGE.value:
