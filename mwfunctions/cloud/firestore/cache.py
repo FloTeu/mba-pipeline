@@ -93,7 +93,7 @@ class BatchLoadRequest(BaseModel):
     bsr_last_range_update_counter: int = 0
     statistics: BatchLoadRequestStatistics = BatchLoadRequestStatistics()
     verbose: bool = Field(False, description="Whether to show more information in console")
-
+    is_simple_fs_order_by_query: bool = Field(False, description="Whether query task is a simple order by query (i,e, order by query from starting point without further filerings except takedown)")
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
@@ -223,7 +223,7 @@ class BatchLoadRequest(BaseModel):
     class Config:
         extra = "allow"
 
-    def is_simple_fs_order_by_query(self, order_by_cursors: Dict[str, OrderByCursor]): #, use_fs_simple_query_filters=True):
+    def _is_simple_fs_order_by_query(self, order_by_cursors: Dict[str, OrderByCursor], ignore_cursor_validation=False): #, use_fs_simple_query_filters=True):
         """ Whether query task is a simple order by query (i,e, order by query from starting point without further filerings except takedown):
             Rules:
                 * order by is included
@@ -261,7 +261,7 @@ class BatchLoadRequest(BaseModel):
             is_start_or_cursor_order_by_filter = True
         else:
             is_start_value = order_by_filters_default_direction[0].value == MBA_SHIRT_ORDERBY_DICT[self.order_by].start_value
-            is_cursor_value = order_by_filters_default_direction[0].value == order_by_cursors[order_by_key].cursor if order_by_key in order_by_cursors else False
+            is_cursor_value = order_by_filters_default_direction[0].value == order_by_cursors[order_by_key].cursor if order_by_key in order_by_cursors else ignore_cursor_validation
             is_start_or_cursor_order_by_filter = is_start_value or is_cursor_value
         # takedown_filters = list(filter(lambda x: x.field=="takedown", fs_possible_filters))
         # case: only one order by filter form start or cursor
@@ -275,6 +275,8 @@ class BatchLoadRequest(BaseModel):
         # if numer_of_filters_not_takedown_or_order_by == 0 and is_start_or_cursor_order_by_filter and len(order_by_filters_default_direction) == 1 and len(takedown_filters) == 1: return True
         # return False
 
+    def set_is_simple_fs_order_by_query(self, order_by_cursors: Dict[str, OrderByCursor], ignore_cursor_validation=False):
+        self.is_simple_fs_order_by_query = self._is_simple_fs_order_by_query(order_by_cursors, ignore_cursor_validation=ignore_cursor_validation)
 
 class BatchLoadResponse(BaseModel):
     last_fs_doc: Optional[FSMBAShirt]=None
@@ -361,7 +363,7 @@ class FsDocumentsCacher(object):
     def get_order_by_cursor_wrapper(self, order_by_key, tmp_id, order_by, order_by_direction: OrderByDirection, is_simple_fs_order_by_query, doc_id_cursor=None):
         """ Function to get order by cursor
             Process:
-                1. If is_simple_fs_order_by_query (no filters, that prevent normal order by cursor logic) -> get last cursor in _order_by_cursors
+                1. If _is_simple_fs_order_by_query (no filters, that prevent normal order by cursor logic) -> get last cursor in _order_by_cursors
                 2. Elif cursor found in tmp_id (id for one API get_batch request) -> take this one
                 3. Elif Try to get cursor with doc_id_cursor with all docs already stored in self.doc_id2cache_doc
         """
@@ -397,8 +399,7 @@ class FsDocumentsCacher(object):
         # should be true for normal trend page, bsr page etc.
         batch_load_response = BatchLoadResponse(full_batch_size_loaded=False)
 
-        is_simple_fs_order_by_query = batch_load_request.is_simple_fs_order_by_query(self._order_by_cursors)
-        order_by_cursor = self.get_order_by_cursor_wrapper(batch_load_request.order_by_key, batch_load_request.id, batch_load_request.order_by, batch_load_request.order_by_direction, is_simple_fs_order_by_query, doc_id_cursor=batch_load_request.doc_id_cursor)
+        order_by_cursor = self.get_order_by_cursor_wrapper(batch_load_request.order_by_key, batch_load_request.id, batch_load_request.order_by, batch_load_request.order_by_direction, batch_load_request.is_simple_fs_order_by_query, doc_id_cursor=batch_load_request.doc_id_cursor)
 
         loop_counter = 0
         # TODO: make IN filters with on element to euqal operator
@@ -424,12 +425,12 @@ class FsDocumentsCacher(object):
                 batch_load_response.update_last_fs_doc(doc_pydantic)
                 # only update order by data if query was not filtered
                 # TODO: Does algo work like intendend if some docuemnts to not contain order by statement?
-                order_by_key_update = batch_load_request.order_by_key if is_simple_fs_order_by_query else None
+                order_by_key_update = batch_load_request.order_by_key if batch_load_request.is_simple_fs_order_by_query else None
                 # Add to CacherDocument if not exists or add order by data to document
                 if doc.id not in self.doc_id2cache_doc:
                     self.doc_id2cache_doc[doc.id] = CacherDocument(doc_pydantic, doc.id, order_by_key=order_by_key_update)
                 else:
-                    if is_simple_fs_order_by_query:
+                    if batch_load_request.is_simple_fs_order_by_query:
                         self.doc_id2cache_doc[doc.id].add_order_by_key(order_by_key=order_by_key_update)
 
             except ValidationError as e:
@@ -450,8 +451,8 @@ class FsDocumentsCacher(object):
         # order by key can be for example bsr_last_asc or "bsr_last_Vatertag Angler"
         search_key_stem_list: Optional[list] = self.get_keyword_stem_list_by_filters(batch_load_request.simple_query_filters)
         filter_takedown_value: Optional[bool] = self.get_value_by_filters(batch_load_request.simple_query_filters, "takedown")
-        is_simple_fs_order_by_query = batch_load_request.is_simple_fs_order_by_query(self._order_by_cursors)
-        #batch_load_request.is_simple_fs_order_by_query(self._order_by_cursors)
+        #is_simple_fs_order_by_query = batch_load_request._is_simple_fs_order_by_query(self._order_by_cursors)
+        #batch_load_request._is_simple_fs_order_by_query(self._order_by_cursors)
         # Asumption: if keyword search, fs is not used with order by but FSMbaShirtsIndexField.BSR_RANGE increments in loop and therefore its ordered indirectly
         if search_key_stem_list:
             order_by = FSMbaShirtsIndexField.BSR_RANGE
@@ -467,7 +468,7 @@ class FsDocumentsCacher(object):
             self._uuid2order_by_cursor[batch_load_request.id][order_by] = batch_load_response.last_fs_doc[order_by] if batch_load_response.last_fs_doc else \
                 self._uuid2order_by_cursor[batch_load_request.id][order_by] if order_by in self._uuid2order_by_cursor[batch_load_request.id] else None
         # Update cursor only if data was loaded without none order by filtering
-        if is_simple_fs_order_by_query or (search_key_stem_list and update_search_cursor):
+        if batch_load_request.is_simple_fs_order_by_query or (search_key_stem_list and update_search_cursor):
             self.update_order_by_cursors(order_by_key, order_by, batch_load_response,
                                          keywords_stem_list=search_key_stem_list,
                                          filter_takedown_value=filter_takedown_value)
@@ -666,6 +667,7 @@ class FsDocumentsCacher(object):
                                               all_simple_query_filters=simple_query_filters,
                                               doc_id_cursor=doc_id_cursor,
                                               bsr_last_range_max=bsr_range_list_max)
+        batch_load_request.set_is_simple_fs_order_by_query(self._order_by_cursors, ignore_cursor_validation=page == None or page <= 2) # page 1 is cached by frontend and therefore API call can start from page 2 without curser set in cacher object
 
         max_load_new_batch_nr = self._max_load_new_batch_nr if not batch_load_request.is_keyword_search() else 8
 
@@ -673,9 +675,10 @@ class FsDocumentsCacher(object):
             bsr_last_range_cursor = self.update_beginning_bsr_last_range_filter(batch_load_request, doc_id_cursor, update_only_if_cursor_found=True)
 
         # check if batch_load_request was already queried in FS. If page is > 1 we can assume that was_batch_load_req_already_queried_in_fs is True
+        # Note: Hotfix page > 2 because first page is cached by frontend and therefore first batch_load_request often startes with page 2. -> Only expect was_batch_load_req_already_queried_in_fs is True if page > 2
         matching_batch_load_requests_filter = [cached_batch_load_request.simple_query_filters == batch_load_request.simple_query_filters for cached_batch_load_request in self._all_batch_load_requests]
         matching_batch_load_requests = list(compress(self._all_batch_load_requests, matching_batch_load_requests_filter))
-        was_batch_load_req_already_queried_in_fs = True if page not in [None, 1] else len(matching_batch_load_requests) > 0
+        was_batch_load_req_already_queried_in_fs = True if page not in [None, 1, 2] else len(matching_batch_load_requests) > 0
 
         # try to speed up
         if batch_load_request.is_keyword_search() and len(matching_batch_load_requests) > 0:
@@ -684,7 +687,7 @@ class FsDocumentsCacher(object):
         # safe batch request after beginning_bsr_last_range_filter is set
         self._all_batch_load_requests.append(copy.deepcopy(batch_load_request))
 
-        filter_docs_by_order_by_key = batch_load_request.is_simple_fs_order_by_query(self._order_by_cursors)#, use_fs_simple_query_filters=False)
+        filter_docs_by_order_by_key = batch_load_request.is_simple_fs_order_by_query
         # check if we already find enough cacher_docs (but only if was_batch_load_req_already_queried_in_fs is True). Otherwise try to get new data from FS
         filtered_cacher_docs: List[CacherDocument] = self.filter_fs_doc_dict(batch_load_request.local_simple_query_filters, batch_size=batch_size, order_by=order_by, order_by_direction=order_by_direction, filter_docs_by_order_by_key=filter_docs_by_order_by_key, doc_id_cursor=doc_id_cursor) if was_batch_load_req_already_queried_in_fs else []
         # normal search tried to get 100 docs therefore 50 required meta data docs should be also loaded if they exists.
