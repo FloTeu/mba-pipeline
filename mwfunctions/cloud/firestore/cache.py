@@ -6,7 +6,7 @@ from typing import Optional, Union, List, Dict
 from mwfunctions.cloud.firestore import create_client, get_docs_batch
 from mwfunctions.cloud.firestore.commons import filter_simple_query_filters, filter_by_fs_comparison_operator, \
     filter_simple_query_filters_by_fs_indexes, FSComparisonOperator, FSSimpleFilterQuery, OrderByDirection
-from mwfunctions.profiling import log_time
+from mwfunctions.profiling import log_time, get_memory_used_in_gb, log_memory
 from mwfunctions.pydantic import FSDocument
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, MBAShirtOrderByField, MBA_SHIRT_ORDERBY_DICT
 from mwfunctions.pydantic.firestore.utils import bsr2bsr_range_value, get_bsr_range_list
@@ -306,7 +306,6 @@ class BatchLoadResponse(BaseModel):
             self.highest_bsr_last_range = fs_doc[FSMbaShirtsIndexField.BSR_RANGE]
         elif fs_doc[FSMbaShirtsIndexField.BSR_RANGE] > self.highest_bsr_last_range:
             self.highest_bsr_last_range = fs_doc[FSMbaShirtsIndexField.BSR_RANGE]
-
 
 class FsDocumentsCacher(object):
     """ This class can be continiously filled with FS documents. Each cacher should only be used for one collection.

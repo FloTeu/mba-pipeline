@@ -4,6 +4,7 @@ import re
 from datetime import datetime, date, timedelta
 from typing import Dict, Union, Optional, List, Any, Type
 
+from mwfunctions.profiling import log_memory, get_memory_used_in_gb
 from mwfunctions.pydantic.firestore.utils import get_default_category_name, get_bsr_top_category_names_list
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsMbaImages, BQMBAProductsDetails, BQMBAProductsDetailsDaily
 from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
@@ -721,7 +722,8 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
 
         fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
         api_output_dict = self.dict(include=fields_included)
-        api_output_dict["keywords_meaningful"] = api_output_dict["keywords_meaningful"] if api_output_dict["keywords_meaningful"] else self.get_keywords_meaningful() # calculate keywords meaningful if firestore does not contain data
+        # TODO: Not calculate keywords_meaningful here since spacy takes to much memory for cloud run instance
+        api_output_dict["keywords_meaningful"] = api_output_dict["keywords_meaningful"] if api_output_dict["keywords_meaningful"] else [] # self.get_keywords_meaningful() # calculate keywords meaningful if firestore does not contain data
         if not meta_api:
             api_output_dict["upload_date"] = api_output_dict["upload_date"].strftime(format="%Y-%m-%dT%H:%M:%SZ") if isinstance(api_output_dict["upload_date"], datetime) else api_output_dict["upload_date"]
         else:
@@ -765,6 +767,10 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
                                                   score_last=fs_mba_obj.score_last, score_last_count=fs_mba_obj.score_count)
 
         return fs_mba_obj
+
+class FSMBAShirtFrontend(FSMBAShirt):
+    # class with reduced data for Frontend (cache optimized)
+    pass
 
 
 class MBAShirtOrderByField(str, EnumBase):
