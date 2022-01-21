@@ -954,7 +954,8 @@ class DataHandler():
 
         chunk_size = 1000
         df_chunks = [df[i:i+chunk_size] for i in range(0,df.shape[0],chunk_size)]
-        for df_chunk in df_chunks:
+        for i, df_chunk in enumerate(df_chunks):
+            print(f"Chunk {i} of {len(df_chunks)} with chunk size: {chunk_size}")
             firestore_property_columns = ["keywords_meaningful", "keywords_stem", "price_last_ranges_array", "price_last_range", "bsr_last_range", "score_last_rounded"]
             time_start = time.time()
             firestore_data_series = df_chunk.apply(lambda x: self.get_firestore_data(x), axis=1)

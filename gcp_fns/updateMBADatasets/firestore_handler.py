@@ -52,7 +52,7 @@ class Firestore():
                     # update to prevent loosing data like review score
                     #batch.update(doc_sub_collection_ref, subcollection_doc_data)
                     # TODO: what happens if update on not existent doc?
-                    batch.set(doc_sub_collection_ref, subcollection_doc_data)
+                    batch.set(doc_sub_collection_ref, subcollection_doc_data, merge=True)
 
         batch.set(doc_ref, fs_dict)
 

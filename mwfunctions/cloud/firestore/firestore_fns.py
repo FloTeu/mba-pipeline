@@ -1,8 +1,8 @@
 from datetime import datetime
 from google.cloud import firestore
-from mwfunctions.cloud.firestore.commons import filter_simple_query_filters, FSComparisonOperator, FSSimpleFilterQuery, \
-    OrderByDirection
-from typing import List, Optional, Union, Iterable
+from mwfunctions.cloud.firestore import commons as fscommons
+from typing import (Any, AsyncGenerator, Coroutine, Iterable, List, Optional,
+                    Union)
 
 import logging
 import google
@@ -117,7 +117,7 @@ def get_collection_ref(collection_path, client: google.cloud.firestore_v1.client
     return client.collection(collection_path)
 
 
-def get_collection_query(collection_path, simple_query_filters: Optional[List[FSSimpleFilterQuery]] = None, client: google.cloud.firestore_v1.client.Client = None) -> Union[google.cloud.firestore_v1.collection.CollectionReference, google.cloud.firestore_v1.query.Query]:
+def get_collection_query(collection_path, simple_query_filters: Optional[List[fscommons.FSSimpleFilterQuery]] = None, client: google.cloud.firestore_v1.client.Client = None) -> Union[google.cloud.firestore_v1.collection.CollectionReference, google.cloud.firestore_v1.query.Query]:
     """ Returns a collection reference (query) with optional query_filters (e.g. where or in or </> conditions)
 
     Args:
@@ -136,7 +136,7 @@ def get_collection_query(collection_path, simple_query_filters: Optional[List[FS
         query = query.where(simple_query_filter.field, simple_query_filter.comparison_operator, simple_query_filter.value)
     return query
 
-def get_docs_snap_iterator(collection_path: str, simple_query_filters: Optional[List[FSSimpleFilterQuery]] = None, client: google.cloud.firestore_v1.client.Client = None) -> Iterable:
+def get_docs_snap_iterator(collection_path: str, simple_query_filters: Optional[List[fscommons.FSSimpleFilterQuery]] = None, client: google.cloud.firestore_v1.client.Client = None) -> Iterable:
     """ Snapshot (downloaded, not lazy). Filters applied inorder."""
     return get_collection_query(collection_path, simple_query_filters=simple_query_filters, client=client).stream()
 
@@ -145,8 +145,8 @@ def get_docs_ref_iterator(collection_path, client: google.cloud.firestore_v1.cli
     return get_collection_ref(collection_path, client=client).list_documents()
 
 
-def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optional[str]=None, start_after=None, direction: OrderByDirection = OrderByDirection.ASC, simple_query_filters: Optional[List[
-    FSSimpleFilterQuery]] = None, start_after_doc_id: Optional[str]=None, client=None):
+def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optional[str]=None, start_after=None, direction: fscommons.OrderByDirection = fscommons.OrderByDirection.ASC, simple_query_filters: Optional[List[
+    fscommons.FSSimpleFilterQuery]] = None, start_after_doc_id: Optional[str]=None, client=None):
     """Return a generator object of one batch(size like limit) of documents
         Query can be filtered, sorted or start after specific values of order_by field.
 
@@ -172,7 +172,7 @@ def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optiona
         assert order_by, "if start_after then order_by needs to be set"
     if order_by:
         assert direction in ["asc", "desc"], 'direction elem ["asc", "desc"]'
-        fs_direction = firestore.Query.ASCENDING if direction == OrderByDirection.ASC else firestore.Query.DESCENDING
+        fs_direction = firestore.Query.ASCENDING if direction == fscommons.OrderByDirection.ASC else firestore.Query.DESCENDING
 
     query = get_collection_query(collection_path, simple_query_filters=simple_query_filters, client=client)
     if order_by:
@@ -182,9 +182,9 @@ def get_docs_batch(collection_path, limit: Optional[int]=None, order_by: Optiona
             order_by: start_after
         })
 
-    comparison_operators_preventing_start_after_doc_id = [FSComparisonOperator.IN, FSComparisonOperator.NOT_IN]
+    comparison_operators_preventing_start_after_doc_id = [fscommons.FSComparisonOperator.IN, fscommons.FSComparisonOperator.NOT_IN]
     is_start_after_doc_id_possible = True if not simple_query_filters else not any([len(
-        filter_simple_query_filters(simple_query_filters, comparison_operator=comparison_operator)) > 0 for comparison_operator in comparison_operators_preventing_start_after_doc_id])
+        fscommons.filter_simple_query_filters(simple_query_filters, comparison_operator=comparison_operator)) > 0 for comparison_operator in comparison_operators_preventing_start_after_doc_id])
     # TODO: Does this query works if simple_query_filters contain "IN" statement
     if start_after_doc_id and is_start_after_doc_id_possible:
         doc_snap = get_document_snapshot(f"{collection_path}/{start_after_doc_id}")
@@ -205,6 +205,49 @@ def get_document_snapshot(path=None, collection_name=None, document_id=None, cli
 
 def does_document_exists(path=None, collection_name=None, document_id=None, client=None, transaction=None) -> bool:
     return get_document_snapshot(path=path, collection_name=collection_name, document_id=document_id, client=client, transaction=transaction).exists
+
+
+# batchwise functions
+def create_batch_pool(
+    client=None,
+) -> Union[
+    google.cloud.firestore_v1.batch.WriteBatch,
+    google.cloud.firestore_v1.async_batch.AsyncWriteBatch,
+]:
+    client = client if client else create_client()
+    return client.batch()
+
+
+def fill_batch_pool(
+    batch_pool: Union[
+        firestore.WriteBatch, google.cloud.firestore_v1.async_batch.AsyncWriteBatch
+    ],
+    doc_ref: firestore.DocumentReference,
+    crud_operation: fscommons.FSCrudOperation,
+    data_dict: dict = None,
+):
+    # if operation is CREATE or UPDATE, batch_pool needs a data_dict
+    assert (
+        crud_operation == fscommons.FSCrudOperation.DELETE or data_dict
+    ), f"crud_operation id {crud_operation} but no data_dict was provided"
+    if crud_operation == fscommons.FSCrudOperation.CREATE:
+        batch_pool.set(doc_ref, data_dict)
+    elif crud_operation == fscommons.FSCrudOperation.UPDATE:
+        batch_pool.set(doc_ref, data_dict, merge=True)
+        # TODO: update requires to know if document exists or not. useing set with merge fields if document already exists can handle both cases.
+        #batch_pool.update(doc_ref, data_dict)
+    elif crud_operation == fscommons.FSCrudOperation.DELETE:
+        batch_pool.delete(doc_ref)
+    else:
+        raise NotImplementedError
+
+
+def execute_batch_pool(
+    batch_pool: Union[firestore.WriteBatch, firestore.AsyncWriteBatch]
+) -> Union[List[firestore.types.WriteResult], Coroutine]:
+    return batch_pool.commit()
+
+
 
 def validate_document_name(document_name):
     """ validates if document_name is suitable for firestore document name """

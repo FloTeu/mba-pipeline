@@ -121,6 +121,12 @@ def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,
         raise NotImplementedError
 
 
+class FSCrudOperation(str, EnumBase):
+    CREATE="set"
+    UPDATE="update"
+    DELETE="delete"
+
+
 # custom MW
 
 def do_index_items_contain_simple_query_filter(simple_query_filters: FSSimpleFilterQuery, fs_index_items: List[FSIndexItem]) -> bool:
