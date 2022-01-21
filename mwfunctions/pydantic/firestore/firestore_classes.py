@@ -7,8 +7,8 @@ from pydantic import Field, PrivateAttr, Extra
 from datetime import date
 from google.cloud.firestore import DocumentSnapshot
 from mwfunctions.pydantic.base_classes import MWBaseModel
-from mwfunctions.cloud.firestore import get_docs_snap_iterator, OrderByDirection, get_docs_batch
-
+from mwfunctions.cloud.firestore import get_docs_snap_iterator, get_docs_batch
+from mwfunctions.cloud.firestore.commons import OrderByDirection
 
 def date2str(dict_obj):
     # transform date values to strings, because FS cant store date format (only datetime or string)

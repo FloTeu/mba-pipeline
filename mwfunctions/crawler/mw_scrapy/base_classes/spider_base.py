@@ -4,6 +4,7 @@ import time
 import logging
 
 from datetime import datetime
+from pathlib import Path
 
 from scrapy.exceptions import CloseSpider
 from scrapy.spidermiddlewares.httperror import HttpError
@@ -288,6 +289,7 @@ class MBASpider(scrapy.Spider):
         return self.get_request_again(url, asin=asin, meta=meta)
 
     def save_content(self, response, file_name):
+        Path("data/" + self.name + "/content").mkdir(parents=True, exist_ok=True)
         filename = "data/" + self.name + "/content/%s.html" % file_name
         with open(filename, 'wb') as f:
             f.write(response.body)

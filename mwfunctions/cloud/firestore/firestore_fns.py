@@ -19,13 +19,21 @@ LOGGER = logging.getLogger(__name__)
 
 CLIENT_CACHE = None
 
-def create_client(project=None, use_cache=True):
+def create_client(project=None, use_cache=True) -> firestore.Client:
     """ abstract firestore away """
     global CLIENT_CACHE
     if CLIENT_CACHE is None or not use_cache:
         project_id = project if project else environment.get_gcp_project()
         CLIENT_CACHE = firestore.Client(project=project_id)
     return CLIENT_CACHE
+
+def create_async_client(project=None, use_cache=True) -> firestore.AsyncClient:
+    """abstract firestore away"""
+    global ASYNC_CLIENT_CACHE
+    if ASYNC_CLIENT_CACHE is None or not use_cache:
+        project_id = project if project else environment.get_gcp_project()
+        ASYNC_CLIENT_CACHE = firestore.AsyncClient(project=project_id)
+    return ASYNC_CLIENT_CACHE
 
 # class CachedFirestoreClient(object):
 #     client = None

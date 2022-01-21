@@ -17,7 +17,8 @@ from mwfunctions.pydantic import get_bsr_category
 from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
 from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict
-from mwfunctions.cloud.firestore import get_document_snapshot, OrderByDirection
+from mwfunctions.cloud.firestore import get_document_snapshot
+from mwfunctions.cloud.firestore.commons import OrderByDirection
 from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWRootCollection
 
 

@@ -9,7 +9,7 @@ from mwfunctions.pydantic.bigquery_classes import BQMBAProductsMbaImages, BQMBAP
 from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
 from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings, TextLanguage, Marketplace2DefaultTextLanguage_dict
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
-from mwfunctions.cloud.firestore import OrderByDirection
+from mwfunctions.cloud.firestore.commons import OrderByDirection
 from mwfunctions.text import get_stem_keywords_language, TextRank4Keyword, TextLanguage2KeywordsToRemove_dict, get_tr4w_obj
 from pydantic import Field, validator, PrivateAttr, BaseModel
 from langdetect import detect

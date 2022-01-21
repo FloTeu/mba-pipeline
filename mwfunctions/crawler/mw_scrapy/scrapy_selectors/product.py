@@ -217,9 +217,7 @@ def get_image_url(response):
 
 def get_weight(response):
     weight = "not found"
-    product_information = response.css('div#detailBullets li')
-    if product_information == None or product_information == []:
-        product_information = response.css('div#dpx-detail-bullets_feature_div li')
+    product_information = get_product_information_lis(response)
     if product_information != None:
         for li in product_information:
             try:
@@ -230,6 +228,7 @@ def get_weight(response):
             except Exception as e:
                 print(str(e))
                 raise ValueError("Could not get weight")
+        raise ValueError("Could not get weight")
     else:
         raise ValueError("Could not get weight")
 
