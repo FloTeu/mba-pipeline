@@ -440,10 +440,11 @@ def power(my_list):
 def make_trend_column(marketplace, df_shirts, months_privileged=6):
     df_shirts = df_shirts.sort_values(
         "time_since_upload").reset_index(drop=True)
+    df_shirts = df_shirts.fillna(np.nan) # prevent bug with pd.NA which does not work with np.nanmax
     # get list of integers with time since upload days
     x = df_shirts[["time_since_upload"]].values
     # fill na with max value
-    x = np.nan_to_num(x, np.nanmax(x))
+    x = np.nan_to_num(x, nan=np.nanmax(x))
     # get index of last value within privileged timezone
     index_privileged = len([v for v in x if v < 30*months_privileged]) - 1
     # transform outliers to max value before outliers
