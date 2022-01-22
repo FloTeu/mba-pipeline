@@ -65,11 +65,14 @@ def filter_simple_query_filters(simple_query_filters: List[FSSimpleFilterQuery],
     return filtered_simple_query_filters
 
 
-def filter_by_fs_comparison_operator(field_value: Union[bool,float,int,datetime,list,str], comparison_operator:FSComparisonOperator, compare_value: Union[bool,float,int,datetime,list,str], case_sensitive=False):
+def filter_by_fs_comparison_operator(field_value: Optional[Union[bool,float,int,datetime,list,str]], comparison_operator:FSComparisonOperator, compare_value: Optional[Union[bool,float,int,datetime,list,str]], case_sensitive=False) -> bool:
     """ General filter function for all types of FSComparisonOperator.
         Can be used to filter Data after FS documents are streamed. Helpfull if to many indexes would be required.
         Return bool if field_value matches compare_value by comparison_operator
     """
+    # if field value is None we cannot filter it, except if compare value is also None
+    if field_value == None and compare_value != None:
+        return False
     # make operations possible for datetime objects
     if isinstance(field_value, datetime) or isinstance(compare_value, date):
         field_value = date_to_integer(field_value)
