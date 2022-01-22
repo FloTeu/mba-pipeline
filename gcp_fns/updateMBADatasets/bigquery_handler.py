@@ -54,7 +54,7 @@ class BigqueryHandler():
         return SQL_STATEMENT_BASE
 
     def product_details_daily_data2file(self, file_name="products_details_daily.csv"):
-        df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(), project_id="mba-pipeline", verbose=True).drop_duplicates()
+        df_shirts_detail_daily = pd.read_gbq(self.get_sql_shirts_detail_daily(), project_id="mba-pipeline").drop_duplicates()
         df_shirts_detail_daily.to_csv(f"{self.marketplace}_{file_name}",index=False)
 
     @staticmethod

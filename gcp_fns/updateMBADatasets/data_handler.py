@@ -1527,7 +1527,7 @@ class DataHandler():
         df_shirts_detail_daily_total_dict = {}
         df_shirts_asin = df_keyword_data[["asin", "timestamp"]].copy().set_index('timestamp')
         asin_list = list(set(df_shirts_asin["asin"].tolist()))
-        df_shirts_detail_daily_total = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list), project_id="mba-pipeline", verbose=True).drop_duplicates()
+        df_shirts_detail_daily_total = pd.read_gbq(self.get_sql_shirts_detail_daily(marketplace,asin_list=asin_list), project_id="mba-pipeline").drop_duplicates()
         
         for keyword in keywords_list:
             df_shirts_asin_keyword = df_keyword_data[df_keyword_data["keyword"]==keyword].drop_duplicates(["asin"])[["asin", "timestamp"]].copy().set_index('timestamp')

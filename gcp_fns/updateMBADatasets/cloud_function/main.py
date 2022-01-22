@@ -23,7 +23,10 @@ sudo cp "privacy files/api_keys.py" mba-pipeline/gcp_fns/updateMBADatasets
 cd mba-pipeline/
 sudo pip3 install -e .
 cd gcp_fns/updateMBADatasets
+pip3 install --upgrade pip
 pip3 install --upgrade -r requirements.txt 
+sudo pip3 install --upgrade pip
+sudo pip3 install --upgrade -r requirements.txt 
  
 for cmd in "/usr/bin/python3 execute_update.py --marketplace=de --chunk_size=%s" "/usr/bin/python3 execute_update.py --marketplace=com --chunk_size=%s"; do
         eval ${cmd} &
