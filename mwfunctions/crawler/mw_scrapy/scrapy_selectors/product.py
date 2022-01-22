@@ -173,9 +173,13 @@ def get_fit_types(response):
 def get_color_infos(response):
     array_color_names = []
     span_color_names = response.css('div#variation_color_name span.a-declarative')
+    if span_color_names == []:
+        span_color_names = response.css("div#inline-twister-expander-content-color_name li")
     if span_color_names != None and len(span_color_names) > 0:
         for color_name in span_color_names:
-            array_color_names.append(color_name.css("img::attr(alt)").get())
+            color_name = color_name.css("img::attr(alt)").get()
+            if color_name != "":
+                array_color_names.append(color_name)
         return array_color_names, len(array_color_names)
     else:
         try:
