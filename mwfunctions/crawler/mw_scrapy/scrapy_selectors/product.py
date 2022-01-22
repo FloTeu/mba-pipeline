@@ -157,9 +157,16 @@ def get_brand_infos(response):
 def get_fit_types(response):
     array_fit_types = []
     div_fit_types = response.css('div#variation_fit_type span.a-size-base')
+    if div_fit_types == []:
+        div_fit_types = response.css("div#inline-twister-expander-content-size_name li")
     if div_fit_types != None and len(div_fit_types) > 0:
         for fit_type in div_fit_types:
-            array_fit_types.append(fit_type.css("::text").get().strip())
+            fit_type_str = fit_type.css("::text").get().strip()
+            if fit_type_str == "":
+                fit_type_str = fit_type.css("span.a-size-base ::text").get()
+                fit_type_str = fit_type_str if type(fit_type_str) != str else fit_type_str.strip()
+            if fit_type_str != "" and fit_type_str != None:
+                array_fit_types.append(fit_type_str)
         return array_fit_types
     else:
         try:
@@ -182,8 +189,13 @@ def get_color_infos(response):
                 array_color_names.append(color_name)
         return array_color_names, len(array_color_names)
     else:
+        # case single color
         try:
-            color = response.css('div#variation_color_name span.selection::text').get().strip()
+            color = response.css('div#variation_color_name span.selection::text').get()
+            if color == None:
+                color = response.css('span#inline-twister-expanded-dimension-text-color_name::text').get()
+            color = color.strip()
+            #inline-twister-singleton-header-color_name
             array_color_names.append(color)
             return array_color_names, len(array_color_names)
         except:
