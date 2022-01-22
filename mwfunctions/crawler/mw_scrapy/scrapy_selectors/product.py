@@ -64,6 +64,8 @@ def mba_bsr_str_to_mba_data(mba_bsr_str, marketplace):
 
 def get_bsr(response, marketplace):
     product_information = response.css('div#detailBullets')
+    if product_information == []:
+        product_information = response.css('div#detailBulletsWrapper_feature_div')
     bsr_li = product_information.css("li#SalesRank")
     # try to get bsr out of first li of second ul if id SalesRank is not provided in html
     if bsr_li == None or bsr_li == []:
