@@ -42,6 +42,7 @@ class MBASpider(scrapy.Spider):
             mba_product_type:   Which mba product type should be crawled can be 'shirt' or in future hoodies, tank tops etc.
                                 Value decides where to store images in cloud storage
         """
+        self.memory_in_gb_start: float = get_memory_used_in_gb()
         environment.set_cloud_logging()
         self.cloud_logger = get_logger(__name__, labels_dict={"topic": "crawling", "target": self.website_crawling_target, "type": "scrapy"},
                             do_cloud_logging=True)
@@ -56,7 +57,7 @@ class MBASpider(scrapy.Spider):
         self.was_banned = {}
         self.custom_settings = {}
         crawling_product_logs: FSMBACrawlingProductLogs = FSMBACrawlingProductLogs(marketplace=self.marketplace)
-        self.crawling_product_logs_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{self.website_crawling_target}"
+        self.crawling_product_logs_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{'overview' if self.website_crawling_target == CrawlingType.REALTIME_RESEARCH.value else self.website_crawling_target}"
         self.crawling_product_logs_image_subcol_path = f"{crawling_product_logs.get_fs_doc_path()}/{CrawlingType.IMAGE}"
         mw_security_settings: MWSecuritySettings = MWSecuritySettings(security_file_path)
 
@@ -67,7 +68,7 @@ class MBASpider(scrapy.Spider):
 
         set_default_gcp_project_if_not_exists()
 
-        if self.website_crawling_target == CrawlingType.OVERVIEW.value:
+        if self.website_crawling_target in [CrawlingType.OVERVIEW.value, CrawlingType.REALTIME_RESEARCH.value]:
             if self.debug:
                 self.image_pipeline_endpoint_url = mw_security_settings.endpoints[EndpointId.CRAWLER_IMAGE_PIPELINE].devop2url[EndpointServiceDevOp.DEBUG]
             elif get_gcp_project() == "merchwatch-dev":
@@ -157,15 +158,15 @@ class MBASpider(scrapy.Spider):
                         fs_doc = FSMBAShirt.parse_fs_doc_snapshot(fs_doc_snap)
                         fs_doc.update_takedown().write_to_firestore(exclude_doc_id=True,overwrite_doc=False)
 
-                    if self.website_crawling_target == CrawlingType.PRODUCT.value:
-                        if self.daily:
+                    if self.website_crawling_target in [CrawlingType.PRODUCT.value, CrawlingType.REALTIME_RESEARCH.value] and "asin" in response.meta:
+                        if self.is_daily_crawl(response):
                             yield {"pydantic_class": BQMBAProductsDetailsDaily(asin=response.meta["asin"], price=404.0, price_str="404", bsr=404, bsr_str="404", array_bsr="[404]", array_bsr_categorie="['404']", customer_review_score_mean=404.0, customer_review_score="404", customer_review_count=404)}
                         else:
                             yield {"pydantic_class": BQMBAProductsDetails(asin=response.meta["asin"], title="404", brand="404", url_brand="404", price="404", fit_types="[404]", color_names="[404]", color_count=404, product_features='["4040"]', description="404", weight="404", upload_date_str="1995-01-01", upload_date=datetime(1995,1,1),customer_review_score="404", customer_review_count=404, mba_bsr_str="404", mba_bsr='["404"]', mba_bsr_categorie='["404"]')}
 
-                    print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
-                                                                                            response.status,
-                                                                                            response.ip_address.compressed))
+                        print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
+                                                                                                response.status,
+                                                                                                response.ip_address.compressed))
                 else:
                     print("HttpError on asin: {} | status_code: {} | ip address: {}".format(response.meta["asin"],
                                                                                             response.status,

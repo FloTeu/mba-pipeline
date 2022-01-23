@@ -1,14 +1,19 @@
 from typing import List
 
+import numpy as np
+import scrapy
 from mwfunctions.crawler.mw_scrapy.base_classes.spider_base import MBASpider
 from mwfunctions.crawler.mw_scrapy.scrapy_selectors import overview as overview_selector
 from mwfunctions.pydantic import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
+from mwfunctions.pydantic.crawling_classes import PODProduct
 from mwfunctions.time import get_berlin_timestamp
+from mwfunctions.crawler.proxy.utils import get_random_headers
+import mwfunctions.crawler.mba.url_creator as url_creator
 
 
 class MBAOverviewSpider(MBASpider):
 
-    def __init__(self, sort, pages=0, start_page=1, keyword="", *args, **kwargs):
+    def __init__(self, sort, pages=0, start_page=1, keyword="", mba_product_type=PODProduct.SHIRT, *args, **kwargs):
         # super(MBAOverviewSpider, self).__init__(*args, **kwargs)
         MBASpider.__init__(self, *args, **kwargs)
 
@@ -16,6 +21,17 @@ class MBAOverviewSpider(MBASpider):
         self.keyword = keyword
         self.pages = int(pages)
         self.start_page = int(start_page)
+        self.pod_product = mba_product_type
+
+
+        # use FS to check if data was already crawled. However lists are maintained during crawling to reduce some reading costs
+        self.products_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
+        # all asins which were found the first time
+        self.products_first_time_crawled = []
+        # all image quality url crawled
+        self.products_mba_image_references_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_mba_images") #if not self.debug else []
+        # all images which are already downloaded to storage
+        self.products_images_already_downloaded = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_images") #if not self.debug else []
 
     '''
     ### Parent functions
@@ -56,6 +72,50 @@ class MBAOverviewSpider(MBASpider):
         else:
             return False
 
+    def get_start_requests(self) -> List[scrapy.Request]:
+        assert hasattr(self, "crawling_job"), f"{self} must contain crawling_job as attribute"
+        start_requests: List[scrapy.Request] = []
+        urls_mba = []
+        headers = get_random_headers(self.marketplace)
+
+        # case csv file provided
+        if hasattr(self, "df_search_terms") and not self.df_search_terms.empty:
+            for i, df_row in self.df_search_terms.iterrows():
+                search_term = df_row["search_term"]
+                url_mba = url_creator.main([search_term, self.marketplace, self.pod_product, self.sort])
+                url_mba_page = url_mba + "&page=1"#+"&ref=sr_pg_"+str(page_number)
+                urls_mba.append(url_mba_page)
+        else:
+            url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
+            # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
+            self.cloud_logger.info("Start realtime scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
+
+            # if start_page is other than one, crawler should start from differnt page
+            until_page = 401
+
+            if self.pages != 0:
+                until_page = self.start_page + self.pages
+            for page_number in np.arange(self.start_page, until_page, 1):
+                if page_number <= 400:
+                    url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
+                    urls_mba.append(url_mba_page)
+
+        self.crawling_job.number_of_target_pages = len(urls_mba)
+        for i, url_mba in enumerate(urls_mba):
+            page = i + self.start_page
+            start_requests.append(scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
+                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers}))
+        return start_requests
+
+    def get_zip_code_change_request(self, response):
+        proxy = self.get_proxy(response)
+        print("Proxy does not get all .com results: " + proxy)
+        self.update_ban_count(proxy)
+        headers = get_random_headers(self.marketplace)
+        # send new request with high priority
+        return scrapy.Request(url=response.url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
+                                 errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": response.meta["page"]})
+
     '''
     ### Selector wrappers
     '''
@@ -93,6 +153,7 @@ class MBAOverviewSpider(MBASpider):
             return overview_selector.mba_get_img_urls(overview_response_product)
         except Exception as e:
             self.log_error(e, "Could not get image urls")
+            # TODO: How to handle case no image exists and only placeholder image is shown? Image url should be set by product page crawler. Or skip this one and try to get image later?
             raise e
 
     def get_overview_url_image_lowq(self, overview_response_product):

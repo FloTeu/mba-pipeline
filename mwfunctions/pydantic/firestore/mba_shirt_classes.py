@@ -464,13 +464,18 @@ class FSTrendData(MWBaseModel):
 
 
 class FSScoreData(MWBaseModel):
-    score_count: int = 0
+    score_count: Optional[int] = 0
     score_last: Optional[float] = None
     score_last_rounded: Optional[int] = Field(None, description="int(round(score_last, 0))")
 
+
+    @validator("score_count", always=True)
+    def set_score_count(cls, score_count):
+        return score_count if type(score_count) == int else 0
+
     @validator("score_last_rounded", always=True)
     def set_score_last_rounded(cls, score_last_rounded, values):
-        return score_last_rounded if score_last_rounded else int(round(values["score_last"], 0))
+        return score_last_rounded if score_last_rounded else int(round(values["score_last"], 0)) if type(values["score_last"]) == float else 0
 
 
 class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPriceData, FSImageData, FSKeywordData, FSUploadData, FSTrendData, FSScoreData):

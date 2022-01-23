@@ -103,8 +103,7 @@ def get_bsr(response, marketplace):
 
 
 def get_customer_review(response, marketplace):
-    product_information = response.css('div#detailBullets')
-    customer_review_div = product_information.css("div#detailBullets_averageCustomerReviews")
+    customer_review_div = response.css("div#detailBullets_averageCustomerReviews")
     customer_review_score_mean = 0.0
     customer_review_score = ""
     customer_review_count = 0

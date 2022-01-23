@@ -112,7 +112,7 @@ class MBALocalProductSpider(MBAProductSpider):
                 # workaround for error Spider must return request, item, or None
                 yield {"pydantic_class": bq_mba_products_details_daily}
 
-                if not self.daily:
+                if not self.is_daily_crawl(response):
                     yield {"pydantic_class": bq_mba_products_details}
                     fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
                                                                  bq_mba_products_details_daily, response)
@@ -129,6 +129,12 @@ class MBALocalProductSpider(MBAProductSpider):
                                            listings=get_product_listings_by_list_str(bq_mba_products_details.product_features, self.marketplace),
                                            description=bq_mba_products_details.description)
                         yield {"pydantic_class": fs_doc}
+                    else:
+                        # Case it was thought doc exists (daily=True) but in reality it wa snot set to Firestore already
+                        fs_mba_shirt: FSMBAShirt = self.get_new_fs_mba_shirt_obj(bq_mba_products_details,
+                                                                     bq_mba_products_details_daily, response)
+                        yield {"pydantic_class": fs_mba_shirt}
+
 
                 self.page_count = self.page_count + 1
 

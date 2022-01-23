@@ -26,6 +26,7 @@ from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
 from mwfunctions.profiling import get_memory_used_in_gb
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
+from mwfunctions.pydantic import MWBaseModel
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -71,7 +72,6 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     # }
 
     def __init__(self, mba_overview_request: CrawlingMBAOverviewRequest, csv_path="", *args, **kwargs):
-        self.memory_in_gb_start: float = get_memory_used_in_gb()
         super_attrs = {"mba_crawling_request": mba_overview_request, **mba_overview_request.dict()}
         # super(MBAShirtOverviewSpider, self).__init__(*args, **super_attrs)
         MBAOverviewSpider.__init__(self, *args, **super_attrs)
@@ -91,48 +91,10 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
     # called after start_spider of item pipeline
     def start_requests(self):
         self.crawling_job.memory_log = MemoryLog(start=self.memory_in_gb_start)
-        # use FS to check if data was already crawled. However lists are maintained during crawling to reduce some reading costs
-        self.products_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products") #if not self.debug else []
-        # all image quality url crawled
-        self.products_mba_image_references_already_crawled = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_mba_images") #if not self.debug else []
-        # all images which are already downloaded to storage
-        self.products_images_already_downloaded = [] # self.get_asin_crawled(f"mba_{self.marketplace}.products_images") #if not self.debug else []
-
-        urls_mba = []
-        headers = get_random_headers(self.marketplace)
-        # case use a csv with search terms
-        if not self.df_search_terms.empty:
-            for i, df_row in self.df_search_terms.iterrows():
-                search_term = df_row["search_term"]
-                url_mba = url_creator.main([search_term, self.marketplace, self.pod_product, self.sort])
-                url_mba_page = url_mba + "&page=1"#+"&ref=sr_pg_"+str(page_number)
-                urls_mba.append(url_mba_page)
-        else:
-            url_mba = url_creator.main([self.keyword, self.marketplace, self.pod_product, self.sort])
-            # send_msg(self.target, "Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort), self.api_key)
-            self.cloud_logger.info("Start scraper {} marketplace {} with {} pages and start page {} and sort {}".format(self.name, self.marketplace, self.pages, self.start_page, self.sort))
-
-            # if start_page is other than one, crawler should start from differnt page
-            until_page = 401
-
-            if self.pages != 0:
-                until_page = self.start_page + self.pages
-            for page_number in np.arange(self.start_page, until_page, 1):
-                if page_number <= 400:
-                    url_mba_page = url_mba + "&page="+str(page_number)#+"&ref=sr_pg_"+str(page_number)
-                    urls_mba.append(url_mba_page)
-
-        self.crawling_job.number_of_target_pages = len(urls_mba)
-        for i, url_mba in enumerate(urls_mba):
-            page = i + self.start_page
-            # if self.marketplace == "com": 
-            #     url_change_zip_code = "https://www.amazon.com/gp/delivery/ajax/address-change.html"
-            #     yield scrapy.http.JsonRequest(url=url_change_zip_code, callback=self.change_zip_code, headers=headers, priority=i, data=self.change_zip_code_post_data,
-            #                         errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
-            # else:
+        start_requests_list: List[scrapy.Request] = self.get_start_requests()
+        for i, sc_request in enumerate(start_requests_list):
             self.crawling_job.count_inc("request_count")
-            yield scrapy.Request(url=url_mba, callback=self.parse, headers=headers, priority=i,
-                                    errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, 'page': page, "url": url_mba, "headers": headers})
+            yield sc_request
 
     def get_asin_crawled(self, table_id):
         '''
@@ -165,6 +127,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
             page = response.meta["page"]
             mba_image_item_list = []
 
+            self.cur_response = response
             #self.get_zip_code_location(response)
             #self.get_count_results(response)
 
@@ -172,14 +135,8 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                 yield self.get_request_again_if_captcha_required(url, proxy, meta={"page": page})
             else:
                 if self.should_zip_code_be_changed(response):
-                    print("Proxy does not get all .com results: " + proxy)
-                    self.update_ban_count(proxy)
-                    headers = get_random_headers(self.marketplace)
-                    # send new request with high priority
-                    request = scrapy.Request(url=url, callback=self.parse, headers=headers, priority=0, dont_filter=True,
-                                            errback=self.errback_httpbin, meta={"max_proxies_to_try": 30, "page": page})
                     self.crawling_job.count_inc("request_count")
-                    yield request
+                    yield self.get_zip_code_change_request(response)
                 else:
                     self.crawling_job.count_inc("response_successful_count")
                     self.ip_addresses.append(response.ip_address.compressed)
@@ -193,6 +150,7 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
                     # store product data in bq
                     for bq_mba_overview_product in bq_mba_overview_product_list:
                         if bq_mba_overview_product.asin not in self.products_already_crawled and not asin2was_crawled_bool[bq_mba_overview_product.asin]:
+                            self.products_first_time_crawled.append(bq_mba_overview_product.asin)
                             yield {"pydantic_class": bq_mba_overview_product}
                             self.crawling_job.count_inc("new_products_count")
                             self.products_already_crawled.append(bq_mba_overview_product.asin)

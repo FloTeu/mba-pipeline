@@ -150,23 +150,24 @@ class ScrapySettings(MWBaseModel):
 class CrawlingMBARequest(MWBaseModel):
     crawling_job_id: Optional[str] = Field(uuid.uuid4().hex, description="Unique Id of crawling job. Will set id of crawling_job")
     marketplace: Marketplace
-    security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings")
+    security_file_path: Optional[str] = Field(None, description="Path to security file which can be used to init MWSecuritySettings", example="")
     debug: bool = Field(False, description="Whether spider should be runned in debug mode or not. In debug mode pictures will be saved in debug storage dir and debug FS collections.")
     request_input_to_log_list = Field([], description="List of request input pydantic field, which should be logged")
-    parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path")
-    fs_crawling_log_parent_doc_path: Optional[Union[None, str]] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path", example=None)
+    parent_crawling_job_id: Optional[str] = Field(None, description="Replaced by fs_crawling_log_col_path", example="")
+    fs_crawling_log_parent_doc_path: Optional[Union[None, str]] = Field(None, description="If set, crawling logs will be stored as subcollection under this doc_path", example="")
     settings: Optional[ScrapySettings] = Field({}, description="Scrapy Settings which will be set in beginning of crawling")
     use_image_crawling_pipeline: bool = False
 
     def reset_crawling_job_id(self):
         self.crawling_job_id = uuid.uuid4().hex
 
+
 class CrawlingMBAOverviewRequest(CrawlingMBARequest):
     sort: CrawlingSorting = Field(description="Sorting of MBA overview page")
     mba_product_type: PODProduct = Field(PODProduct.SHIRT, description="Type of product, e.g. shirt in future more should be possible")
     keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
     start_page: int = Field(1, description="Start page in overview page. 1 is the first starting page")
-    pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled")
+    pages: int = Field(0, description="Total number of overview pages that should be crawled. If 0 => maximum (400) pages will be crawled", example=5)
     request_input_to_log_list = Field(["keyword", "sort", "pages", "start_page"], description="List of request input pydantic field, which should be logged")
 
     @validator("pages")
@@ -206,7 +207,7 @@ class CrawlingMBAProductRequest(CrawlingMBARequest):
     excluded_asins: List[str] = Field(EXCLUDED_ASINS+STRANGE_LAYOUT, description="List of asins which should be excluded by crawling")
     asins_to_crawl: Optional[List[str]] = Field([], description="List of asins which should be crawled. If empty -> Asins will be downloaded by BQ automatically")
     request_input_to_log_list = Field(["number_products"], description="List of request input pydantic field, which should be logged")
-    url_data_path: Optional[str] = Field(None, description="Path to csv file. must contains to columns 'asin' and 'url'. If set this urls will be crawled.")
+    url_data_path: Optional[str] = Field(None, description="Path to csv file. must contains to columns 'asin' and 'url'. If set this urls will be crawled.", example="")
 
 class CrawlingMBACloudFunctionRequest(MWBaseModel):
     # cloud function can take this object and start a crawler scaling to the moon

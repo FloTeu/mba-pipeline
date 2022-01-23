@@ -29,6 +29,12 @@ class MBAProductSpider(MBASpider):
         self.reset_ban.start()
         self.was_banned = {}
 
+    def is_daily_crawl(self, response):
+        """ Returns if crawl is daily crawl (which means it is crawled not the first time but regularly for n time) or first time crawl
+            If daily is contained in meta use it. Otherwise take the attr daily of object
+        """
+        return response.meta.get("daily", self.daily if hasattr(self, "daily") else False)
+
     '''
     ### Selector wrappers
     '''
@@ -55,7 +61,7 @@ class MBAProductSpider(MBASpider):
                 self.no_bsr_products.append(BQMBAProductsNoBsr(asin=asin, url=cw_input.url))
                 # self.yield_BQMBAProductsNoBsr(asin)
                 pass
-            if self.daily:
+            if self.is_daily_crawl(response):
                 return "", 0, [], []
             else:
                 # Cases exists like https://www.amazon.com/dp/B0855BCBZ6, which should have BSR but dont contain it on html
