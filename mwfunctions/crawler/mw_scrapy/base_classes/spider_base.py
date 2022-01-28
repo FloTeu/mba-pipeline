@@ -310,6 +310,7 @@ class MBASpider(scrapy.Spider):
         self.crawling_job.set_duration_in_min()
         if self.crawling_job.memory_log:
             self.crawling_job.memory_log["end"] = get_memory_used_in_gb()
-        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}", overwrite_doc=True)
+        # array union = True for asin_list in realtime seetind
+        firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}", overwrite_doc=True, array_union=True)
 
 

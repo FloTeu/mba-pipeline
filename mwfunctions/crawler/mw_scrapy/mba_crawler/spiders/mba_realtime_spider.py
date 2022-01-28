@@ -16,6 +16,7 @@ from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingPro
 from mwfunctions.pydantic import BQMBAProductsNoBsr
 from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
+from mwfunctions.cloud.firestore import firestore_fns
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
 
 def str2bool(v):
@@ -71,6 +72,8 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
             self.cur_response = response
             bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
             bq_mba_products_mba_images_list: List[BQMBAProductsMbaImages] = self.get_BQMBAProductsMBAImages_list(response)
+            # extend asin_list of crawling job.
+            self.crawling_job.asin_list.extend([bq_mba_overview_product.asin for bq_mba_overview_product in bq_mba_overview_product_list])
 
             for i, bq_mba_overview_product in enumerate(bq_mba_overview_product_list):
                 overview_data_dict = self.get_overview_data_dict(bq_mba_overview_product,

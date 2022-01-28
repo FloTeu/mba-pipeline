@@ -578,8 +578,10 @@ def update_bq_shirt_tables(marketplace, chunk_size=500, limit=None, filter=None,
     # save dataframe with shirts in local storage
     print("Length of dataframe", len(df_shirts_with_more_info), dev_str)
     table_path = "mba_" + str(marketplace) + ".merchwatch_shirts" + dev_str
-    df_shirts_with_more_info.to_gbq(table_path, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
-    replace_price_last_zero(marketplace, project_id=project_id, dev_str=dev_str)
+    df_shirts_with_more_info["upload_date"] = pd.to_datetime(df_shirts_with_more_info["upload_date"])
+    if len(df_shirts_with_more_info) > 0:
+        df_shirts_with_more_info.to_gbq(table_path, chunksize=10000, project_id="mba-pipeline", if_exists="replace")
+        replace_price_last_zero(marketplace, project_id=project_id, dev_str=dev_str)
     print("Update merchwatch daily table completed. Elapsed time: %.2f minutes" % (
         (time.time() - start_time) / 60))
 

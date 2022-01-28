@@ -1,9 +1,11 @@
 import json
 import random
 import numpy as np
-from .utils import get_proxies_with_country
+from mwfunctions.crawler.proxy.utils import get_proxies_with_country
 import pathlib
+from typing import Optional
 from mwfunctions.pydantic.security_classes import MWSecuritySettings
+from mwfunctions.pydantic.base_classes import Marketplace
 
 list_country_proxies = ["DE", "dk", "pl", "fr", "ua", "us", "cz"]
 
@@ -35,15 +37,27 @@ def get_random_proxy_url_dict(path_proxy_json=None, only_working=False):
     }
     return proxies
 
-def get_private_http_proxy_list(mw_security_settings: MWSecuritySettings, only_usa):
+def get_private_http_proxy_list(mw_security_settings: MWSecuritySettings, only_usa=False, marketplace: Optional[Marketplace]=None):
     http_proxy_list = []
     for proxy_service_name, proxy_service_settings in mw_security_settings.proxy_services.items():
         if not proxy_service_settings.active:
             continue
         for proxy in proxy_service_settings.proxy_items:
-            if not only_usa or proxy.location in ["USA", "Iceland"]:
-                url = f"http://{proxy_service_settings.proxy_provider_login.user_id}:{proxy_service_settings.proxy_provider_login.password}@{proxy.url}:{proxy_service_settings.default_port}"
+            url = f"http://{proxy_service_settings.proxy_provider_login.user_id}:{proxy_service_settings.proxy_provider_login.password}@{proxy.url}:{proxy_service_settings.default_port}"
+            if marketplace == None and (not only_usa or proxy.location in ["USA", "Iceland"]):
                 http_proxy_list.append(url)
+            elif marketplace != None:
+                if marketplace == Marketplace.COM and proxy.location in ["USA", "Iceland"]:
+                    http_proxy_list.append(url)
+                elif marketplace in [Marketplace.DE, Marketplace.FR, Marketplace.IT, Marketplace.ES] and proxy.location in ["France", "Deutschland", "Norway", "Schweiz", "Rum\u00e4nien", "D\u00e4nemark", "Spanien", "Schweden", "Italien", "Niederlande", "Luxemburg"]:
+                    http_proxy_list.append(url)
+                elif marketplace in [Marketplace.UK] and proxy.location in ["United Kingdom", "Gro\u00dfbritannien"]:
+                    http_proxy_list.append(url)
+                elif marketplace in [Marketplace.JP] and proxy.location in ["Japan"]:
+                    http_proxy_list.append(url)
+            else:
+                http_proxy_list.append(url)
+
     return http_proxy_list
 
 def get_public_http_proxy_list(only_usa):

@@ -101,6 +101,7 @@ def update_bq_table(args, marketplace, BigQueryHandlerModel):
 def main(args):
     marketplace = args.marketplace
     time_start = time.time()
+    args.debug_limit = args.debug_limit if args.debug_limit != 0 else None
 
     send_msg("869595848", "Cron Job start for marketplace " + marketplace,"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)

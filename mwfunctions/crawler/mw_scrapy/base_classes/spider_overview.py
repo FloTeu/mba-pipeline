@@ -43,20 +43,18 @@ class MBAOverviewSpider(MBASpider):
         except:
             return "unkown"
 
-    @staticmethod
-    def get_count_results(response):
-        try:
-            count_results_bar_text = response.css('span.celwidget div.a-section span::text')[0].get()
-            return int(count_results_bar_text.split(" results")[0].split(" ")[-1].replace(',',''))
-        except:
-            return "unkown"
+    def get_count_results(self, response) -> int: # potentially raises Exception
+        return overview_selector.mba_get_number_of_products_in_niche(response, self.marketplace)
 
     def should_zip_code_be_changed(self, response):
         if self.marketplace == "com":
             #zip_code_location = self.get_zip_code_location(response)
             zip_code_location = "unkown"
             if zip_code_location == "unkown":
-                count_results = self.get_count_results(response)
+                try:
+                    count_results = self.get_count_results(response)
+                except IndexError:
+                    count_results = "unkown"
                 if type(count_results) == int and count_results < 50000:
                     return True
                 else:

@@ -1,5 +1,19 @@
 import re
+from mwfunctions.pydantic.base_classes import Marketplace
+
 # scrapy selector for overview pages. Raise error if value cannot be received
+def mba_get_number_of_products_in_niche(response, marketplace: Marketplace) -> int: # could throw IndexError or ValueError
+    try:
+        count_results_bar_text = response.css('span.celwidget div.a-section span::text')[0].get()
+    except IndexError:
+        count_results_bar_text = response.css("div.sg-col-inner .a-section span::text")[0].get()
+    if marketplace in [Marketplace.COM, Marketplace.UK]:
+        return int(count_results_bar_text.split(" results")[0].split(" ")[-1].replace(',', '').replace('.', ''))
+    elif marketplace == Marketplace.DE:
+        return int(count_results_bar_text.split(" Ergebnis")[0].split(" ")[-1].replace(',', '').replace('.', ''))
+    else:
+        raise NotImplementedError
+
 
 def mba_get_title(response):
     title = response.css("a.a-link-normal.a-text-normal")[0].css("span::text").get()

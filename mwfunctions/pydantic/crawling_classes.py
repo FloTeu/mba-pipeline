@@ -114,8 +114,9 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
     # keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
 
 class MBARealtimeResearchCrawlingJob(MBAOverviewCrawlingJob):
-    frontend_statistics: Optional[dict] = None # todo define, rename
-
+    asin_list: List[str] = []
+    number_products_in_niche: Optional[int] = None
+    search_term: str
 
 class MBAImageCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
