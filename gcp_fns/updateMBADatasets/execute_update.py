@@ -5,6 +5,7 @@ from bigquery_handler import BigqueryHandler
 from ai_fns import update_descriptor_json_files, update_projector_files, deploy_projector_cloud_run
 import merchwatch_daily_creator as merchwatch_daily_creator
 
+import traceback
 import requests
 import os
 import argparse
@@ -162,10 +163,12 @@ def main(args):
             
 
     except Exception as e:
-        print(str(e))
+        tb = traceback.format_exc()
+        error_msg = str(e) + tb
+        print(error_msg)
         # make sure model version is deleted
         model.delete_version()
-        send_msg("869595848", str(e),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
+        send_msg("869595848", str(error_msg),"1266137258:AAH1Yod2nYYud0Vy6xOzzZ9LdR7Dvk9Z2O0")
         raise e
 
     elapsed_time = "%.2f" % ((time.time() - time_start) / 60)
