@@ -6,13 +6,15 @@ from os.path import join
 import numpy as np
 from numpy.lib.index_tricks import _fill_diagonal_dispatcher
 from mwfunctions.transform import get_shortened_plot_data, df_dict2subcollections
+from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
+from mwfunctions.pydantic.firestore.firestore_classes import date2str
 #from utils_plot import get_shortened_plot_data
 import time
 
 # Use the application default credentials
 cred = credentials.ApplicationDefault()
 class Firestore():
-    def __init__(self, collection_name, project="merchwatch"):
+    def __init__(self, collection_name, marketplace, project="merchwatch"):
         try:
             app = firebase_admin.initialize_app(cred, {
             'projectId': project,
@@ -22,6 +24,7 @@ class Firestore():
             app = firebase_admin.get_app(project)
             self.db = firestore.client(app=app)
         self.collection_name = collection_name
+        self.marketplace = marketplace
 
     def update_by_df(self, df, product_id_column):
         for i, df_row in df.iterrows():
@@ -53,8 +56,8 @@ class Firestore():
                     #batch.update(doc_sub_collection_ref, subcollection_doc_data)
                     # TODO: what happens if update on not existent doc?
                     batch.set(doc_sub_collection_ref, subcollection_doc_data, merge=True)
-
-        batch.set(doc_ref, fs_dict)
+        # merge in order to not remove crawling data
+        batch.set(doc_ref, fs_dict, merge=True)
 
     def update_by_df_batch(self, df, product_id_column, batch_size=100):
         # Note: 400 maximum 500 writes allowed per request/batch. consider subcollections, too
@@ -113,7 +116,17 @@ class Firestore():
                     # else:
                     # create new document with content data
 
-                    self.set_dict_to_batch(batch, doc_ref, df_dict, df_dict["asin"])
+                    # parse to FS pydantic class
+                    # BQ contains strings "None" which can not be parsed to date by pydantic
+                    df_dict["takedown_date"] = df_dict["takedown_date"] if df_dict["takedown_date"] != "None" else None
+                    df_dict["update_last"] = df_dict["update_last"] if df_dict["update_last"] != "None" else None
+                    df_dict["marketplace"] = self.marketplace
+                    df_dict["doc_id"] = df_dict["asin"]
+                    fs_mba_shirt = FSMBAShirt.parse_obj(df_dict)
+                    # prevent field like "listings" which are only set by crawler, to be overwritten by this function
+                    fs_dict = fs_mba_shirt.dict(include=set(df_dict.keys()))
+                    date2str(fs_dict)
+                    self.set_dict_to_batch(batch, doc_ref, fs_dict, df_dict["asin"])
                     #batch.set(doc_ref, df_dict)
                 except Exception as e:
                     print(str(e))

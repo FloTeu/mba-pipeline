@@ -1,18 +1,29 @@
 import re
 from mwfunctions.pydantic.base_classes import Marketplace
 
-# scrapy selector for overview pages. Raise error if value cannot be received
-def mba_get_number_of_products_in_niche(response, marketplace: Marketplace) -> int: # could throw IndexError or ValueError
+
+def get_search_number_products_bar_text(response) -> str:
     try:
         count_results_bar_text = response.css('span.celwidget div.a-section span::text')[0].get()
     except IndexError:
         count_results_bar_text = response.css("div.sg-col-inner .a-section span::text")[0].get()
+    return count_results_bar_text
+
+# scrapy selector for overview pages. Raise error if value cannot be received
+def mba_get_number_of_products_in_niche(response, marketplace: Marketplace) -> int: # could throw IndexError or ValueError
+    count_results_bar_text = get_search_number_products_bar_text(response)
     if marketplace in [Marketplace.COM, Marketplace.UK]:
         return int(count_results_bar_text.split(" results")[0].split(" ")[-1].replace(',', '').replace('.', ''))
     elif marketplace == Marketplace.DE:
         return int(count_results_bar_text.split(" Ergebnis")[0].split(" ")[-1].replace(',', '').replace('.', ''))
     else:
         raise NotImplementedError
+
+def mba_get_number_of_products_in_niche_is_exact(response) -> bool: # could throw IndexError or ValueError
+    count_results_bar_text = get_search_number_products_bar_text(response)
+    # TODO: check for japanese indicator
+    return not any([indicator in count_results_bar_text for indicator in ["over", "mehr", "plus", "più", "más", "余り"]])
+
 
 
 def mba_get_title(response):

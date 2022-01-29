@@ -113,9 +113,13 @@ class MBAOverviewCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.OVERVIEW.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     # keyword: str = Field("", description="optional search term keyword. Simulation of customer search in amazon")
 
+class NumberProductsInNiche(BaseModel):
+    nr_products: Optional[int] = None
+    is_exact: Optional[bool] = Field(None, description="If True, niche contains exactly this number of products, else more than this number")
+
 class MBARealtimeResearchCrawlingJob(MBAOverviewCrawlingJob):
     asin_list: List[str] = []
-    number_products_in_niche: Optional[int] = None
+    number_products_in_niche: NumberProductsInNiche = NumberProductsInNiche()
     search_term: str
 
 class MBAImageCrawlingJob(MBACrawlingJob):
@@ -229,4 +233,3 @@ class StartMBACrawlerFunctionRequest(MWBaseModel):
 #
 #     class Config:
 #         arbitrary_types_allowed = True
-

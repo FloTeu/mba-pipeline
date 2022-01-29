@@ -69,8 +69,10 @@ class BigqueryHandler():
                 df_chunk = df_chunk[df_chunk["asin"].isin(asin_list)]
                 if df_shirts_detail_daily.empty:
                     df_shirts_detail_daily = df_chunk
+                elif df_chunk.empty:
+                    continue
                 else:
-                    df_shirts_detail_daily = df_shirts_detail_daily.append(df_chunk)
+                    df_shirts_detail_daily = pd.concat([df_shirts_detail_daily, df_chunk])
         # dtype change to orignal bq type
         df_shirts_detail_daily['timestamp'] = df_shirts_detail_daily['timestamp'].astype('datetime64[ns]')
         return df_shirts_detail_daily

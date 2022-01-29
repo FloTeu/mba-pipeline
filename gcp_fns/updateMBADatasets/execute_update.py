@@ -85,7 +85,7 @@ def send_msg(target, msg, api_key):
         return ""
 
 def remove_blacklisted_shirts_from_firestore(marketplace):
-    firestore_model = Firestore(f"{marketplace}_niches")
+    firestore_model = Firestore(f"{marketplace}_niches", marketplace)
     df = pd.read_gbq(f"SELECT DISTINCT asin FROM mba_{marketplace}.products_no_mba_shirt where url LIKE '%amazon.{marketplace}/dp/%'", project_id="mba-pipeline")
     firestore_model.delete_by_df_batch(df, "asin", batch_size=100)
 

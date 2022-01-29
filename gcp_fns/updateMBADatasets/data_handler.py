@@ -936,7 +936,7 @@ class DataHandler():
         if dev:
             fs_project = "merchwatch-dev"
 
-        firestore = Firestore(collection, project=fs_project)
+        firestore = Firestore(collection, marketplace, project=fs_project)
         # check: B07D7NX4RL com
         df = self.get_shirt_dataset(marketplace, dev=dev, update_all=update_all)
         #df = df.iloc[df[df["asin"]=="B07HJWVF24"].index.values[0]:df.shape[0]]
@@ -1338,7 +1338,7 @@ class DataHandler():
         df_trademarks[["brand", "trademark"]].to_gbq("mba_{}.products_trademark".format(marketplace), project_id="mba-pipeline", if_exists="replace")
         
         # FIRESTORE
-        firestore_trademark = Firestore(f"{marketplace}_trademarks")
+        firestore_trademark = Firestore(f"{marketplace}_trademarks", marketplace)
         for trademark in TRADEMARKS:
             df_firestore = df_trademarks[df_trademarks["trademark"]==trademark]
             brands = df_firestore["brand"].tolist()

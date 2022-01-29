@@ -42,7 +42,7 @@ class NicheUpdater():
             dev_str = "_dev"
 
         self.marketplace = marketplace
-        self.firestore = Firestore(marketplace + "_niches" + dev_str)
+        self.firestore = Firestore(marketplace + "_niches" + dev_str, marketplace)
 
     def crawl_niches(self, list_niches_str):
         shell_command = '''cd .. 
@@ -463,13 +463,13 @@ class NicheAnalyser():
 
     def get_keywords_already_in_fs(self, niche_type):
         keywords = []
-        self.firestore = Firestore(self.marketplace + "_niches")
+        self.firestore = Firestore(self.marketplace + "_niches", self.marketplace)
         # blog_niches never should be deleted
         if niche_type != "blog_niche":
             doc_iter = self.firestore.db.collection(self.firestore.collection_name).where(u"type", "==", niche_type).stream()
             count = 0
             for doc in doc_iter:
-                mba_data_firestore = Firestore(f"{self.marketplace}_niches/{doc.id}/mba_data")
+                mba_data_firestore = Firestore(f"{self.marketplace}_niches/{doc.id}/mba_data", self.marketplace)
                 doc_mba_data = mba_data_firestore.get_document("asins")
                 if doc_mba_data.exists:
                     keywords.append({"keyword": doc._data["keyword"], "asins": doc_mba_data._data["asins"]})
