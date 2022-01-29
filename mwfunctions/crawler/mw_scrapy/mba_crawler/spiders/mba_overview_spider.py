@@ -94,6 +94,8 @@ class MBAShirtOverviewSpider(MBAOverviewSpider):
         start_requests_list: List[scrapy.Request] = self.get_start_requests()
         for i, sc_request in enumerate(start_requests_list):
             self.crawling_job.count_inc("request_count")
+            # starting from 1000 to allow product page crawl to have a higher priority than overview crawl
+            sc_request.priority = 1000 + i
             yield sc_request
 
     def get_asin_crawled(self, table_id):

@@ -86,7 +86,7 @@ class MWScrapyItemPipeline(MWScrapyItemPipelineAbstract):
         if website_crawling_target == CrawlingType.OVERVIEW.value:
             self.crawling_job = MBAOverviewCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.REALTIME_RESEARCH:
-            self.crawling_job = MBARealtimeResearchCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input)
+            self.crawling_job = MBARealtimeResearchCrawlingJob(marketplace=spider.marketplace, id=spider.crawling_job_id, request_input=request_input, search_term=spider.mba_crawling_request.keyword)
         elif website_crawling_target == CrawlingType.PRODUCT.value:
             self.crawling_job = MBAProductCrawlingJob(marketplace=spider.marketplace, daily=spider.daily, id=spider.crawling_job_id, request_input=request_input)
         elif website_crawling_target == CrawlingType.IMAGE.value:

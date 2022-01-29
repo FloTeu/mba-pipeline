@@ -66,6 +66,12 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
     #         yield sc_request
 
     def parse(self, response):
+        # if response comes from proxy ban internally, we route parsng method to product page parses if it was a product request
+        if "asin" in response.meta:
+            for yieldable_obj in self.parse_product_page(response):
+                yield yieldable_obj
+            # skip Try of parsing of overview page
+            return True
         for yieldable_obj in MBAShirtOverviewSpider.parse(self, response):
             yield yieldable_obj
         if not self.is_captcha_required(response) and not self.should_zip_code_be_changed(response):
@@ -79,7 +85,7 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
                 overview_data_dict = self.get_overview_data_dict(bq_mba_overview_product,
                                                                  bq_mba_products_mba_images_list)
 
-                yield self.request_product_page(bq_mba_overview_product.asin, response.meta["page"], i, overview_data_dict)
+                yield self.request_product_page(bq_mba_overview_product.asin, response, i, overview_data_dict, bq_mba_overview_product.url_product)
 
         test = 0
 
@@ -98,15 +104,26 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
             self.log_warning(e, "Could not find mba image data, even if they should exist")
         return overview_data_dict
 
-    def request_product_page(self, asin, overview_page, nr_product, overview_data_dict):
+    def request_product_page(self, asin, response: scrapy.http.Response, nr_product, overview_data_dict, url_product) -> scrapy.Request:
+        page_nr = (self.shirts_per_page * (response.meta["page"]-1)) + nr_product
         was_crawled_already = asin not in self.products_first_time_crawled
-        return scrapy.Request(f"https://amazon.{self.marketplace}/dp/{asin}",
-                              callback=self.parse_product_page,
-                              meta={"asin": asin,
-                                    "total_page_target": self.shirts_per_page*self.pages,
-                                    "page_nr": (self.shirts_per_page * overview_page) + nr_product,
-                                    "daily": was_crawled_already,
-                                    **overview_data_dict})
+        headers = response.request.headers
+        proxy_meta={}
+        if self.get_proxy(response) != "":
+            proxy_meta = {
+            "proxy": self.get_proxy(response)  # crawl product pages with same proxy as overview crawler
+            }
+
+        return scrapy.Request(f"https://www.amazon.{self.marketplace}/dp/{asin}" if f"https://www.amazon.{self.marketplace}" not in url_product else url_product,
+                          callback=self.parse_product_page,
+                          headers=headers,
+                          priority=page_nr,
+                          meta={"asin": asin,
+                                "total_page_target": self.shirts_per_page*self.pages,
+                                "page_nr": page_nr,
+                                "daily": was_crawled_already,
+                                **proxy_meta,
+                                **overview_data_dict})
 
     def parse_product_page(self, response):
         for yieldable_obj in MBALocalProductSpider.parse(self, response):

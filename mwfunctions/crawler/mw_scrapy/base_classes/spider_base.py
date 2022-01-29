@@ -100,6 +100,11 @@ class MBASpider(scrapy.Spider):
             self.custom_settings.update({
                 "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(mw_security_settings, self.marketplace == "com"),
             })
+        elif self.website_crawling_target == CrawlingType.REALTIME_RESEARCH:
+            # use only private proxies for realtime research to optimize speed
+            self.custom_settings.update({
+                "ROTATING_PROXY_LIST": proxy_handler.get_private_http_proxy_list(mw_security_settings, marketplace=self.marketplace),
+            })
         else:
             self.custom_settings.update({
                 "ROTATING_PROXY_LIST": proxy_handler.get_http_proxy_list(mw_security_settings, only_usa=self.marketplace == "com"),# and self.website_crawling_target == "overview"),
@@ -305,12 +310,14 @@ class MBASpider(scrapy.Spider):
 
         # save crawling job in firestore
         print("Save crawling job to Firestore")
+        # TODO: number of products in niche should not be overwritten here...
         # self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         self.crawling_job.end_timestamp = get_england_timestamp(without_tzinfo=False)
         self.crawling_job.set_duration_in_min()
         if self.crawling_job.memory_log:
             self.crawling_job.memory_log["end"] = get_memory_used_in_gb()
         # array union = True for asin_list in realtime seetind
+        # TODO: save asin_list in parent document
         firestore_fns.write_document_dict(self.crawling_job.dict(),f"{self.fs_log_col_path}/{self.crawling_job.id}", overwrite_doc=True, array_union=True)
 
 

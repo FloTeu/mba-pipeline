@@ -7,6 +7,7 @@
 #     https://docs.scrapy.org/en/latest/topics/downloader-middleware.html
 #     https://docs.scrapy.org/en/latest/topics/spider-middleware.html
 from mwfunctions.crawler.proxy import proxy_handler
+import scrapy
 
 BOT_NAME = 'mba_crawler'
 
@@ -82,6 +83,10 @@ DOWNLOADER_MIDDLEWARES = {
     #'rotating_proxies.middlewares.RotatingProxyMiddleware': 610,
     'mba_crawler.middlewares.CustomAmazonRotatingProxyMiddleware': 610,
     'rotating_proxies.middlewares.BanDetectionMiddleware': 620,
+}
+
+SPIDER_MIDDLEWARES = {
+    'scrapy.spidermiddlewares.referer.RefererMiddleware': True,
 }
 
 # Enable or disable extensions
