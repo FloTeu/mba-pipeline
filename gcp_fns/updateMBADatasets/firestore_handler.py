@@ -69,6 +69,10 @@ class Firestore():
             for i, df_row in df_batch.iterrows():
                 try:
                     df_dict = df_row.to_dict()
+                    # is not allowed to be written in FS
+                    if df_dict["url_mba_lowq"] == None:
+                        print("Warning: doc with asin", df_dict["asin"], "does not contain url_mba_lowq")
+                        continue
                     try:
                         df_dict["subcollections"] = df_dict2subcollections(df_dict)
                         df_dict.update(get_shortened_plot_data(df_dict["subcollections"]))
