@@ -1,3 +1,5 @@
+import copy
+
 import scrapy
 import numpy as np
 from typing import List
@@ -18,6 +20,7 @@ from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
 from mwfunctions.cloud.firestore import firestore_fns
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
+from mwfunctions.pydantic.firestore import FSDocument
 
 def str2bool(v):
     if isinstance(v, bool):
@@ -52,6 +55,8 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
         MBAShirtOverviewSpider.__init__(self, mba_overview_request, csv_path=csv_path, *args, **kwargs)
         # Note: since only overview spider is initializied we init attributes of product crawler manually
         self.no_bsr_products: List[BQMBAProductsNoBsr] = []
+        self.asin_in_niche_pop_list = []
+        self.asin_in_niche_crawled_pop_list = []
 
     #     # TODO: is pod_product necessary, since we have a class which should crawl only shirts?
     #     # Note: Class could also be extended to crawl more than just shirts..
@@ -65,6 +70,19 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
     #         self.crawling_job.count_inc("request_count")
     #         yield sc_request
 
+    def write_asin_lists_to_crawling_job(self):
+        fs_doc_path = '/'.join(self.fs_log_col_path.split('/')[0:2]) if self.fs_crawling_log_parent_doc_path else f"{self.fs_log_col_path}/{self.crawling_job.id}"
+        fs_update_dict = {}
+        if len(self.asin_in_niche_pop_list) > 0:
+            fs_update_dict.update({"asins_in_niche_list": list(set(self.asin_in_niche_pop_list))})
+        if len(self.asin_in_niche_crawled_pop_list) > 0:
+            fs_update_dict.update({"asins_crawled_list": list(set(self.asin_in_niche_crawled_pop_list))})
+        if fs_update_dict:
+            firestore_fns.write_document_dict(fs_update_dict, fs_doc_path, overwrite_doc=False, array_union=True)
+            # pop values in list
+            self.asin_in_niche_pop_list = []
+            self.asin_in_niche_crawled_pop_list = []
+
     def parse(self, response):
         # if response comes from proxy ban internally, we route parsng method to product page parses if it was a product request
         if "asin" in response.meta:
@@ -72,20 +90,24 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
                 yield yieldable_obj
             # skip Try of parsing of overview page
             return True
-        for yieldable_obj in MBAShirtOverviewSpider.parse(self, response):
-            yield yieldable_obj
+        # first try to crawl products pages before parsing overview page
         if not self.is_captcha_required(response) and not self.should_zip_code_be_changed(response):
             self.cur_response = response
             bq_mba_overview_product_list: List[BQMBAOverviewProduct] = self.get_BQMBAOverviewProduct_list(response)
             bq_mba_products_mba_images_list: List[BQMBAProductsMbaImages] = self.get_BQMBAProductsMBAImages_list(response)
-            # extend asin_list of crawling job.
-            self.crawling_job.asin_list.extend([bq_mba_overview_product.asin for bq_mba_overview_product in bq_mba_overview_product_list])
+
+            self.asin_in_niche_pop_list.extend([bq_mba_overview_product.asin for bq_mba_overview_product in bq_mba_overview_product_list])
+            # reduce writes and write it after first 12 crawlings
+            #self.write_asin_lists_to_crawling_job()
 
             for i, bq_mba_overview_product in enumerate(bq_mba_overview_product_list):
                 overview_data_dict = self.get_overview_data_dict(bq_mba_overview_product,
                                                                  bq_mba_products_mba_images_list)
 
                 yield self.request_product_page(bq_mba_overview_product.asin, response, i, overview_data_dict, bq_mba_overview_product.url_product)
+        # parse overview page (update BQ and FS data + crawling new images)
+        for yieldable_obj in MBAShirtOverviewSpider.parse(self, response):
+            yield yieldable_obj
 
         test = 0
 
@@ -128,4 +150,15 @@ class MBAShirtRealtimeResearchSpider(MBAShirtOverviewSpider, MBALocalProductSpid
     def parse_product_page(self, response):
         for yieldable_obj in MBALocalProductSpider.parse(self, response):
             yield yieldable_obj
+            item = copy.deepcopy(yieldable_obj)
+            if type(item) == dict and "pydantic_class" in item:
+                item = item["pydantic_class"]
+            if isinstance(item, FSDocument):
+                self.asin_in_niche_crawled_pop_list.append(item.asin)
+            # write every 12th asin list to FS
+            if len(self.asin_in_niche_crawled_pop_list) >= 12:
+                # extend asin_list of crawling job.
+                self.write_asin_lists_to_crawling_job()
+
+
 

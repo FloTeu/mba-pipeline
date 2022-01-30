@@ -117,19 +117,20 @@ class NumberProductsInNiche(BaseModel):
     nr_products: Optional[int] = None
     is_exact: Optional[bool] = Field(None, description="If True, niche contains exactly this number of products, else more than this number")
 
-class MBARealtimeResearchCrawlingJob(MBAOverviewCrawlingJob):
-    asin_list: List[str] = []
-    number_products_in_niche: NumberProductsInNiche = NumberProductsInNiche()
-    search_term: str
-
 class MBAImageCrawlingJob(MBACrawlingJob):
     crawling_type: CrawlingType = Field(CrawlingType.IMAGE.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     new_images_count: Optional[int] = Field(0, description="Count of new images vrawled by overview crawler")
 
 class MBAProductCrawlingJob(MBACrawlingJob):
-    daily: bool = Field(description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
+    daily: Optional[bool] = Field(None, description="daily=True -> Products should be crawled that already were crawled before, daily=False -> First time crawling")
     crawling_type: CrawlingType = Field(CrawlingType.PRODUCT.value, description="Crawling type, which indicates which pages and what data is the target of crawling")
     price_not_found_count: int = Field(0, description="Count of successfull responses without price information")
+
+class MBARealtimeResearchCrawlingJob(MBAOverviewCrawlingJob, MBAProductCrawlingJob):
+    asins_in_niche_list: List[str] = []
+    asins_crawled_list: List[str] = []
+    number_products_in_niche: NumberProductsInNiche = NumberProductsInNiche()
+    search_term: str
 
 class MBAImageItem(BaseModel):
     asin: str

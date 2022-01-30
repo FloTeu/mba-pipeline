@@ -177,15 +177,18 @@ class MBAOverviewSpider(MBASpider):
     '''
     ### Data class functions
     '''
-    def is_shirt(self, overview_response_product):
+    @staticmethod
+    def is_shirt( overview_response_product):
         try:
             asin = overview_selector.mba_get_asin(overview_response_product)
             return asin not in ["", None]
         except Exception as e:
             return False
 
-    def get_overview_products_response_list(self, overview_response):
-        return [overview_response_product for overview_response_product in overview_response.css('div.sg-col-inner') if self.is_shirt(overview_response_product)]
+    @staticmethod
+    def get_overview_products_response_list(overview_response):
+        # must be static because its also used outside of class. I.e. Main of crawling API
+        return [overview_response_product for overview_response_product in overview_response.css('div.sg-col-inner') if MBAOverviewSpider.is_shirt(overview_response_product)]
 
     def get_BQMBAOverviewProduct_list(self, overview_response) -> List[BQMBAOverviewProduct]:
         response_url = overview_response.url

@@ -310,6 +310,10 @@ class MBASpider(scrapy.Spider):
 
         # save crawling job in firestore
         print("Save crawling job to Firestore")
+
+        if self.website_crawling_target == CrawlingType.REALTIME_RESEARCH:
+            self.write_asin_lists_to_crawling_job()
+
         # TODO: number of products in niche should not be overwritten here...
         # self.crawling_job.end_timestamp = get_berlin_timestamp(without_tzinfo=True)
         self.crawling_job.end_timestamp = get_england_timestamp(without_tzinfo=False)
