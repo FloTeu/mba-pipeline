@@ -725,7 +725,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
                      "plot_x_price": ",".join(plot_x_price) if plot_x_price else None,
                      "plot_y_price": ",".join(plot_y_price) if plot_y_price else None}
 
-        fields_included = {"asin", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
+        fields_included = {"asin", "marketplace", "bsr_short", "prices_short", "bsr_change", "bsr_mean", "bsr_last", "keywords_meaningful", "url", "url_affiliate", "url_mba_hq", "url_mba_lowq", "url_image_q2", "url_image_q3", "url_image_q4", "price_last", "update_last", "img_affiliate", "title", "brand", "trend", "trend_nr", "trend_change", "upload_date", "takedown", "takedown_date"}
         api_output_dict = self.dict(include=fields_included)
         # TODO: Not calculate keywords_meaningful here since spacy takes to much memory for cloud run instance
         api_output_dict["keywords_meaningful"] = api_output_dict["keywords_meaningful"] if api_output_dict["keywords_meaningful"] else [] # self.get_keywords_meaningful() # calculate keywords meaningful if firestore does not contain data
