@@ -99,6 +99,16 @@ class EnumBase(Enum):
     def __hash__(self):
         return super.__hash__(self)
 
+
+class TextLanguage(str, EnumBase):
+    # https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
+    GERMAN="de"
+    ENGLISH="en"
+    ITALIAN="it"
+    SPANISH="es"
+    FRENCH="fr"
+    JAPANESE="ja"
+
 class Marketplace(str, EnumBase):
     DE="de"
     COM="com"
@@ -112,16 +122,20 @@ class Marketplace(str, EnumBase):
     def get_marketplaces_to_crawl(cls):
         return [m for m in cls.to_list() if m in [cls.DE, cls.COM]]
 
+    def get_default_language(self):
+        Marketplace2DefaultTextLanguage_dict = {
+            Marketplace.DE: TextLanguage.GERMAN,
+            Marketplace.COM: TextLanguage.ENGLISH,
+            Marketplace.UK: TextLanguage.ENGLISH,
+            Marketplace.ES: TextLanguage.SPANISH,
+            Marketplace.IT: TextLanguage.ITALIAN,
+            Marketplace.FR: TextLanguage.FRENCH,
+            Marketplace.JP: TextLanguage.JAPANESE
+        }
+        return Marketplace2DefaultTextLanguage_dict[self]
 
 
-class TextLanguage(str, EnumBase):
-    # https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes
-    GERMAN="de"
-    ENGLISH="en"
-    ITALIAN="it"
-    SPANISH="es"
-    FRENCH="fr"
-    JAPANESE="ja"
+
 
 Marketplace2DefaultTextLanguage_dict = {
     Marketplace.DE: TextLanguage.GERMAN,
