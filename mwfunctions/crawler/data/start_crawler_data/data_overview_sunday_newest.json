@@ -6,7 +6,7 @@
         "mba_product_type": "shirt",
         "keyword": "",
         "start_page": 1,
-        "pages": 0,
+        "pages": 100,
         "use_image_crawling_pipeline": false
       },
       {
@@ -15,7 +15,7 @@
         "mba_product_type": "shirt",
         "keyword": "",
         "start_page": 100,
-        "pages": 200,
+        "pages": 50,
         "use_image_crawling_pipeline": false
       }
     ],

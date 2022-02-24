@@ -12,7 +12,13 @@ class CrawlingJsonType(str, EnumBase):
     OVERVIEW_WEEK_BESTSELLER_FIRST="overview_week_bestseller_first"
     OVERVIEW_WEEK_BESTSELLER_SECOND="overview_week_bestseller_second"
     OVERVIEW_SUNDAY_NEWEST="overview_sunday_newest"
+    OVERVIEW_SUNDAY_NEWEST_SECOND="overview_sunday_newest_second"
+    OVERVIEW_SUNDAY_NEWEST_THIRD="overview_sunday_newest_third"
+    OVERVIEW_SUNDAY_NEWEST_FOURTH="overview_sunday_newest_fourth"
     OVERVIEW_SUNDAY_BESTSELLER="overview_sunday_bestseller"
+    OVERVIEW_SUNDAY_BESTSELLER_SECOND="overview_sunday_bestseller_second"
+    OVERVIEW_SUNDAY_BESTSELLER_THIRD="overview_sunday_bestseller_third"
+    OVERVIEW_SUNDAY_BESTSELLER_FOURTH="overview_sunday_bestseller_fourth"
 
 def get_crawling_request_data(crawling_type: CrawlingJsonType):
     assert crawling_type in CrawlingJsonType.to_list(), f"crawl_type must be one of '{CrawlingJsonType.to_list()}'"
