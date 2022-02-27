@@ -6,7 +6,6 @@ from mwfunctions.pydantic.base_classes import Marketplace, MWBaseModel
 from mwfunctions.pydantic.firestore.mba_shirt_classes import MBA_SHIRT_ORDERBY_DICT, MBAShirtOrderByField
 from mwfunctions.pydantic.firestore.utils import get_bsr_range_list
 from mwfunctions.cloud.firestore.commons import FSSimpleFilterQuery, FSComparisonOperator, OrderByDirection
-from mwfunctions.text import get_stem_keywords_language, StemmerLanguage
 from mwfunctions.constants.trademarks import TRADEMARKS
 
 import json
@@ -149,6 +148,7 @@ class SearchPost(BaseModel):
 
     @validator("key")
     def validate_search_key(cls, key, values):
+        from mwfunctions.text import get_stem_keywords_language, StemmerLanguage
         # make sure key is None if no search key is provided
         if key == "" or key == None: return None
         # https://firebase.google.com/docs/firestore/query-data/queries#array-contains-any -> max 10 values in list are allowed

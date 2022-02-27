@@ -11,9 +11,8 @@ from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
 from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings, TextLanguage, Marketplace2DefaultTextLanguage_dict
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
 from mwfunctions.cloud.firestore.commons import OrderByDirection
-from mwfunctions.text import get_stem_keywords_language, TextRank4Keyword, TextLanguage2KeywordsToRemove_dict, get_tr4w_obj
+# TODO make sure not to import to many extenral libs here. Frontend should not install all this libs, too.
 from pydantic import Field, validator, PrivateAttr, BaseModel
-from langdetect import detect
 
 
 class FSMBADocument(FSDocument):
@@ -352,6 +351,7 @@ class FSKeywordData(MWBaseModel):
         return " ".join(keyword_text_blocks)
 
     def detect_language(self) -> str:
+        from langdetect import detect
         # dont use description to prevent case e.g. listings in german and description in english because of lazyness
         return detect(self.get_keyword_text_block(include_description=False))
 
@@ -363,7 +363,12 @@ class FSKeywordData(MWBaseModel):
     def update_language_if_none(self):
         if self.language == None: self.update_language()
 
-    def get_keywords_meaningful(self, text_block: Optional[str]=None, tr4w: Optional[TextRank4Keyword]=None) -> List[str]:
+    def get_keywords_meaningful(self, text_block: Optional[str]=None, tr4w: Optional[object]=None) -> List[str]:
+        from mwfunctions.text import get_tr4w_obj
+
+        from mwfunctions.text import TextLanguage2KeywordsToRemove_dict
+
+        # tr4w is a  TextRank4Keyword object
         text_block = text_block if text_block else self.get_keyword_text_block()
         tr4w = tr4w if tr4w else get_tr4w_obj(self.language if self.language else TextLanguage.ENGLISH)
         return list(set(tr4w.get_unsorted_keywords(text_block, candidate_pos=['NOUN', 'PROPN'], lower=False, stopwords=TextLanguage2KeywordsToRemove_dict[tr4w.language])))
@@ -390,6 +395,7 @@ class FSKeywordData(MWBaseModel):
         return self.get_keywords_meaningful(self.description)
 
     def update_keywords_stem(self):
+        from mwfunctions.text import get_stem_keywords_language
         # TODO: might include description also?
         keyword_text: str = self.get_keyword_text_block(include_description=False)
         keyword_list = re.findall(r'\w+', keyword_text)
