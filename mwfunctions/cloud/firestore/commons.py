@@ -31,7 +31,7 @@ class FSComparisonOperator(str, EnumBase):
 class FSSimpleFilterQuery(BaseModel):
     field: str = Field(description="FS field to filter on", example="active")
     comparison_operator: FSComparisonOperator = Field(description="Query operator, e.g. '>', '==', '<'. https://firebase.google.com/docs/firestore/query-data/queries#query_operators", example="==")
-    value: Union[bool,float,int,datetime,list,str] = Field(description="Value which should match the condition of operator. E.g. True. Value should have right type.", example=True)
+    value: Union[bool,float,int,datetime,list,str, None] = Field(description="Value which should match the condition of operator. E.g. True. Value should have right type.", example=True)
 
     # make pydantic class hashable and drop dupplicates by set(List[FSSimpleFilterQuery]) possible
     def __eq__(self, other):

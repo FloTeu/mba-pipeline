@@ -2,6 +2,7 @@ from data_handler import DataHandler
 from niche_updater import NicheUpdater, NicheAnalyser
 from firestore_handler import Firestore
 from bigquery_handler import BigqueryHandler
+from fs_doc_update_fns import create_keywords_meaningful_if_not_set
 from ai_fns import update_descriptor_json_files, update_projector_files, deploy_projector_cloud_run
 import merchwatch_daily_creator as merchwatch_daily_creator
 
@@ -124,9 +125,12 @@ def main(args):
             update_bq_table(args, marketplace, BigQueryHandlerModel)
         # TODO: update FS directly via crawler not from BQ. If you want to update it via keep in mind that things like customer review count are not included. in current process.
         #DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
-        
+
         # Delete every day trend niche designs but only those which are older than one week
         NicheUpdaterModel.delete_all_niches_by_type("trend_niche", days=7)
+
+        # TODO: Update/create first time keywords_meaningful of FS docs
+        create_keywords_meaningful_if_not_set(marketplace)
         # niches are updated once a week every sunday
         if today_weekday == 6:
             DataHandlerModel.update_trademark(marketplace)

@@ -574,8 +574,8 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
         """
         today_date_str = str(datetime.now().date())
         is_plotdata_subcol_set = self.are_subcollections_set(fs_subcol_cls_list=[FSWatchItemSubCollectionPlotData])
-        # if no subcollections set, just append bsr_last to bsr_short dict
-        if not is_plotdata_subcol_set and bsr_last and bsr_last != 404 and (not self.bsr_short or today_date_str not in self.bsr_short):
+        # if no subcollections set, just append bsr_last to bsr_short dict (only if bsr_last is a real value != 404 != 999...)
+        if not is_plotdata_subcol_set and bsr_last and bsr_last != 404 and bsr_last != FSBSRData.get_bsr_to_high_to_filter_value() and (not self.bsr_short or today_date_str not in self.bsr_short):
             if not self.bsr_short:
                 self.bsr_short = {today_date_str: bsr_last}
             else:
@@ -593,6 +593,13 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
                 fs_doc.bsr = fs_doc.get_bsr_dict_filtered_by_categories()
             self.update(get_shortened_plot_data(sub_collection_dict, max_number_of_plot_points=20, min_number_of_plot_points=18))
         return self
+
+    def create_short_dicts_if_not_set(self):
+        # If short dicts are not set this function trys to create it with single value in object
+        bsr_last = self.bsr_last if (self.bsr_short == None or self.bsr_short == {}) else None
+        price_last = self.price_last if (self.prices_short == None or self.prices_short == {}) else None
+        self.update_short_dicts(bsr_last, price_last)
+
 
     def sync_shortened_dicts2subcollections(self):
         """ Sync shortened data like bsr_short to subcollections, so that subcollections contain at least short data
@@ -717,7 +724,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
 
     def update_data(self, bsr_last: Optional[int]=None, bsr_category: Optional[str]=None, price_last: Optional[float]=None, score_last: Optional[float]=None, score_count: Optional[int]=None, brand: Optional[str]=None, title: Optional[str]=None, listings: Optional[List[str]]=None, description: Optional[str]=None):
         # TODO: scores only update if change happens
-        return self.update_bsr_data(bsr_last, bsr_category).update_price_data(price_last).update_score_data(score_last,score_count).update_short_dicts().update_trend_value().update_keyword_data(brand, title, listings, description)
+        return self.update_bsr_data(bsr_last, bsr_category).update_price_data(price_last).update_score_data(score_last,score_count).update_short_dicts(bsr_last, price_last).update_trend_value().update_keyword_data(brand, title, listings, description)
 
     def get_api_dict(self, meta_api=False):
         # transform to required backwards compatabile format
