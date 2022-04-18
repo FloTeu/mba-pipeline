@@ -277,3 +277,8 @@ class WatchPlotPost(CloudFunctionWrapper):
     date_last: Optional[str] = str(datetime.now().date())
     language_code: Optional[str] = "de"
 
+class BqInsertPost(MWBaseModel):
+    table_id: str = Field(description="BQ table id")
+    row_data_dict_list: List[dict] = Field(description="key is column of bq and value the row value")
+
+
