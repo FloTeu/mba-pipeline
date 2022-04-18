@@ -1,20 +1,14 @@
 from __future__ import annotations
 
 from typing import Dict, Optional, List, Any, Type
-from abc import ABC
 
+from mwfunctions.pydantic.firestore.utils import date2str
 from pydantic import Field, PrivateAttr, Extra
-from datetime import date
 from google.cloud.firestore import DocumentSnapshot
 from mwfunctions.pydantic.base_classes import MWBaseModel
-from mwfunctions.cloud.firestore import get_docs_snap_iterator, get_docs_batch
+from mwfunctions.cloud.firestore import get_docs_batch
 from mwfunctions.cloud.firestore.commons import OrderByDirection
 
-def date2str(dict_obj):
-    # transform date values to strings, because FS cant store date format (only datetime or string)
-    for key, value in dict_obj.items():
-        if type(value) == date:
-            dict_obj[key] = str(value)
 
 class GetFSDocsSettings(MWBaseModel):
     limit: Optional[int]=None

@@ -1,4 +1,5 @@
 import re
+from datetime import date
 
 
 def bsr2bsr_range_value(bsr) -> int:
@@ -65,3 +66,10 @@ def get_bsr_category(array_bsr_categorie_str: str, marketplace):
     if bsr_category == "404" or bsr_category == "":
         bsr_category = get_default_category_name(marketplace)
     return bsr_category
+
+
+def date2str(dict_obj):
+    # transform date values to strings, because FS cant store date format (only datetime or string)
+    for key, value in dict_obj.items():
+        if type(value) == date:
+            dict_obj[key] = str(value)

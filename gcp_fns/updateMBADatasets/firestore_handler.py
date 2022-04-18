@@ -7,7 +7,7 @@ import numpy as np
 from numpy.lib.index_tricks import _fill_diagonal_dispatcher
 from mwfunctions.transform import get_shortened_plot_data, df_dict2subcollections
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
-from mwfunctions.pydantic.firestore.firestore_classes import date2str
+from mwfunctions.pydantic import date2str
 #from utils_plot import get_shortened_plot_data
 import time
 
