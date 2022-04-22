@@ -781,6 +781,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
                               **bq_mba_products_details.get_fs_import_dict(marketplace), **bq_mba_products_details_daily.get_fs_import_dict(marketplace),
                               "_fs_col_path": fs_col_path if fs_col_path else f"{marketplace}_shirts"})
         fs_mba_obj.price_last = float(price_overview) if (fs_mba_obj.price_last == 0 or fs_mba_obj.price_last == None) and price_overview else fs_mba_obj.price_last
+        fs_mba_obj.update_short_dicts(fs_mba_obj.bsr_last, fs_mba_obj.price_last)
         fs_mba_obj.update_plot_data_subcollection(bsr_last=fs_mba_obj.bsr_last, bsr_category=fs_mba_obj.bsr_category, price_last=fs_mba_obj.price_last,
                                                   score_last=fs_mba_obj.score_last, score_last_count=fs_mba_obj.score_count)
 
