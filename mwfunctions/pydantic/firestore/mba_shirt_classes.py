@@ -8,7 +8,8 @@ from mwfunctions.profiling import log_memory, get_memory_used_in_gb
 from mwfunctions.pydantic.firestore.utils import get_default_category_name, get_bsr_top_category_names_list
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsMbaImages, BQMBAProductsDetails, BQMBAProductsDetailsDaily
 from mwfunctions.transform.plot_data_fns import get_shortened_plot_data
-from mwfunctions.pydantic import FSDocument, MWBaseModel, FSSubcollection, EnumBase, Marketplace, GetFSDocsSettings, TextLanguage, Marketplace2DefaultTextLanguage_dict
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSSubcollection, GetFSDocsSettings
+from mwfunctions.pydantic.base_classes import MWBaseModel, EnumBase, Marketplace, TextLanguage, Marketplace2DefaultTextLanguage_dict
 from mwfunctions.pydantic.firestore.trend_utils import get_trend_multiplicator
 from mwfunctions.cloud.firestore.commons import OrderByDirection
 # TODO make sure not to import to many extenral libs here. Frontend should not install all this libs, too.

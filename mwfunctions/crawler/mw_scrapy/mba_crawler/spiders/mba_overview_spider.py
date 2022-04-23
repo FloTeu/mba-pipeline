@@ -26,7 +26,7 @@ from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
 from mwfunctions.profiling import get_memory_used_in_gb
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
-from mwfunctions.pydantic import MWBaseModel
+from mwfunctions.pydantic.base_classes import MWBaseModel
 
 def str2bool(v):
     if isinstance(v, bool):

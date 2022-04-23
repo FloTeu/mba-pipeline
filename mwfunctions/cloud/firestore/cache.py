@@ -7,7 +7,7 @@ from mwfunctions.cloud.firestore import create_client, get_docs_batch
 from mwfunctions.cloud.firestore.commons import filter_simple_query_filters, filter_by_fs_comparison_operator, \
     filter_simple_query_filters_by_fs_indexes, FSComparisonOperator, FSSimpleFilterQuery, OrderByDirection
 from mwfunctions.profiling import log_time, get_memory_used_in_gb, log_memory
-from mwfunctions.pydantic import FSDocument
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, MBAShirtOrderByField, MBA_SHIRT_ORDERBY_DICT
 from mwfunctions.pydantic.firestore.utils import bsr2bsr_range_value, get_bsr_range_list
 from mwfunctions.pydantic.firestore.indexes import FSMbaShirtsIndexField, FSIndex, MBA_SHIRTS_COLLECTION_INDEXES

@@ -5,7 +5,7 @@ import random
 import collections
 from datetime import date, datetime
 
-from mwfunctions.pydantic import BQPlotDataRaw
+from mwfunctions.pydantic.bigquery_classes import BQPlotDataRaw
 
 max_number_of_plot_points = 20
 

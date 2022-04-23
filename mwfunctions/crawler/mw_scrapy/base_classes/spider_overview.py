@@ -4,7 +4,7 @@ import numpy as np
 import scrapy
 from mwfunctions.crawler.mw_scrapy.base_classes.spider_base import MBASpider
 from mwfunctions.crawler.mw_scrapy.scrapy_selectors import overview as overview_selector
-from mwfunctions.pydantic import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
+from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
 from mwfunctions.pydantic.crawling_classes import PODProduct
 from mwfunctions.time import get_berlin_timestamp
 from mwfunctions.crawler.proxy.utils import get_random_headers

@@ -3,7 +3,7 @@ from typing import List
 
 from mwfunctions.crawler.mw_scrapy.base_classes.spider_base import MBASpider
 from mwfunctions.crawler.mw_scrapy.scrapy_selectors import product as product_selector
-from mwfunctions.pydantic import BQMBAProductsNoBsr, BQMBAProductsDetails, BQMBAProductsDetailsDaily
+from mwfunctions.pydantic.bigquery_classes import BQMBAProductsNoBsr, BQMBAProductsDetails, BQMBAProductsDetailsDaily
 from mwfunctions.pydantic.crawling_classes import CrawlingInputItem
 from mwfunctions.time import get_berlin_timestamp
 

@@ -13,7 +13,7 @@ from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProduct
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
 from mwfunctions.pydantic.bigquery_classes import BQMBAProductsDetails, BQMBAProductsDetailsDaily, BQMBAProductsMbaImages, BQMBAProductsNoMbaShirt, get_product_listings_by_list_str
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt, FSWatchItemSubCollectionPlotData
-from mwfunctions.pydantic import get_bsr_category
+from mwfunctions.pydantic.firestore.utils import get_bsr_category
 from mwfunctions.pydantic.firestore.firestore_classes import GetFSDocsSettings
 from mwfunctions.io import str2bool
 from mwfunctions.crawler.mw_scrapy.utils import get_urls_asins_for_product_crawling, get_asin2overview_data_dict

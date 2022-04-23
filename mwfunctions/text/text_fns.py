@@ -4,12 +4,11 @@ from collections import OrderedDict
 import numpy as np
 import spacy
 from rake_nltk import Metric, Rake
-from mwfunctions.pydantic import TextLanguage
 
 from typing import Optional, List, Set, Dict
 from nltk.stem.snowball import SnowballStemmer
 #from nltk.corpus import stopwords
-from mwfunctions.pydantic.base_classes import EnumBase, Marketplace
+from mwfunctions.pydantic.base_classes import EnumBase, Marketplace, TextLanguage
 
 
 def textLanguage2SpacyDefaultPackage(language: TextLanguage) -> str:

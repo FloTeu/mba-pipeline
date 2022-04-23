@@ -1,4 +1,4 @@
-from mwfunctions.pydantic import EnumBase, Marketplace
+from mwfunctions.pydantic.base_classes import EnumBase, Marketplace
 from mwfunctions.pydantic.firestore.mba_shirt_classes import FSMBAShirt
 
 

@@ -13,9 +13,8 @@ from mwfunctions.crawler.mw_scrapy.base_classes.spider_product import MBAProduct
 import mwfunctions.crawler.mba.url_creator as url_creator
 from mwfunctions.pydantic.crawling_classes import MBAImageItems, MBAImageItem, CrawlingMBAOverviewRequest, CrawlingType, \
     CrawlingMBAImageRequest, CrawlingMBACloudFunctionRequest
-from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance
+from mwfunctions.pydantic.bigquery_classes import BQMBAOverviewProduct, BQMBAProductsMbaImages, BQMBAProductsMbaRelevance, BQMBAProductsNoBsr
 from mwfunctions.pydantic.firestore.crawling_log_classes import FSMBACrawlingProductLogsSubcollectionDoc
-from mwfunctions.pydantic import BQMBAProductsNoBsr
 from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
 from mwfunctions.cloud.firestore import firestore_fns
