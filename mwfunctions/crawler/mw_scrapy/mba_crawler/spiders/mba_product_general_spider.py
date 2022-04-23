@@ -26,6 +26,18 @@ from mwfunctions.pydantic.firestore.collections import MWRootCollectionType, MWR
 environment.set_cloud_logging()
 LOGGER = get_logger(__name__, labels_dict={"topic": "crawling", "target": "product_page", "type": "scrapy"}, do_cloud_logging=True)
 
+def print_memory_stats():
+    # only works if django is not installed. warum auch immer?
+    from scrapy.utils.trackref import get_oldest, live_refs
+    r = get_oldest('HtmlResponse')
+    from pympler import muppy
+    all_objects = muppy.get_objects()
+    from pympler import summary
+    suml = summary.summarize(all_objects)
+    summary.print_(suml)
+
+class testItem(scrapy.Item):
+    big_data_list = scrapy.Field()
 
 
 class MBALocalProductSpider(MBAProductSpider):
@@ -78,6 +90,15 @@ class MBALocalProductSpider(MBAProductSpider):
     def status_update(self):
         if self.page_count % 100 == 0:
             print("Crawled {} pages".format(self.page_count))
+
+    def parse_memory_test(self, response):
+        import gc
+        test_item = testItem()
+        test_item["big_data_list"] = [2390423 for i in range(10)]
+        yield test_item
+        del test_item
+        gc.collect()
+        pass
 
     def parse(self, response):
         try:
