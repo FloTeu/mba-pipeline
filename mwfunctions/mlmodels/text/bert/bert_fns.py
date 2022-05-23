@@ -8,6 +8,7 @@ from enum import Enum
 from tqdm import tqdm
 
 from mwfunctions.mlmodels.text import MwTextModel
+from sagemaker.huggingface import HuggingFacePredictor, HuggingFaceModel
 
 
 MAX_SEQUENCE_LENGTH = 220
@@ -16,6 +17,9 @@ BATCH_SIZE = 2
 class BertPretrainedModelNames(str, Enum):
     CONV_BERT_DE = "dbmdz/convbert-base-german-europeana-cased"
     ROBERTA_DE_EN = 'T-Systems-onsite/cross-en-de-roberta-sentence-transformer'
+
+class BertAWSEndpointName(str, Enum):
+    ROBERTA_DE_EN = 'roberta-serverless'
 
 class BertPretrainedModelType(str, Enum):
     TRANSFORMER="transformer" # lib transformers
@@ -29,19 +33,32 @@ class VecMethod(str, Enum):
 class BertTextModel(MwTextModel):
     """ Note: Currently only works with Pytorch
     """
-    def __init__(self, mlflow_run_id: str=None, model_name: BertPretrainedModelNames=None, use_gpu=True, batch_size=None):
-        assert mlflow_run_id or model_name, "Either mlflow_run_id or model_name must be provided"
+    def __init__(self, mlflow_run_id: str=None, model_name: BertPretrainedModelNames=None, endpoint_name: BertAWSEndpointName=None, use_gpu=True, batch_size=None):
+        assert mlflow_run_id or model_name or endpoint_name, "Either mlflow_run_id or model_name or endpoint_name must be provided"
         # if not model_name:
         #     mvmlflow = MVMLFlow(run_id=mlflow_run_id)
         #     assert "model_name" in mvmlflow.tags, "Mlflow Model must contain tag 'model_name'"
         #     model_name = mvmlflow.tags["model_name"]
+        if endpoint_name:
+            model_name = self.endpoint_name2model_name(endpoint_name)
+
         self.device = torch.device('cuda') if use_gpu else torch.device('cpu')
         self.batch_size = batch_size if batch_size else BATCH_SIZE
         self.model_name = model_name
+        self.endpoint_name = endpoint_name
         self.model_type: BertPretrainedModelType = self.model_name2model_type(model_name)
         # TODO: Eventuell macht es hier Sinn eine eigen Klasse zu bauen, die z.B. predict als standard Funktion hat und mit unterschiedlichen Model Klassen umgehen kann
-        self.model: Module = self.model_name2model(model_name, self.model_type).to(self.device)
+        if endpoint_name:
+            self.predictor = HuggingFacePredictor(endpoint_name=self.endpoint_name.value)
+        else:
+            self.model: Module = self.model_name2model(model_name, self.model_type).to(self.device)
         self.tokenizer: Optional[PreTrainedTokenizerBase] = self.model_name2tokenizer(model_name)
+
+    @staticmethod
+    def endpoint_name2model_name(endpoint_name: BertAWSEndpointName) -> BertPretrainedModelNames:
+        if endpoint_name == BertAWSEndpointName.ROBERTA_DE_EN:
+            return BertPretrainedModelNames.ROBERTA_DE_EN
+
 
     @staticmethod
     def model_name2model_type(model_name: BertPretrainedModelNames) -> BertPretrainedModelType:
@@ -66,7 +83,21 @@ class BertTextModel(MwTextModel):
     def corpus2vecs(self, corpus: List[str]) -> np.ndarray:
         """ Takes a corpus (i.e list of documents/texts) into a vector with dim (len(corpus), )
         """
-        if self.model_type == BertPretrainedModelType.SENTENCE_TRANSFORMER:
+        if self.endpoint_name:
+            corpus_cut = [doc[0:200] for doc in corpus]
+            response = self.predictor.predict({"inputs": corpus})
+            response_np = np.array(response)
+            embeddings = []
+            # Note: Every input document returns a matrix with the same shape e.g. (6,768)
+            #       Therefore some (the last ones) arrays are duplicates and need to be dropped afterwards
+            for doc_embeddings in response_np:
+                new_array = [tuple(row) for row in doc_embeddings]
+                uniques, indexes = np.unique(new_array, axis=0, return_index=True)
+                # drop all duplicates including last row which must be one of duplicates
+                uniques_wihtout_keep_first = np.delete(uniques, (np.argmax(indexes)), axis=0)
+                embeddings.append(uniques_wihtout_keep_first.mean(axis=0))
+            return np.array(embeddings)
+        elif self.model_type == BertPretrainedModelType.SENTENCE_TRANSFORMER:
             return self.model.encode(corpus)
         elif self.model_type == BertPretrainedModelType.TRANSFORMER:
             return corpus2vecs_bert_transformer(corpus, self.model, self.tokenizer, device=self.device, method=VecMethod.FIRST, include_class_token=True)
