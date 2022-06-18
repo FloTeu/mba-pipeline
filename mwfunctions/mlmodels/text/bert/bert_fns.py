@@ -2,18 +2,19 @@ import numpy as np
 import torch
 
 from torch.nn.modules.module import Module
-from sentence_transformers import SentenceTransformer
 from typing import List, Optional
 from enum import Enum
 from tqdm import tqdm
 
 from mwfunctions.mlmodels.text import MwTextModel
 from sagemaker.huggingface import HuggingFacePredictor, HuggingFaceModel
+from sagemaker.session import Session
 from sagemaker.serializers import JSONSerializer
 from sagemaker.deserializers import JSONDeserializer
 
 MAX_SEQUENCE_LENGTH = 220
 BATCH_SIZE = 2
+#SAGEMAKER_SESSION = Session()
 
 class BertPretrainedModelNames(str, Enum):
     CONV_BERT_DE = "dbmdz/convbert-base-german-europeana-cased"
@@ -66,6 +67,7 @@ class BertTextModel(MwTextModel):
     @staticmethod
     def model_name2model(model_name: BertPretrainedModelNames, model_type: BertPretrainedModelType) -> Module:
         from transformers import AutoModel, AutoTokenizer
+        from sentence_transformers import SentenceTransformer
         if model_type == BertPretrainedModelType.TRANSFORMER:
             return AutoModel.from_pretrained(model_name)
         elif model_type == BertPretrainedModelType.SENTENCE_TRANSFORMER:
