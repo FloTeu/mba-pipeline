@@ -1,11 +1,14 @@
 import urllib3
+import json
 
 from sagemaker.huggingface import HuggingFacePredictor, HuggingFaceModel
 from sagemaker.session import production_variant, Session
 from sagemaker.local.utils import get_docker_host
 from sagemaker.utils import get_config_value, _module_import_error
+from botocore.awsrequest import AWSPreparedRequest
+from botocore.response import StreamingBody
 
-from mwfunctions.io.async_io_fns import create_async_http_session, post_url_response
+from mwfunctions.io.async_io_fns import acreate_async_http_session, post_url_response
 
 
 class AsyncSagemakerSession(Session):
@@ -17,81 +20,56 @@ class AsyncSagemakerSession(Session):
         # self.boto_session.client(
         #     "runtime.sagemaker", config=config
         # )
+        self.aiohttp_session = None
+
+    async def open_aiohttp_session(self):
         # TODO: customize session with config params like max connections timeout etc.
-        self.aiohttp_session = create_async_http_session()
-        # Replace sync function with custom async function
-        #self.sagemaker_runtime_client.invoke_endpoint = self.ainvoke_endpoint
-        # TODO Is it realy always 8080? Normaly port is fetched out of LocalSagemakerRuntimeClient config
-        self.serving_port = 8080
+        if self.aiohttp_session == None:
+            self.aiohttp_session = await acreate_async_http_session()
 
-        # TODO: Remove this again
-        self.http = urllib3.PoolManager()
+    def request_args2aws_prepared_request(self, request_args) -> AWSPreparedRequest:
+        # Following code is copied by botocore/client.py and botocore/endpoint.py
+        operation_name='InvokeEndpoint'
+        operation_model = self.sagemaker_runtime_client._service_model.operation_model(operation_name)
 
+        request_context = {
+            'client_region': self.sagemaker_runtime_client.meta.region_name,
+            'client_config': self.sagemaker_runtime_client.meta.config,
+            'has_streaming_input': operation_model.has_streaming_input,
+            'auth_type': operation_model.auth_type,
+        }
+        request_dict = self.sagemaker_runtime_client._convert_to_request_dict(
+            request_args, operation_model, context=request_context)
+
+        return self.sagemaker_runtime_client._endpoint.create_request(request_dict, operation_model)
+
+    @staticmethod
+    def bytes2strings(request: AWSPreparedRequest) -> AWSPreparedRequest:
+        for key, value in request.headers._dict.items():
+            if type(value) == bytes:
+                request.headers._dict[key] = value.decode()
+
+        # if type(request.body) == bytes:
+        #     request.body = request.body.decode()
 
 
     async def ainvoke_endpoint(
             self,
-            Body,
-            EndpointName,  # pylint: disable=unused-argument
-            ContentType=None,
-            Accept=None,
-            CustomAttributes=None,
-            TargetModel=None,
-            TargetVariant=None,
-            InferenceId=None,
+            **request_args
     ):
         """Invoke the endpoint.
 
             Note: Custome change of original invoke_endpoint() function.
             Request is sended with aiohttp rather than urllib3 lib
 
-        Args:
-            Body: Input data for which you want the model to provide inference.
-            EndpointName: The name of the endpoint that you specified when you
-                created the endpoint using the CreateEndpoint API.
-            ContentType: The MIME type of the input data in the request body (Default value = None)
-            Accept: The desired MIME type of the inference in the response (Default value = None)
-            CustomAttributes: Provides additional information about a request for an inference
-                submitted to a model hosted at an Amazon SageMaker endpoint (Default value = None)
-            TargetModel: The model to request for inference when invoking a multi-model endpoint
-                (Default value = None)
-            TargetVariant: Specify the production variant to send the inference request to when
-                invoking an endpoint that is running two or more variants (Default value = None)
-            InferenceId: If you provide a value, it is added to the captured data when you enable
-               data capture on the endpoint (Default value = None)
-
-        Returns:
-            object: Inference for the given input.
         """
-
-        url = "http://%s:%d/invocations" % (get_docker_host(), self.serving_port)
-        headers = {}
-
-        if ContentType is not None:
-            headers["Content-type"] = ContentType
-
-        if Accept is not None:
-            headers["Accept"] = Accept
-
-        if CustomAttributes is not None:
-            headers["X-Amzn-SageMaker-Custom-Attributes"] = CustomAttributes
-
-        if TargetModel is not None:
-            headers["X-Amzn-SageMaker-Target-Model"] = TargetModel
-
-        if TargetVariant is not None:
-            headers["X-Amzn-SageMaker-Target-Variant"] = TargetVariant
-
-        if InferenceId is not None:
-            headers["X-Amzn-SageMaker-Inference-Id"] = InferenceId
-
-        # The http client encodes all strings using latin-1, which is not what we want.
-        if isinstance(Body, str):
-            Body = Body.encode("utf-8")
-        r = self.http.request("POST", url, body=Body, preload_content=False, headers=headers)
-        r2 = await post_url_response(url, data=Body, headers=headers, session=self.aiohttp_session)
-
-        return {"Body": r, "ContentType": Accept}
+        await self.open_aiohttp_session()
+        request = self.request_args2aws_prepared_request(request_args)
+        # t = requests.post(request.url, data=request.body, headers=request.headers)
+        self.bytes2strings(request)
+        sagemaker_response = await post_url_response(request.url, data=request.body, headers=request.headers, session=self.aiohttp_session)
+        response_text = await sagemaker_response.text()
+        return {"Response": sagemaker_response, "ResponseText": response_text, "ContentType": request_args["ContentType"]}
 
 class AsyncHuggingFacePredictor(HuggingFacePredictor):
 
@@ -144,6 +122,18 @@ class AsyncHuggingFacePredictor(HuggingFacePredictor):
             data, initial_args, target_model, target_variant, inference_id
         )
         # TODO: Call this function async
-        response = await self.sagemaker_session.ainvoke_endpoint(**request_args)
-        self.sagemaker_session.sagemaker_runtime_client.
-        return self._handle_response(response)
+        response_dict = await self.sagemaker_session.ainvoke_endpoint(**request_args)
+        #response = await self.sagemaker_session.sagemaker_runtime_client.invoke_endpoint_async(**request_args)
+        #response = self.sagemaker_session.sagemaker_runtime_client.invoke_endpoint(**request_args)
+
+        return self._handle_async_response(response_dict)
+
+    def _handle_async_response(self, response_dict):
+        """Placeholder docstring"""
+        #response = response_dict["Response"]
+        ResponseText = response_dict["ResponseText"]
+        content_type = response_dict.get("ContentType", "application/json")
+        if content_type == "application/json":
+            return json.loads(ResponseText)
+        else:
+            raise NotImplementedError

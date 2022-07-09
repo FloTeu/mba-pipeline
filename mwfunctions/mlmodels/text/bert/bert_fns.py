@@ -50,7 +50,7 @@ class BertTextModel(MwTextModel):
         self.model_type: BertPretrainedModelType = self.model_name2model_type(model_name) if not self.endpoint_name else None
         # TODO: Eventuell macht es hier Sinn eine eigen Klasse zu bauen, die z.B. predict als standard Funktion hat und mit unterschiedlichen Model Klassen umgehen kann
         if endpoint_name:
-            self.predictor = HuggingFacePredictor(endpoint_name=self.endpoint_name,
+            self.predictor = AsyncHuggingFacePredictor(endpoint_name=self.endpoint_name,
                              serializer=JSONSerializer(),
                              deserializer=JSONDeserializer())
         else:
