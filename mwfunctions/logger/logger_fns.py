@@ -1,10 +1,11 @@
 import logging
-from googleapiclient import discovery
 from google.oauth2 import service_account
 
 from mwfunctions import environment
 
 def has_cloud_log_write_permission():
+    from googleapiclient import discovery
+
     """Tests IAM permissions of the caller"""
 
     credentials = environment.get_gcp_credentials()

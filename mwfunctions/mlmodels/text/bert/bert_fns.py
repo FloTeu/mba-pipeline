@@ -7,6 +7,7 @@ from enum import Enum
 from tqdm import tqdm
 
 from mwfunctions.mlmodels.text import MwTextModel
+from mwfunctions.mlmodels.sagemaker.classes import AsyncHuggingFacePredictor
 from sagemaker.huggingface import HuggingFacePredictor, HuggingFaceModel
 from sagemaker.session import Session
 from sagemaker.serializers import JSONSerializer

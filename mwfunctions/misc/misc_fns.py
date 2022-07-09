@@ -20,3 +20,8 @@ def do_retry_if_exeption(fn, max_retries=10, logger=None):
     with suppress(Exception):
         fn_name = fn.__name__
     raise RuntimeWarning("Reached max retries for function %s", fn_name)
+
+def chunks(lst, n):
+    """Yield successive n-sized chunks from lst."""
+    for i in range(0, len(lst), n):
+        yield lst[i:i + n]
