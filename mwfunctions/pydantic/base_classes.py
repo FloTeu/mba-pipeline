@@ -99,6 +99,9 @@ class EnumBase(Enum):
     def __hash__(self):
         return super.__hash__(self)
 
+    def __str__(self):
+        # str(EnumClass) should return its inner value and not "EnumClass.key_field"
+        return self.value
 
 class TextLanguage(str, EnumBase):
     # https://en.wikipedia.org/wiki/List_of_ISO_639-1_codes

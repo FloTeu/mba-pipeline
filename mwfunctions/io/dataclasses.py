@@ -1,6 +1,6 @@
-from enum import Enum
+from mwfunctions.pydantic.base_classes import EnumBase
 
-class RequestMethod(Enum):
+class RequestMethod(EnumBase):
     POST="post"
     GET="get"
     PATCH="patch"

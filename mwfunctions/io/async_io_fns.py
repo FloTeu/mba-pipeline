@@ -3,6 +3,8 @@ from typing import BinaryIO, Optional, Dict, List
 import aiohttp
 import aiofiles
 from aiofiles import os as aioos
+from aiohttp_retry import RetryClient, ExponentialRetry
+
 import os
 from retry import retry
 from contextlib import suppress
@@ -65,6 +67,10 @@ async def acreate_async_http_session(use_cache=True, connector: Optional[aiohttp
     if not use_cache or ASYNC_HTTP_SESSION == None:
         ASYNC_HTTP_SESSION = aiohttp.ClientSession(connector=connector, timeout=timeout)
     return ASYNC_HTTP_SESSION
+
+async def acreate_async_retry_client(retry_options=None, *args, **kwargs) -> RetryClient:
+    retry_options = retry_options or ExponentialRetry(attempts=5)
+    return RetryClient(retry_options=retry_options, *args, **kwargs)
 
 async def delete_empty_file(filepath):
     if (await aioos.stat(filepath)).st_size == 0:
