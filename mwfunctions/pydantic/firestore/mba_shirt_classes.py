@@ -57,15 +57,20 @@ class FSWatchItemSubCollectionPlotDataYear(FSMBADocument):
                 bsr_category_dict[date_str] = bsr_category_last_i
         return bsr_category_dict
 
-    def get_bsr_dict_filtered_by_categories(self, bsr_categories: Optional[List[str]]=None) -> Dict[str, int]:
+    def get_bsr_dict_filtered_by_categories(self, bsr_categories: Optional[List[str]] = None) -> Dict[str, int]:
         """ get bsr if they match bsr_categories. If bsr_categories not set, default top categories by marketplace are used.
         """
         marketplace = self.extract_marketplace_by_fs_col_path()
         bsr_categories = bsr_categories if bsr_categories else get_bsr_top_category_names_list(marketplace)
         bsr_dict_filtered = {}
-        for (date_str, bsr), (date_str, bsr_cat) in zip(self.bsr.items(), self.get_synced_bsr_category().items()):
+
+        bsr_dict_ordered = collections.OrderedDict(sorted(self.bsr.items()))
+        cat_dict_ordered = collections.OrderedDict(sorted(self.get_synced_bsr_category().items()))
+        for (date_str_bsr, bsr), (date_str_cat, bsr_cat) in zip(bsr_dict_ordered.items(), cat_dict_ordered.items()):
+            # Make sure self.bsr and self.get_synced_bsr_category iteration is right
+            assert date_str_bsr == date_str_cat, f"bsr and cat dict have not the same date key, {date_str_bsr} != {date_str_cat}"
             if bsr_cat in bsr_categories:
-                bsr_dict_filtered[date_str] = bsr
+                bsr_dict_filtered[date_str_bsr] = bsr
         return bsr_dict_filtered
 
     @staticmethod
