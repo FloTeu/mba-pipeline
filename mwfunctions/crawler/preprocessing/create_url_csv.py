@@ -94,7 +94,7 @@ def get_sql_watchlist(marketplace):
     '''.format(marketplace)
     return SQL_STATEMENT
 
-def get_sql_lowest_bsr_count(marketplace):
+def get_sql_lowest_bsr_count(marketplace, limit):
     SQL_STATEMENT = '''
     SELECT t0.asin, t2.bsr_count FROM mba_{0}.products t0 
         LEFT JOIN 
@@ -107,7 +107,8 @@ def get_sql_lowest_bsr_count(marketplace):
             group by asin
         ) t2 on t0.asin = t2.asin 
         order by t2.bsr_count
-    '''.format(marketplace)
+        limit {1}
+    '''.format(marketplace, limit)
     return SQL_STATEMENT
 
 def get_sql_random(marketplace, number_products):
@@ -212,10 +213,10 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     # get 20% lowest bsr_count
     number_lowest_bsr_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.lowest_bsr_count)
     with suppress(Exception):
-        df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(mba_product_request.marketplace), project_id=bq_project_id, progress_bar_type=progress_bar_type)
+        # use a higher limit because df_lowest_bsr_count gets filtered with number_lowest_bsr_count afterwards
+        df_lowest_bsr_count = pd.read_gbq(get_sql_lowest_bsr_count(mba_product_request.marketplace, number_lowest_bsr_count*3), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_lowest_bsr_count = df_lowest_bsr_count[~df_lowest_bsr_count['asin'].isin(exclude_asins)]
-        if df_lowest_bsr_count.shape[0] > number_lowest_bsr_count:
-            df_lowest_bsr_count = df_lowest_bsr_count.iloc[0:number_lowest_bsr_count]
+        df_lowest_bsr_count = df_lowest_bsr_count.iloc[0:number_lowest_bsr_count]
 
     additional_random = additional_random + (number_lowest_bsr_count - df_lowest_bsr_count.shape[0])
 
