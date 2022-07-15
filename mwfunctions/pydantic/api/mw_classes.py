@@ -188,6 +188,11 @@ class WatchDataPost(BatchDataPost, SearchPost):
     trademark_count: Optional[int] = 0
     upload_since_days: Optional[UploadSinceDays] = None
 
+    @validator("upload_since_days", always=True)
+    def validate_upload_since_days(cls, upload_since_days, values):
+        # make sure field value is enum type
+        return UploadSinceDays(upload_since_days) if upload_since_days else upload_since_days
+
     @validator("sortby_cursor", always=True)
     def validate_sortby_cursor(cls, sortby_cursor, values):
         # TODO use some kind of class to define start values for different order by statementd
