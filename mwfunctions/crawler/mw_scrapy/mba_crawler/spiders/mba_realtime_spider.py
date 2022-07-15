@@ -19,7 +19,7 @@ from mwfunctions.cloud.auth import get_headers_by_service_url
 from mwfunctions.cloud.firestore import does_document_exists
 from mwfunctions.cloud.firestore import firestore_fns
 from mwfunctions.pydantic.crawling_classes import CrawlingMBAProductRequest, CrawlingType, CrawlingInputItem, MemoryLog
-from mwfunctions.pydantic.firestore import FSDocument
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument
 
 def str2bool(v):
     if isinstance(v, bool):

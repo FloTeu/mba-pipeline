@@ -13,7 +13,7 @@ from itemadapter import ItemAdapter
 from mwfunctions.environment import is_debug, get_gcp_project
 from mwfunctions.pydantic.crawling_classes import MBAOverviewCrawlingJob, MBARealtimeResearchCrawlingJob, MBAProductCrawlingJob, CrawlingType, MBACrawlingJob, MBAImageCrawlingJob, CrawlingType2LogSubCollection, CRAWLING_JOB_ROOT_COLLECTION, ProjectId2CrawlingBqProjectId
 from mwfunctions.pydantic.bigquery_classes import BQTable
-from mwfunctions.pydantic.firestore import FSDocument
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument
 from mwfunctions.cloud.bigquery import stream_dict_list2bq
 from mwfunctions.cloud.firestore import create_client as create_fs_client
 

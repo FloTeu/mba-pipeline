@@ -1,4 +1,4 @@
-from mwfunctions.pydantic.firestore import FSDocument, FSSubcollection
+from mwfunctions.pydantic.firestore.firestore_classes import FSDocument, FSSubcollection
 from mwfunctions.pydantic.crawling_classes import CrawlingType
 from mwfunctions.pydantic.base_classes import MWBaseModel, Marketplace
 

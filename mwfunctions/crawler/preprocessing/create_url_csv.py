@@ -227,7 +227,7 @@ def get_asins_daily_to_crawl(mba_product_request: CrawlingMBAProductRequest, bq_
     with suppress(Exception):
         number_random_count = int(int(mba_product_request.number_products) * mba_product_request.proportions.random + additional_random)
         # get two times more to filter alreay existent asins later
-        df_random = pd.read_gbq(get_sql_random(mba_product_request.marketplace, number_random_count*4), project_id=bq_project_id, progress_bar_type=progress_bar_type)
+        df_random = pd.read_gbq(get_sql_random(mba_product_request.marketplace, number_random_count*2), project_id=bq_project_id, progress_bar_type=progress_bar_type)
         df_random = df_random[~df_random['asin'].isin(exclude_asins)]
         if df_random.shape[0] > number_random_count:
             df_random = df_random.sample(number_random_count)
