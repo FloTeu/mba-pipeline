@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Dict, Optional, List, Any, Type
+from typing import Dict, Optional, List, Any, Type, Union, Coroutine
 
 from mwfunctions.pydantic.firestore.utils import date2str
 from pydantic import Field, PrivateAttr, Extra
-from google.cloud.firestore import DocumentSnapshot
+from google.cloud.firestore import DocumentSnapshot, types
 from mwfunctions.pydantic.base_classes import MWBaseModel
 from mwfunctions.cloud.firestore import get_docs_batch
 from mwfunctions.cloud.firestore.commons import OrderByDirection
@@ -73,7 +73,7 @@ class FSDocument(MWBaseModel):
                 subcollection_doc.set_fs_col_path(f"{self._fs_col_path}/{self.doc_id}/{subcollection.get_subcollection_col_name()}")
         self._fs_subcollections[subcollection.get_subcollection_col_name()] = subcollection
 
-    def write_to_firestore(self, exclude_doc_id=False, exclude_fields=[], overwrite_doc=None, array_union=None, write_subcollections=True, add_timestamp=None, client=None):
+    def write_to_firestore(self, exclude_doc_id=False, exclude_fields=[], overwrite_doc=None, array_union=None, write_subcollections=True, add_timestamp=None, client=None) -> Union[List[types.WriteResult], List[Coroutine], types.WriteResult, Coroutine]:
         """ Writes pydantic object to FS
         """
         # load module in function to prevent circular import
@@ -82,11 +82,15 @@ class FSDocument(MWBaseModel):
         exclude_fields = exclude_fields + ["doc_id"] if exclude_doc_id else exclude_fields
         dict_to_fs = self.dict(exclude=set(exclude_fields))
         date2str(dict_to_fs)
-        write_document_dict(dict_to_fs, f"{self._fs_col_path}/{self.doc_id}", array_union=array_union if array_union != None else self._array_union, overwrite_doc=overwrite_doc if overwrite_doc != None else self._overwrite_doc, add_timestamp=add_timestamp if add_timestamp!=None else self._add_timestamp, client=client)
+        # case of async client
+        cors_or_wrote_results = []
+        cors_or_wrote_results.append(write_document_dict(dict_to_fs, f"{self._fs_col_path}/{self.doc_id}", array_union=array_union if array_union != None else self._array_union, overwrite_doc=overwrite_doc if overwrite_doc != None else self._overwrite_doc, add_timestamp=add_timestamp if add_timestamp!=None else self._add_timestamp, client=client))
         if write_subcollections:
             for col_name, fs_subcollection in self._fs_subcollections.items():
                 for doc_id, fs_document in fs_subcollection.items():
-                    fs_document.write_to_firestore(exclude_doc_id=exclude_doc_id, exclude_fields=exclude_fields, write_subcollections=write_subcollections, client=client)
+                    cors_or_wrote_results.append(fs_document.write_to_firestore(exclude_doc_id=exclude_doc_id, exclude_fields=exclude_fields, write_subcollections=write_subcollections, client=client))
+        return cors_or_wrote_results[0] if len(cors_or_wrote_results) == 1 else cors_or_wrote_results
+
 
     def are_subcollections_set(self, fs_subcol_cls_list: Optional[List[Type[FSSubcollection]]]=None):
         """ Checks if any subcollections are set. If fs_subcol_cls_list are provided only for those sub collections is checked if they are set

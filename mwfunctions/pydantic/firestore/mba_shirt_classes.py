@@ -769,7 +769,7 @@ class FSMBAShirt(FSMBADocument, FSWatchItemShortenedPlotData, FSBSRData, FSPrice
         # TODO: prevent bsr_short and bsr value in history/subcollection to be set
 
     def write_to_firestore(self, exclude_doc_id=False, exclude_fields=["plot_x", "plot_y", "plot_x_price", "plot_y_price"], overwrite_doc=None, array_union=None, write_subcollections=True, client=None):
-        super().write_to_firestore(exclude_doc_id=exclude_doc_id, exclude_fields=exclude_fields, overwrite_doc=overwrite_doc, array_union=array_union,write_subcollections=write_subcollections, client=client)
+        return super().write_to_firestore(exclude_doc_id=exclude_doc_id, exclude_fields=exclude_fields, overwrite_doc=overwrite_doc, array_union=array_union,write_subcollections=write_subcollections, client=client)
 
 
     def __init__(self, **data: Any) -> None:

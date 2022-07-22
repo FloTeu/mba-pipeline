@@ -17,6 +17,7 @@ LOGGER = logging.getLogger(__name__)
 ##########################################################################
 # Functions
 
+ASYNC_CLIENT_CACHE = None
 CLIENT_CACHE = None
 
 def create_client(project=None, use_cache=True) -> firestore.Client:
@@ -56,9 +57,57 @@ def split_correct_path(path):
     return collection_path, document_id
 
 
-def write_document_dict(data_dict, path=None, collection_path=None, document_id=None, overwrite_doc=False, client=None,
-                        add_timestamp=False, array_union=False):
-    """ Creates needed paths. Updates if not overwrite_doc.
+# create/update functions
+async def async_document_exists(
+    path=None, collection_path=None, document_id=None, doc_ref=None, client=None
+):
+    doc_ref = (
+        doc_ref
+        if doc_ref
+        else get_document_ref(
+            path=path,
+            collection_path=collection_path,
+            document_id=document_id,
+            client=client,
+        )
+    )
+    return (await doc_ref.get()).exists
+
+def document_exists(
+    path=None, collection_path=None, document_id=None, doc_ref=None, client=None
+) -> Union[bool, Coroutine]:
+    """Function to check whether document exists in FS or not
+    If doc_ref is a AsyncDocumentReference, function returnes a Coroutine
+    Note: Example how to combine async functions inside of normal function
+    """
+    doc_ref = (
+        doc_ref
+        if doc_ref
+        else get_document_ref(
+            path=path,
+            collection_path=collection_path,
+            document_id=document_id,
+            client=client,
+        )
+    )
+    if isinstance(doc_ref, firestore.AsyncDocumentReference):
+        return async_document_exists(doc_ref=doc_ref)
+    else:
+        return doc_ref.get().exists
+
+
+def write_document_dict(
+    data_dict,
+    path=None,
+    collection_path=None,
+    document_id=None,
+    overwrite_doc=False,
+    force_update=False,
+    add_timestamp=False,
+    array_union=False,
+    client=None,
+) -> Union[firestore.types.WriteResult, Coroutine]:
+    """Creates needed paths. Updates if not overwrite_doc.
 
     Args:
         data_dict (dict): Dict of properties which are either set or updated to firestore document
@@ -66,22 +115,26 @@ def write_document_dict(data_dict, path=None, collection_path=None, document_id=
         collection_path (str): firestore path to collection. E.g. col/doc/col/.../col
         doc_id (str): document id which is part of collection in collection_path
         overwrite_doc (bool, optional): Whether to set a document (overwrites existent) or update it. Defaults to False.
+        force_update (bool, optional): if overwrite_doc is False and force_update True no read operation is used to check if doc does not already exists. Always trys to update. Defaults to False.
         client ([type], optional): Firestore client object. Defaults to None.
         add_timestamp (bool, optional): Whether to set timestamp property or not. Defaults to False.
         array_union (bool, optional): Whether to update existent arrays or overwrite it if do_set is False. Defaults to False.
     """
-    assert path != (collection_path and document_id), "Provide path or collection_name and document_id"
-    if path:
-        collection_path, document_id = split_correct_path(path)
-    client = client if client else create_client()
-    if add_timestamp: data_dict.update({'timestamp': datetime.now()})
-
+    if add_timestamp:
+        data_dict.update({"timestamp": datetime.now()})
     # get reference of document which can execute update or set command on document
-    doc_ref = client.collection(collection_path).document(str(document_id))
+    doc_ref = get_document_ref(
+        path=path,
+        collection_path=collection_path,
+        document_id=document_id,
+        client=client,
+    )
 
     # Set if overwrite_doc or it does not exist
-    if overwrite_doc or not doc_ref.get().exists:
-        doc_ref.set(data_dict)
+    # if force_update, scripts tries to run .update() function without checking if doc already exists (preventing read operation -> faster + less costs)
+    # Note: document_exists is called syncron, because async check if exists cannot be awaited inside normal (not async) function
+    if overwrite_doc or (not force_update and not document_exists(path=path)):
+        return doc_ref.set(data_dict)
     else:
         # if array_union is True, already existent array should be appended with new data but not overwritten
         # https://cloud.google.com/firestore/docs/manage-data/add-data#update_elements_in_an_array
@@ -89,7 +142,8 @@ def write_document_dict(data_dict, path=None, collection_path=None, document_id=
             for key, value in data_dict.items():
                 if type(value) == list:
                     data_dict.update({key: firestore.ArrayUnion(value)})
-        doc_ref.update(data_dict)
+        return doc_ref.update(data_dict)
+
 
 def delete_document(path):
     doc_ref = get_document_ref(path)
