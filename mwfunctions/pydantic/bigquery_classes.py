@@ -221,28 +221,16 @@ def bq_list_str_to_list(list_str):
 def is_product_feature_listing(marketplace, product_feature):
     """If on bullet point/ product feature is a listing created by user (contains relevant keywords)"""
     if marketplace == "com":
-        if any(indicator in product_feature.lower() for indicator in
-               ["solid color", "imported", "machine wash cold", "lightweight", "classic fit"]):
-            return False
-        else:
-            return True
+        return not any(indicator in product_feature.lower() for indicator in
+               ["solid color", "imported", "machine wash cold", "lightweight", "classic fit", "classic cut", "double-stitched"])
+    elif marketplace == "de":
+        return not any(indicator in product_feature.lower() for indicator in
+               ["unifarben", "baumwolle", "klassisch geschnitten", "doppelt genäht", "pflegehinweis", "polyester", "grau meliert"])
     else:
         raise ValueError("Not defined for marketplace %s" % marketplace)
 
 def cut_product_feature_list(marketplace, product_features_list):
-    if marketplace == "de":
-        # count number of bullets
-        count_feature_bullets = len(product_features_list)
-        # if 5 bullets exists choose only top two (user generated)
-        if count_feature_bullets >= 5:
-            product_features_list = product_features_list[0:2]
-        # if 4 bullets exists choose only top one
-        elif count_feature_bullets == 4:
-            product_features_list = product_features_list[0:1]
-        # if less than 4 choose no bullet
-        else:
-            product_features_list = []
-    elif marketplace == "com":
+    if marketplace in ["de", "com"]:
         product_features_list = [feature for feature in product_features_list if
                                  is_product_feature_listing(marketplace, feature)]
     else:
