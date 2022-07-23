@@ -6,8 +6,9 @@ from typing import List, Optional
 from enum import Enum
 from tqdm import tqdm
 
+from mwfunctions.cloud.sagemaker.classes import MWSagemakerPredictor
 from mwfunctions.mlmodels.text import MwTextModel
-from mwfunctions.mlmodels.sagemaker.classes import AsyncHuggingFacePredictor
+#from mwfunctions.mlmodels.sagemaker.classes import AsyncHuggingFacePredictor
 from sagemaker.huggingface import HuggingFacePredictor, HuggingFaceModel
 from sagemaker.session import Session
 from sagemaker.serializers import JSONSerializer
@@ -50,9 +51,9 @@ class BertTextModel(MwTextModel):
         self.model_type: BertPretrainedModelType = self.model_name2model_type(model_name) if not self.endpoint_name else None
         # TODO: Eventuell macht es hier Sinn eine eigen Klasse zu bauen, die z.B. predict als standard Funktion hat und mit unterschiedlichen Model Klassen umgehen kann
         if endpoint_name:
-            self.predictor = AsyncHuggingFacePredictor(endpoint_name=self.endpoint_name,
-                             serializer=JSONSerializer(),
-                             deserializer=JSONDeserializer())
+            self.predictor = MWSagemakerPredictor(endpoint_name=self.endpoint_name,
+                                                  serializer=JSONSerializer(),
+                                                  deserializer=JSONDeserializer())
         else:
             self.model: Module = self.model_name2model(model_name, self.model_type).to(self.device)
         self.tokenizer = self.model_name2tokenizer(model_name) if not self.endpoint_name else None
