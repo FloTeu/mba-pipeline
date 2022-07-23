@@ -125,10 +125,13 @@ class MWSagemakerPredictor(Predictor, MWPredictorAbstract):
         :return:
         """
         try:
-            t = await self.apredict({"inputs": ""}, timeout=2)
+            resp = await self.apredict({"inputs": ""}, timeout=2)
+            if type(resp) == dict and len(resp) == 1:
+                # If model is not ready sagemaker returns single element {"Message": None}
+                raise ValueError("Response does only contain one element which indicates instance is not ready at the moment")
             await self.sagemaker_session.close_aiohttp_session()
             return True
-        except asyncio.TimeoutError:
+        except (asyncio.TimeoutError, ValueError):
             await self.sagemaker_session.close_aiohttp_session()
             return False
 
