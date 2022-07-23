@@ -1,1 +1,1 @@
-from sagemaker_fns import *
+from .sagemaker_fns import *

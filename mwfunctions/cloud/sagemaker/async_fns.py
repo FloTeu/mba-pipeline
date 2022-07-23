@@ -17,10 +17,13 @@ class MWSagemakerSession(Session):
         super().__init__(*args, **kwargs)
         self.aiohttp_session: Union[RetryClient, aiohttp.ClientSession] = None
 
+    def is_session_closed(self):
+        return self.aiohttp_session.closed if type(self.aiohttp_session) == aiohttp.ClientSession else self.aiohttp_session._closed
+
     async def open_aiohttp_session(self, retry_options: Optional[RetryOptionsBase]=None, timeout=None, connector: Optional[aiohttp.TCPConnector]=None):
         timeout = aiohttp.ClientTimeout(total=timeout) if timeout else aiohttp.helpers.sentinel
         # Make to retry client if retry options are provided but current session is normal aiohttp session
-        if self.aiohttp_session == None or (retry_options and type(self.aiohttp_session) == aiohttp.ClientSession):
+        if self.aiohttp_session == None or self.is_session_closed() or (retry_options and type(self.aiohttp_session) == aiohttp.ClientSession):
             # Either init a retry session client or normal aiohttp session
             if retry_options:
                 self.aiohttp_session = RetryClient(retry_options=retry_options, timeout=timeout)

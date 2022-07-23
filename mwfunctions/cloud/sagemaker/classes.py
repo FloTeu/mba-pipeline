@@ -138,7 +138,7 @@ class MWSagemakerPredictor(Predictor, MWPredictorAbstract):
                 # model is ready so break loop and return
                 return None
             else:
-                print("Sleep for on second because model is not ready")
+                print("Model is not ready. Sleep for 1 second.")
                 # sleep async for 1 second
                 await asyncio.sleep(1)
 
