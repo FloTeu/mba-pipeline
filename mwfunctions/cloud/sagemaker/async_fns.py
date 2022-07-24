@@ -1,12 +1,17 @@
 """
     Functions and classes to allow async call of sagemaker models
 """
+import asyncio
+
 import aiohttp
+from aiohttp.client_exceptions import ServerDisconnectedError
 
 from typing import Union, Optional
 from aiohttp_retry import RetryClient, RetryOptionsBase
 from botocore.awsrequest import AWSPreparedRequest
 from sagemaker import Session
+
+#from mwfunctions.io.async_io_fns import send_and_retry_http
 
 
 
@@ -18,7 +23,8 @@ class MWSagemakerSession(Session):
         self.aiohttp_session: Union[RetryClient, aiohttp.ClientSession] = None
 
     def is_session_closed(self):
-        return self.aiohttp_session.closed if type(self.aiohttp_session) == aiohttp.ClientSession else self.aiohttp_session._closed
+        # aiohttp_session can be Union[RetryClient, aiohttp.ClientSession]
+        return self.aiohttp_session.closed if type(self.aiohttp_session) == aiohttp.ClientSession else self.aiohttp_session._client.closed
 
     async def open_aiohttp_session(self, retry_options: Optional[RetryOptionsBase]=None, timeout=None, connector: Optional[aiohttp.TCPConnector]=None):
         timeout = aiohttp.ClientTimeout(total=timeout) if timeout else aiohttp.helpers.sentinel
@@ -26,7 +32,7 @@ class MWSagemakerSession(Session):
         if self.aiohttp_session == None or self.is_session_closed() or (retry_options and type(self.aiohttp_session) == aiohttp.ClientSession):
             # Either init a retry session client or normal aiohttp session
             if retry_options:
-                self.aiohttp_session = RetryClient(retry_options=retry_options, timeout=timeout)
+                self.aiohttp_session = RetryClient(retry_options=retry_options, timeout=timeout, connector=connector)
             else:
                 self.aiohttp_session = aiohttp.ClientSession(connector=connector, timeout=timeout)
 
@@ -62,6 +68,7 @@ class MWSagemakerSession(Session):
             self,
             retry_options: Optional[RetryOptionsBase]=None,
             timeout: Optional[float] = None,
+            connector=None,
             **request_args
     ):
         """Invoke the endpoint.
@@ -70,12 +77,24 @@ class MWSagemakerSession(Session):
             Request is sended with aiohttp rather than urllib3 lib
 
         """
-        await self.open_aiohttp_session(retry_options=retry_options, timeout=timeout)
         request = self.request_args2aws_prepared_request(request_args)
         self.bytes2strings(request)
+        # make sure session is open
+        await self.open_aiohttp_session(retry_options=retry_options, timeout=timeout, connector=connector)
 
         # send async request and retry if retry_options are provided
-        sagemaker_response = await self.aiohttp_session.post(request.url, data=request.body, headers=request.headers)
+        try:
+            sagemaker_response = await self.aiohttp_session.post(request.url, data=request.body, headers=request.headers)
+        except (ServerDisconnectedError) as e:
+            # TODO: How to handle expections raised which are not catched by aiohttp_retry
+            await asyncio.sleep(3)
+            # try again
+            sagemaker_response = await self.aiohttp_session.post(request.url, data=request.body, headers=request.headers)
+        except Exception as e:
+            print(str(e))
+            raise e
+
+
         #sagemaker_response = await self.aiohttp_session.post(request.url, data=request.body, headers=request.headers, raise_for_status=True)
         json_data = await sagemaker_response.json()
 

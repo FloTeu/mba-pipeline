@@ -3,6 +3,7 @@ import asyncio
 from typing import Any
 from abc import ABC, abstractmethod
 
+from mwfunctions.profiling import log_time
 from mwfunctions.cloud.sagemaker.async_fns import MWSagemakerSession
 from sagemaker.deserializers import JSONDeserializer
 from sagemaker.serializers import JSONSerializer
@@ -131,19 +132,21 @@ class MWSagemakerPredictor(Predictor, MWPredictorAbstract):
                 raise ValueError("Response does only contain one element which indicates instance is not ready at the moment")
             await self.sagemaker_session.close_aiohttp_session()
             return True
-        except (asyncio.TimeoutError, ValueError):
+        except (asyncio.TimeoutError, ValueError) as e:
             await self.sagemaker_session.close_aiohttp_session()
             return False
 
     async def await_until_predictor_is_ready(self):
-        while True:
-            if await self.ais_ready():
-                # model is ready so break loop and return
-                return None
-            else:
-                print("Model is not ready. Sleep for 1 second.")
-                # sleep async for 1 second
-                await asyncio.sleep(1)
+        # TODO: Log time to see how long i takes until model is ready
+        with log_time("Time until model is ready"):
+            while True:
+                if await self.ais_ready():
+                    # model is ready so break loop and return
+                    return None
+                else:
+                    print("Model is not ready. Sleep for 1 second.")
+                    # sleep async for 1 second
+                    await asyncio.sleep(1)
 
 
 
