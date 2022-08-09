@@ -222,10 +222,10 @@ def is_product_feature_listing(marketplace, product_feature):
     """If on bullet point/ product feature is a listing created by user (contains relevant keywords)"""
     if marketplace == "com":
         return not any(indicator in product_feature.lower() for indicator in
-               ["solid color", "imported", "machine wash cold", "lightweight", "classic fit", "classic cut", "double-stitched"])
+               ["solid color", "imported", "machine wash cold", "lightweight", "classic fit", "classic cut", "double-stitched", "half sleeve", "closure:"])
     elif marketplace == "de":
         return not any(indicator in product_feature.lower() for indicator in
-               ["unifarben", "baumwolle", "klassisch geschnitten", "doppelt genäht", "pflegehinweis", "polyester", "grau meliert"])
+               ["unifarben", "baumwolle", "klassisch geschnitten", "doppelt genäht", "pflegehinweis", "polyester", "grau meliert", "halbarm", "verschluss:"])
     else:
         raise ValueError("Not defined for marketplace %s" % marketplace)
 
