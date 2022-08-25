@@ -121,7 +121,7 @@ def main(args):
         #DataHandlerModel.update_niches_by_keyword(marketplace, keywords)
         #NicheUpdaterModel.update_firestore_niche_data(keywords=keywords)
 
-        if today_weekday in [3,6]: # only thursday and sunday
+        if False: #today_weekday in [3,6]: # only thursday and sunday
             update_bq_table(args, marketplace, BigQueryHandlerModel)
         # TODO: update FS directly via crawler not from BQ. If you want to update it via keep in mind that things like customer review count are not included. in current process.
         #DataHandlerModel.update_firestore(marketplace, marketplace + "_shirts", dev=args.dev, update_all=args.update_all)
